@@ -45,7 +45,7 @@ Manual TypeScript SDK for the Komga API. Source lives in `src/` and ships a ky-b
 | API operations | `src/sdk.gen.ts` | function entry points for REST calls |
 | API types | `src/types.gen.ts` | DTOs + request/response types |
 | Client factory | `src/client/index.ts` | `createClient` + core client types |
-| ky adapter | `src/http/` | `createEnhancedClient` + ky fetch adapter |
+| ky adapter | `src/http/` | `createKomgaClient` + fetch adapter |
 | Domain services | `src/domains/` | BaseService + Book/Series/Library services |
 | Validation | `src/validation/` | zod schemas + validate helpers |
 | Errors | `src/errors/` | typed error hierarchy + guards |
