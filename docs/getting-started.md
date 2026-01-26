@@ -50,6 +50,8 @@ const book = await bookService.getById('book-123');
 console.log(book.metadata.title);
 ```
 
+DTOs and request/response types are exported for IDE autocomplete and compile-time safety. Most users do not need to construct DTOs manually.
+
 ## Use Direct API Functions
 
 ```typescript
