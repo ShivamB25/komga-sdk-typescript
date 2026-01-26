@@ -63,14 +63,14 @@ Re-exports all error classes and provides type guards.
 ## Usage
 
 ```typescript
-import { 
-  ApiError, 
-  ValidationError, 
+import {
+  ApiError,
+  ValidationError,
   NetworkError,
   isApiError,
   isValidationError,
-  ErrorCodes
-} from './enhanced/errors';
+  ErrorCodes,
+} from 'komga-sdk';
 
 try {
   // API call
