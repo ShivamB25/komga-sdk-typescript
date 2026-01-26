@@ -16,12 +16,12 @@ import type { KyInstance } from 'ky';
  *
  * @example
  * ```typescript
- * const kyInstance = createKyInstance(options);
- * const fetchAdapter = createKyFetchAdapter(kyInstance);
+ * const kyInstance = createHttpClient(options);
+ * const fetchAdapter = createFetchAdapter(kyInstance);
  * const client = createClient({ baseUrl, fetch: fetchAdapter });
  * ```
  */
-export function createKyFetchAdapter(
+export function createFetchAdapter(
   kyInstance: KyInstance
 ): typeof fetch {
   return async (
@@ -47,3 +47,8 @@ export function createKyFetchAdapter(
     return response;
   };
 }
+
+/**
+ * @deprecated Use createFetchAdapter instead.
+ */
+export const createKyFetchAdapter = createFetchAdapter;

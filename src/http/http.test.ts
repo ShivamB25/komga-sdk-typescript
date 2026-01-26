@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createKyFetchAdapter } from './fetch-adapter';
-import { createEnhancedClient } from './index';
-import type { EnhancedClientOptions } from './types';
+import { createFetchAdapter } from './fetch-adapter';
+import { createKomgaClient } from './index';
+import type { KomgaClientOptions } from './types';
 
-describe('createKyFetchAdapter', () => {
+describe('createFetchAdapter', () => {
   it('creates a fetch-compatible function', () => {
     const mockKy = vi.fn().mockResolvedValue(new Response());
-    const adapter = createKyFetchAdapter(mockKy as any);
+    const adapter = createFetchAdapter(mockKy as any);
 
     expect(typeof adapter).toBe('function');
   });
@@ -16,7 +16,7 @@ describe('createKyFetchAdapter', () => {
       status: 200,
     });
     const mockKy = vi.fn().mockResolvedValue(mockResponse);
-    const adapter = createKyFetchAdapter(mockKy as any);
+    const adapter = createFetchAdapter(mockKy as any);
 
     await adapter('http://localhost:25600/api/books');
 
@@ -32,7 +32,7 @@ describe('createKyFetchAdapter', () => {
   it('converts URL object to string', async () => {
     const mockResponse = new Response();
     const mockKy = vi.fn().mockResolvedValue(mockResponse);
-    const adapter = createKyFetchAdapter(mockKy as any);
+    const adapter = createFetchAdapter(mockKy as any);
 
     const url = new URL('http://localhost:25600/api/books');
     await adapter(url);
@@ -46,7 +46,7 @@ describe('createKyFetchAdapter', () => {
   it('passes init options to ky', async () => {
     const mockResponse = new Response();
     const mockKy = vi.fn().mockResolvedValue(mockResponse);
-    const adapter = createKyFetchAdapter(mockKy as any);
+    const adapter = createFetchAdapter(mockKy as any);
 
     await adapter('http://localhost:25600/api/books', {
       method: 'POST',
@@ -68,7 +68,7 @@ describe('createKyFetchAdapter', () => {
   it('defaults to GET method when not specified', async () => {
     const mockResponse = new Response();
     const mockKy = vi.fn().mockResolvedValue(mockResponse);
-    const adapter = createKyFetchAdapter(mockKy as any);
+    const adapter = createFetchAdapter(mockKy as any);
 
     await adapter('http://localhost:25600/api/books', {});
 
@@ -86,7 +86,7 @@ describe('createKyFetchAdapter', () => {
       headers: { 'Content-Type': 'application/json' },
     });
     const mockKy = vi.fn().mockResolvedValue(mockResponse);
-    const adapter = createKyFetchAdapter(mockKy as any);
+    const adapter = createFetchAdapter(mockKy as any);
 
     const response = await adapter('http://localhost:25600/api/books');
 
@@ -94,9 +94,9 @@ describe('createKyFetchAdapter', () => {
   });
 });
 
-describe('createEnhancedClient', () => {
-  it('creates a client with the enhanced options', () => {
-    const options: EnhancedClientOptions = {
+describe('createKomgaClient', () => {
+  it('creates a client with the client options', () => {
+    const options: KomgaClientOptions = {
       baseUrl: 'http://localhost:25600',
       auth: {
         type: 'basic',
@@ -108,7 +108,7 @@ describe('createEnhancedClient', () => {
       debug: false,
     };
 
-    const client = createEnhancedClient(options);
+    const client = createKomgaClient(options);
 
     expect(client).toBeDefined();
     expect(typeof client.get).toBe('function');
@@ -118,17 +118,17 @@ describe('createEnhancedClient', () => {
   });
 
   it('creates a client without auth', () => {
-    const options: EnhancedClientOptions = {
+    const options: KomgaClientOptions = {
       baseUrl: 'http://localhost:25600',
     };
 
-    const client = createEnhancedClient(options);
+    const client = createKomgaClient(options);
 
     expect(client).toBeDefined();
   });
 
   it('creates a client with API key auth', () => {
-    const options: EnhancedClientOptions = {
+    const options: KomgaClientOptions = {
       baseUrl: 'http://localhost:25600',
       auth: {
         type: 'apiKey',
@@ -136,13 +136,13 @@ describe('createEnhancedClient', () => {
       },
     };
 
-    const client = createEnhancedClient(options);
+    const client = createKomgaClient(options);
 
     expect(client).toBeDefined();
   });
 
   it('creates a client with custom retry config', () => {
-    const options: EnhancedClientOptions = {
+    const options: KomgaClientOptions = {
       baseUrl: 'http://localhost:25600',
       retry: {
         limit: 5,
@@ -151,28 +151,26 @@ describe('createEnhancedClient', () => {
       },
     };
 
-    const client = createEnhancedClient(options);
+    const client = createKomgaClient(options);
 
     expect(client).toBeDefined();
   });
 
   it('creates a client with debug mode', () => {
-    const options: EnhancedClientOptions = {
+    const options: KomgaClientOptions = {
       baseUrl: 'http://localhost:25600',
       debug: true,
     };
 
-    const client = createEnhancedClient(options);
+    const client = createKomgaClient(options);
 
     expect(client).toBeDefined();
   });
 });
 
 describe('Type Exports', () => {
-  it('exports EnhancedClientOptions type', async () => {
-    const { createEnhancedClient } = await import('./index');
-    
-    const options: EnhancedClientOptions = {
+  it('exports KomgaClientOptions type', async () => {
+    const options: KomgaClientOptions = {
       baseUrl: 'http://localhost:25600',
     };
     

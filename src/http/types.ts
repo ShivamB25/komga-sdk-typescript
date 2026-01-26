@@ -1,9 +1,9 @@
 /**
- * Enhanced client configuration options for Komga SDK with ky integration
+ * Komga client configuration options for Komga SDK with ky integration
  */
 
 /**
- * Authentication configuration for the enhanced client
+ * Authentication configuration for the Komga client
  */
 export type AuthConfig =
   | {
@@ -46,9 +46,9 @@ export interface RetryConfig {
 }
 
 /**
- * Options for creating an enhanced Komga SDK client
+ * Options for creating a Komga SDK client
  */
-export interface EnhancedClientOptions {
+export interface KomgaClientOptions {
   /**
    * Base URL for the Komga API server
    * @example 'http://localhost:25600'
@@ -77,3 +77,8 @@ export interface EnhancedClientOptions {
    */
   debug?: boolean;
 }
+
+/**
+ * @deprecated Use KomgaClientOptions instead.
+ */
+export type EnhancedClientOptions = KomgaClientOptions;

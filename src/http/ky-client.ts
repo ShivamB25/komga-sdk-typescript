@@ -1,10 +1,10 @@
 /**
- * ky HTTP client factory for enhanced Komga SDK
+ * ky HTTP client factory for Komga SDK
  */
 
 import ky from 'ky';
 import type { KyInstance } from 'ky';
-import type { EnhancedClientOptions, RetryConfig } from './types';
+import type { KomgaClientOptions, RetryConfig } from './types';
 
 /**
  * Default retry configuration
@@ -33,12 +33,12 @@ function calculateDelay(attemptCount: number, backoffLimit: number): number {
 /**
  * Creates a ky HTTP client instance with configured retry, auth, and debug options
  *
- * @param options - Enhanced client configuration options
+ * @param options - Komga client configuration options
  * @returns Configured ky instance
  *
  * @example
  * ```typescript
- * const kyInstance = createKyInstance({
+ * const kyInstance = createHttpClient({
  *   baseUrl: 'http://localhost:25600',
  *   auth: { type: 'basic', username: 'admin', password: 'password' },
  *   timeout: 30000,
@@ -47,8 +47,8 @@ function calculateDelay(attemptCount: number, backoffLimit: number): number {
  * });
  * ```
  */
-export function createKyInstance(
-  options: EnhancedClientOptions
+export function createHttpClient(
+  options: KomgaClientOptions
 ): KyInstance {
   const {
     baseUrl,
@@ -112,3 +112,8 @@ export function createKyInstance(
     },
   });
 }
+
+/**
+ * @deprecated Use createHttpClient instead.
+ */
+export const createKyInstance = createHttpClient;
