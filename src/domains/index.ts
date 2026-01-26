@@ -22,4 +22,5 @@
 
 export { BaseService } from './base';
 export { BookService } from './books';
+export { LibraryService } from './libraries';
 export { SeriesService } from './series';

@@ -28,7 +28,7 @@ export const BookMetadataAggregationDtoSchema = z.object({
   authors: AuthorDtoSchema.array(),
   created: z.string(),
   lastModified: z.string(),
-  releaseDate: z.string().optional(),
+  releaseDate: z.string().nullish(),
   summary: z.string(),
   summaryNumber: z.string(),
   tags: z.string().array(),
@@ -40,7 +40,7 @@ export type BookMetadataAggregationDto = z.infer<typeof BookMetadataAggregationD
  * SeriesMetadataDto schema - series metadata including title, status, summary, etc.
  */
 export const SeriesMetadataDtoSchema = z.object({
-  ageRating: z.number().optional(),
+  ageRating: z.number().nullish(),
   ageRatingLock: z.boolean(),
   alternateTitles: AlternateTitleDtoSchema.array(),
   alternateTitlesLock: z.boolean(),
@@ -54,7 +54,7 @@ export const SeriesMetadataDtoSchema = z.object({
   linksLock: z.boolean(),
   publisher: z.string(),
   publisherLock: z.boolean(),
-  readingDirection: z.string(),
+  readingDirection: z.string().nullish(),
   readingDirectionLock: z.boolean(),
   sharingLabels: z.string().array(),
   sharingLabelsLock: z.boolean(),
@@ -68,7 +68,7 @@ export const SeriesMetadataDtoSchema = z.object({
   titleLock: z.boolean(),
   titleSort: z.string(),
   titleSortLock: z.boolean(),
-  totalBookCount: z.number().optional(),
+  totalBookCount: z.number().nullish(),
   totalBookCountLock: z.boolean(),
 }).strict();
 

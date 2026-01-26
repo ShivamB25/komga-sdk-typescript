@@ -74,7 +74,7 @@ export function createValidationInterceptor(options: ValidationInterceptorOption
     }
 
     // Find matching schema for this URL
-    const url = res.url;
+    const url = res.url || req.url;
     let matchingSchema: z.ZodSchema | undefined;
 
     for (const [pattern, schema] of Object.entries(schemas)) {

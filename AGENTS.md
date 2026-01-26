@@ -29,10 +29,11 @@ Manual TypeScript SDK for the Komga API. Source lives in `src/` and ships a ky-b
 │   ├── client/               # Low-level client helpers
 │   ├── core/                 # HTTP/core utilities
 │   ├── http/                 # ky adapter + client factory
-│   ├── domains/              # Domain services
-│   ├── validation/           # zod schemas + helpers
-│   ├── interceptors/         # request/response middleware
-│   └── errors/               # error types
+│   ├── domains/              # Domain services (*.test.ts for tests)
+│   ├── validation/           # zod schemas + helpers (*.test.ts for tests)
+│   ├── interceptors/         # request/response middleware (*.test.ts for tests)
+│   └── errors/               # error types (*.test.ts for tests)
+├── vitest.config.ts          # Test configuration
 ├── tsconfig.json
 ├── package.json
 └── bun.lock
@@ -49,11 +50,14 @@ Manual TypeScript SDK for the Komga API. Source lives in `src/` and ships a ky-b
 | Validation | `src/validation/` | zod schemas + validate helpers |
 | Errors | `src/errors/` | typed error hierarchy + guards |
 | Interceptors | `src/interceptors/` | logging, validation, error transform |
+| Tests | `src/**/*.test.ts` | vitest tests co-located with source |
+| Test config | `vitest.config.ts` | coverage thresholds, exclusions |
 
 ## CONVENTIONS
 - Source-only repo: `noEmit` TypeScript config; no build scripts defined.
 - Filenames may use `.gen.ts`, but these are manually maintained in this repo.
 - Zod schemas use `.strict()` and `z.infer` types in `src/validation/schemas/`.
+- Use `.nullish()` for fields that API returns as `null` (aligns with TypeScript optional types).
 
 ## ANTI-PATTERNS (THIS PROJECT)
 - Avoid endpoints marked `@deprecated` in `src/sdk.gen.ts` unless required.
@@ -64,7 +68,10 @@ Manual TypeScript SDK for the Komga API. Source lives in `src/` and ships a ky-b
 
 ## COMMANDS
 ```bash
-bun tsc --noEmit
+bun tsc --noEmit        # TypeScript check
+bun run test            # Run tests
+bun run test:watch      # Watch mode
+bun run test:coverage   # With coverage report
 ```
 
 ## VERIFICATION CHECKLIST
@@ -73,6 +80,7 @@ bun tsc --noEmit
 - [x] All Zod schemas use `.strict()` enforcement
 - [x] Domain services use `safeCall()` with proper validation
 - [x] TypeScript compiles clean (`bun tsc --noEmit`)
+- [x] Tests pass (`bun run test`) - 134 tests across 5 suites
 - [x] README.md created with full documentation
 
 ## DEPRECATED ENDPOINTS
@@ -86,5 +94,4 @@ bun tsc --noEmit
 | `PUT /api/v1/libraries/{libraryId}` | `PATCH /api/v1/libraries/{libraryId}` | 1.3.0 |
 
 ## NOTES
-- No CI/workflows or test configs are present.
 - OpenAPI spec source: https://raw.githubusercontent.com/gotson/komga/refs/heads/master/komga/docs/openapi.json
