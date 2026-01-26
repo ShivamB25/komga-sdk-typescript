@@ -4,7 +4,7 @@ A TypeScript SDK for the [Komga](https://komga.org/) media server API. It provid
 
 ## Documentation
 
-- Getting Started: `docs/getting-started.md`
+- Start here: `docs/getting-started.md`
 - Domain Services: `docs/domain-services.md`
 - Pagination & Search: `docs/pagination-search.md`
 - Interceptors: `docs/interceptors.md`
