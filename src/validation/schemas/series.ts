@@ -7,7 +7,7 @@ import { AuthorDtoSchema, WebLinkDtoSchema, createPageSchema } from './common';
 export const AlternateTitleDtoSchema = z.object({
   label: z.string(),
   title: z.string(),
-});
+}).strict();
 
 export type AlternateTitleDto = z.infer<typeof AlternateTitleDtoSchema>;
 
@@ -17,7 +17,7 @@ export type AlternateTitleDto = z.infer<typeof AlternateTitleDtoSchema>;
 export const AlternateTitleUpdateDtoSchema = z.object({
   label: z.string(),
   title: z.string(),
-});
+}).strict();
 
 export type AlternateTitleUpdateDto = z.infer<typeof AlternateTitleUpdateDtoSchema>;
 
@@ -32,7 +32,7 @@ export const BookMetadataAggregationDtoSchema = z.object({
   summary: z.string(),
   summaryNumber: z.string(),
   tags: z.string().array(),
-});
+}).strict();
 
 export type BookMetadataAggregationDto = z.infer<typeof BookMetadataAggregationDtoSchema>;
 
@@ -70,7 +70,7 @@ export const SeriesMetadataDtoSchema = z.object({
   titleSortLock: z.boolean(),
   totalBookCount: z.number().optional(),
   totalBookCountLock: z.boolean(),
-});
+}).strict();
 
 export type SeriesMetadataDto = z.infer<typeof SeriesMetadataDtoSchema>;
 
@@ -93,7 +93,7 @@ export const SeriesDtoSchema = z.object({
   name: z.string(),
   oneshot: z.boolean(),
   url: z.string(),
-});
+}).strict();
 
 export type SeriesDto = z.infer<typeof SeriesDtoSchema>;
 
@@ -119,7 +119,7 @@ export const SeriesMetadataUpdateDtoSchema = z.object({
   links: z.object({
     label: z.string(),
     url: z.string(),
-  }).array().optional(),
+  }).strict().array().optional(),
   linksLock: z.boolean().optional(),
   publisher: z.string().optional(),
   publisherLock: z.boolean().optional(),
@@ -139,6 +139,6 @@ export const SeriesMetadataUpdateDtoSchema = z.object({
   titleSortLock: z.boolean().optional(),
   totalBookCount: z.number().optional(),
   totalBookCountLock: z.boolean().optional(),
-});
+}).strict();
 
 export type SeriesMetadataUpdateDto = z.infer<typeof SeriesMetadataUpdateDtoSchema>;

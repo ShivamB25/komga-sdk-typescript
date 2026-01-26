@@ -12,7 +12,7 @@ export const MediaDtoSchema = z.object({
   mediaType: z.string(),
   pagesCount: z.number(),
   status: z.string(),
-});
+}).strict();
 
 export type MediaDto = z.infer<typeof MediaDtoSchema>;
 
@@ -27,7 +27,7 @@ export const ReadProgressDtoSchema = z.object({
   lastModified: z.string(),
   page: z.number(),
   readDate: z.string(),
-});
+}).strict();
 
 export type ReadProgressDto = z.infer<typeof ReadProgressDtoSchema>;
 
@@ -55,7 +55,7 @@ export const BookMetadataDtoSchema = z.object({
   tagsLock: z.boolean(),
   title: z.string(),
   titleLock: z.boolean(),
-});
+}).strict();
 
 export type BookMetadataDto = z.infer<typeof BookMetadataDtoSchema>;
 
@@ -81,7 +81,7 @@ export const BookDtoSchema = z.object({
   size: z.string(),
   sizeBytes: z.number(),
   url: z.string(),
-});
+}).strict();
 
 export type BookDto = z.infer<typeof BookDtoSchema>;
 
@@ -99,14 +99,14 @@ export const BookMetadataUpdateDtoSchema = z.object({
   authors: z.array(z.object({
     name: z.string(),
     role: z.string(),
-  })).optional(),
+  }).strict()).optional(),
   authorsLock: z.boolean().optional(),
   isbn: z.string().optional(),
   isbnLock: z.boolean().optional(),
   links: z.array(z.object({
     label: z.string(),
     url: z.string().optional(),
-  })).optional(),
+  }).strict()).optional(),
   linksLock: z.boolean().optional(),
   number: z.string().optional(),
   numberLock: z.boolean().optional(),
@@ -120,6 +120,6 @@ export const BookMetadataUpdateDtoSchema = z.object({
   tagsLock: z.boolean().optional(),
   title: z.string().optional(),
   titleLock: z.boolean().optional(),
-});
+}).strict();
 
 export type BookMetadataUpdateDto = z.infer<typeof BookMetadataUpdateDtoSchema>;

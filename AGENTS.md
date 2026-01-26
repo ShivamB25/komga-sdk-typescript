@@ -1,11 +1,23 @@
 # PROJECT KNOWLEDGE BASE
 
-**Generated:** 2026-01-26T20:00:15Z
+**Generated:** 2026-01-27T01:56:00Z
 **Commit:** c9b98f2
 **Branch:** main
+**Komga API Version:** 1.23.6
+**Last Verified:** 2026-01-27
 
 ## OVERVIEW
 Manual TypeScript SDK for the Komga API. Source lives in `src/` and ships a ky-based HTTP client plus zod validation utilities.
+
+## API COVERAGE
+| Metric | Value |
+|--------|-------|
+| OpenAPI Version | 3.1.0 |
+| Komga API Version | 1.23.6 |
+| Endpoint Paths | 130 |
+| Total Operations | 165 |
+| Deprecated Endpoints | 6 (properly marked) |
+| Coverage | 100% |
 
 ## STRUCTURE
 ```
@@ -55,5 +67,24 @@ Manual TypeScript SDK for the Komga API. Source lives in `src/` and ships a ky-b
 bun tsc --noEmit
 ```
 
+## VERIFICATION CHECKLIST
+- [x] All 130 endpoint paths match OpenAPI spec
+- [x] All 6 deprecated endpoints properly marked with `@deprecated`
+- [x] All Zod schemas use `.strict()` enforcement
+- [x] Domain services use `safeCall()` with proper validation
+- [x] TypeScript compiles clean (`bun tsc --noEmit`)
+- [x] README.md created with full documentation
+
+## DEPRECATED ENDPOINTS
+| Endpoint | Replacement | Since |
+|----------|-------------|-------|
+| `GET /api/v1/books` | `POST /api/v1/books/list` | 1.19.0 |
+| `GET /api/v1/series` | `POST /api/v1/series/list` | 1.19.0 |
+| `GET /api/v1/series/alphabetical-groups` | `POST /api/v1/series/list/alphabetical-groups` | 1.19.0 |
+| `GET /api/v1/series/{seriesId}/books` | `POST /api/v1/books/list` | 1.19.0 |
+| `GET /api/v1/authors` | `GET /api/v2/authors` | 1.20.0 |
+| `PUT /api/v1/libraries/{libraryId}` | `PATCH /api/v1/libraries/{libraryId}` | 1.3.0 |
+
 ## NOTES
 - No CI/workflows or test configs are present.
+- OpenAPI spec source: https://raw.githubusercontent.com/gotson/komga/refs/heads/master/komga/docs/openapi.json
