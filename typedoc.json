@@ -10,5 +10,11 @@
   "excludeInternal": true,
   "excludeExternals": true,
   "includeVersion": false,
-  "hideGenerator": true
+  "hideGenerator": true,
+  "externalSymbolLinkMappings": {
+    "typescript": {
+      "Body": "#",
+      "JSON.stringify": "#"
+    }
+  }
 }

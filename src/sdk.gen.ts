@@ -810,7 +810,7 @@ export const getFonts = <ThrowOnError extends boolean = false>(options?: Options
 /**
  * Download CSS file
  *
- * Download a CSS file with the @font-face block for the font family. This is used by the Epub Reader to change fonts.
+ * Download a CSS file with the `@font-face` block for the font family. This is used by the Epub Reader to change fonts.
  */
 export const getFontFamilyAsCss = <ThrowOnError extends boolean = false>(options: Options<GetFontFamilyAsCssData, ThrowOnError>) => (options.client ?? client).get<GetFontFamilyAsCssResponses, GetFontFamilyAsCssErrors, ThrowOnError>({ url: '/api/v1/fonts/resource/{fontFamily}/css', ...options });
 
