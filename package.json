@@ -9,7 +9,10 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "docs": "typedoc",
+    "docs:watch": "typedoc --watch",
+    "docs:serve": "typedoc && npx serve docs/api"
   },
   "dependencies": {
     "ky": "^1.14.3",
@@ -17,6 +20,7 @@
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^4.0.18",
+    "typedoc": "^0.28.0",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18"
   },
