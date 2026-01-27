@@ -1,0 +1,273 @@
+---
+title: "Collections"
+description: "Organize series into curated collections"
+icon: "folder-open"
+---
+
+Collections allow you to group related series together, such as "Summer Reading", "Award Winners", or "Favorites". Unlike [Read Lists](/guides/read-lists) which contain individual books, collections contain entire series.
+
+## List collections
+
+Get all collections with optional pagination:
+
+```typescript
+import { getCollections } from 'komga-sdk';
+
+const result = await getCollections({
+  client,
+  query: { page: 0, size: 20 },
+});
+
+if (result.data) {
+  console.log(`Found ${result.data.totalElements} collections`);
+  for (const collection of result.data.content) {
+    console.log(`${collection.name} - ${collection.seriesIds.length} series`);
+  }
+}
+```
+
+## Get a collection by ID
+
+Retrieve full details about a specific collection:
+
+```typescript
+import { getCollectionById } from 'komga-sdk';
+
+const result = await getCollectionById({
+  client,
+  path: { collectionId: 'collection-123' },
+});
+
+if (result.data) {
+  console.log(`Collection: ${result.data.name}`);
+  console.log(`Series count: ${result.data.seriesIds.length}`);
+}
+```
+
+## Create a collection
+
+Create a new collection with a name and optional series:
+
+```typescript
+import { createCollection } from 'komga-sdk';
+
+const result = await createCollection({
+  client,
+  body: {
+    name: 'Award Winners 2024',
+    ordered: false, // If true, series maintain specific order
+    seriesIds: ['series-1', 'series-2', 'series-3'],
+  },
+});
+
+if (result.data) {
+  console.log(`Created collection: ${result.data.name}`);
+}
+```
+
+<Note>
+Collections can be ordered or unordered. Use `ordered: true` when the sequence of series matters.
+</Note>
+
+## Update a collection
+
+Modify collection metadata or change which series are included:
+
+```typescript
+import { updateCollection } from 'komga-sdk';
+
+const result = await updateCollection({
+  client,
+  path: { collectionId: 'collection-123' },
+  body: {
+    name: 'Updated Collection Name',
+    ordered: true,
+    seriesIds: ['series-1', 'series-2', 'series-4'], // Replace all series
+  },
+});
+```
+
+## Delete a collection
+
+Remove a collection (this doesn't delete the series):
+
+```typescript
+import { deleteCollectionById } from 'komga-sdk';
+
+await deleteCollectionById({
+  client,
+  path: { collectionId: 'collection-123' },
+});
+```
+
+## Get collections containing a series
+
+Find which collections include a specific series:
+
+```typescript
+import { getCollectionsBySeriesId } from 'komga-sdk';
+
+const result = await getCollectionsBySeriesId({
+  client,
+  path: { seriesId: 'series-123' },
+});
+
+if (result.data) {
+  console.log(`Series appears in ${result.data.length} collections`);
+  for (const collection of result.data) {
+    console.log(`- ${collection.name}`);
+  }
+}
+```
+
+## Thumbnails
+
+### Get collection thumbnail
+
+Retrieve the thumbnail image for a collection:
+
+```typescript
+import { getCollectionThumbnail } from 'komga-sdk';
+
+const result = await getCollectionThumbnail({
+  client,
+  path: { collectionId: 'collection-123' },
+});
+
+if (result.data) {
+  // result.data is the image binary
+  const thumbnailUrl = URL.createObjectURL(result.data);
+}
+```
+
+### Upload custom thumbnail
+
+Add a custom thumbnail to a collection:
+
+```typescript
+import { addUserUploadedCollectionThumbnail } from 'komga-sdk';
+
+const file = new File([imageBlob], 'thumbnail.jpg', { type: 'image/jpeg' });
+
+await addUserUploadedCollectionThumbnail({
+  client,
+  path: { collectionId: 'collection-123' },
+  body: { file },
+});
+```
+
+### Delete custom thumbnail
+
+Remove a user-uploaded thumbnail:
+
+```typescript
+import { deleteUserUploadedCollectionThumbnail } from 'komga-sdk';
+
+await deleteUserUploadedCollectionThumbnail({
+  client,
+  path: { collectionId: 'collection-123' },
+});
+```
+
+## Common workflows
+
+### Build a "Recently Added" collection
+
+```typescript
+async function createRecentSeriesCollection() {
+  // Get recently added series
+  const seriesResult = await getSeries({
+    client,
+    body: {},
+    query: { 
+      page: 0, 
+      size: 10,
+      sort: ['created,desc']
+    },
+  });
+
+  if (!seriesResult.data) return;
+
+  // Create collection with recent series
+  const recentIds = seriesResult.data.content.map(s => s.id);
+  
+  await createCollection({
+    client,
+    body: {
+      name: 'Recently Added',
+      ordered: true,
+      seriesIds: recentIds,
+    },
+  });
+}
+```
+
+### Organize series by genre into collections
+
+```typescript
+async function organizeByGenre() {
+  const genres = ['Action', 'Comedy', 'Drama', 'Sci-Fi'];
+  
+  for (const genre of genres) {
+    // Find series with this genre
+    const seriesResult = await getSeries({
+      client,
+      body: { 
+        fullTextSearch: genre 
+      },
+      query: { 
+        page: 0, 
+        size: 100,
+        sort: ['metadata.title,asc']
+      },
+    });
+
+    if (seriesResult.data && seriesResult.data.content.length > 0) {
+      const seriesIds = seriesResult.data.content.map(s => s.id);
+      
+      await createCollection({
+        client,
+        body: {
+          name: `${genre} Series`,
+          ordered: false,
+          seriesIds,
+        },
+      });
+    }
+  }
+}
+```
+
+### Update collection with new series
+
+```typescript
+async function addSeriesToCollection(collectionId: string, newSeriesId: string) {
+  // Get current collection
+  const collectionResult = await getCollectionById({
+    client,
+    path: { collectionId },
+  });
+
+  if (!collectionResult.data) return;
+
+  // Add new series to existing list
+  const updatedSeriesIds = [...collectionResult.data.seriesIds, newSeriesId];
+  
+  // Update collection
+  await updateCollection({
+    client,
+    path: { collectionId },
+    body: {
+      name: collectionResult.data.name,
+      ordered: collectionResult.data.ordered,
+      seriesIds: updatedSeriesIds,
+    },
+  });
+}
+```
+
+## Next steps
+
+- Learn about [Read Lists](/guides/read-lists) for organizing individual books
+- Explore [Series management](/guides/series)
+- See [Books guide](/guides/books) for working with individual books

@@ -1,0 +1,210 @@
+---
+title: "FAQ"
+description: "Frequently asked questions about Komga SDK"
+icon: "circle-help"
+---
+
+<AccordionGroup>
+
+<Accordion title="What is Komga?" icon="database">
+Komga is a media server for comics, manga, and ebooks. It organizes your digital library, provides metadata management, and serves content to readers.
+
+The Komga SDK provides a type-safe TypeScript client to interact with the Komga API programmatically.
+</Accordion>
+
+<Accordion title="Should I use domain services or direct API?" icon="git-compare">
+**Use domain services** for most application code:
+- Built-in response validation with Zod
+- Higher-level, intuitive methods
+- Automatic error handling
+- Type-safe from end to end
+
+**Use direct API functions** when:
+- You need endpoints not covered by domain services
+- You want full control over request/response
+- You're building custom abstractions
+- You need to access the raw API response
+
+See [Domain services](/domain-services) vs [Direct API](/direct-api) for more details.
+</Accordion>
+
+<Accordion title="What authentication methods are supported?" icon="key">
+The SDK supports three authentication methods:
+
+1. **Basic Auth** - Username and password (recommended for development)
+2. **API Key** - Long-lived tokens (recommended for production)
+3. **Bearer Token** - JWT tokens (for session-based auth)
+
+See [Authentication](/authentication) for configuration examples.
+</Accordion>
+
+<Accordion title="Can I use this SDK in the browser?" icon="globe">
+Yes! The SDK is built for modern JavaScript runtimes that support:
+- Fetch API
+- Web Crypto API
+
+This includes:
+- Node.js 18+
+- Modern browsers (Chrome, Firefox, Safari, Edge)
+- Edge runtimes (Cloudflare Workers, Vercel Edge, etc.)
+</Accordion>
+
+<Accordion title="How do I handle pagination?" icon="list">
+All list endpoints support pagination via the `page` and `size` parameters:
+
+```typescript
+const books = await bookService.list({
+  page: 0,  // Page index (0-based)
+  size: 20, // Items per page
+});
+
+console.log(books.totalElements); // Total items available
+console.log(books.totalPages);    // Total pages
+console.log(books.content);       // Current page items
+```
+
+You can also use `unpaged: true` to get all results at once (use with caution on large libraries).
+
+See [Pagination](/pagination) for advanced patterns including sorting and search filters.
+</Accordion>
+
+<Accordion title="What happens when validation fails?" icon="shield-alert">
+When a response doesn't match the expected Zod schema, a `ValidationError` is thrown:
+
+```typescript
+import { isValidationError } from 'komga-sdk';
+
+try {
+  await bookService.getById('book-123');
+} catch (error) {
+  if (isValidationError(error)) {
+    console.log('Validation failed:', error.getFieldErrors());
+    // Check error.issues for detailed information
+  }
+}
+```
+
+Validation errors typically indicate:
+- API version mismatch
+- Undocumented API changes
+- Malformed responses
+</Accordion>
+
+<Accordion title="How do I enable debug logging?" icon="bug">
+Set `debug: true` in your client configuration:
+
+```typescript
+const client = createKomgaClient({
+  baseUrl: 'http://localhost:25600',
+  auth: { type: 'basic', username: 'admin', password: 'password' },
+  debug: true,
+});
+```
+
+For more detailed logging, use the [logging interceptor](/interceptors):
+
+```typescript
+const { request, response } = createLoggingInterceptor({ 
+  logHeaders: true,
+  logBody: true 
+});
+client.interceptors.request.use(request);
+client.interceptors.response.use(response);
+```
+</Accordion>
+
+<Accordion title="Can I customize retry behavior?" icon="rotate-ccw">
+Yes, configure retry options when creating the client:
+
+```typescript
+const client = createKomgaClient({
+  baseUrl: 'http://localhost:25600',
+  auth: { type: 'apiKey', key: 'your-api-key' },
+  retry: {
+    limit: 5,              // Max retry attempts
+    methods: ['GET'],      // HTTP methods to retry
+    statusCodes: [408, 413, 429, 500, 502, 503, 504],
+    backoffLimit: 5000,    // Max backoff delay in ms
+  },
+});
+```
+</Accordion>
+
+<Accordion title="Are there any rate limits?" icon="gauge">
+The SDK doesn't implement rate limiting - it depends on your Komga server's configuration. If you're making many requests:
+
+1. Use pagination with appropriate `size` values
+2. Add delays between batches
+3. Consider using the `retry` configuration for 429 responses
+4. Monitor your server's performance
+
+Common patterns for large operations:
+```typescript
+// Process in batches with delays
+for (let page = 0; page < totalPages; page++) {
+  const books = await bookService.list({ page, size: 50 });
+  await processBatch(books.content);
+  await sleep(100); // Add delay between requests
+}
+```
+</Accordion>
+
+<Accordion title="How do I get book thumbnails for my UI?" icon="image">
+Use the service methods to generate thumbnail URLs:
+
+```typescript
+const service = new BookService(client);
+const book = await service.getById('book-123');
+
+// Get thumbnail URL
+const thumbnailUrl = service.getThumbnailUrl(book.id);
+// Or use the raw API path
+const thumbnailUrl = `${client.baseUrl}/api/v1/books/${book.id}/thumbnail`;
+```
+
+For series and collections, similar methods are available on their respective services.
+</Accordion>
+
+<Accordion title="What should I do if I get a 404 error?" icon="file-x">
+404 errors typically indicate:
+
+1. **Invalid ID** - Verify the book/series/library ID exists
+2. **Deleted resource** - The item may have been removed
+3. **Wrong endpoint** - Check you're using the correct API version
+4. **Deprecated endpoint** - Some endpoints are deprecated (see [Migration](/guides/migration))
+
+```typescript
+import { isApiError } from 'komga-sdk';
+
+try {
+  await bookService.getById('invalid-id');
+} catch (error) {
+  if (isApiError(error) && error.status === 404) {
+    console.log('Resource not found');
+    // Handle missing resource gracefully
+  }
+}
+```
+</Accordion>
+
+<Accordion title="Can I contribute to the SDK?" icon="github">
+Yes! The SDK is open source. Contributions are welcome for:
+
+- Bug fixes
+- Documentation improvements
+- New features
+- Test coverage
+
+See the repository's `CONTRIBUTING.md` for guidelines.
+</Accordion>
+
+</AccordionGroup>
+
+## Still have questions?
+
+If you can't find the answer you're looking for:
+
+1. Check the [Troubleshooting](/guides/troubleshooting) guide
+2. Review the [API Reference](/reference/api-reference) 
+3. Browse the [TypeDoc](/api/) documentation
+4. Open an issue on GitHub

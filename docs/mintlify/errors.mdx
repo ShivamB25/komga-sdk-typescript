@@ -1,9 +1,20 @@
 ---
 title: "Errors"
 description: "Typed errors with guards and retry helpers"
+icon: "triangle-exclamation"
 ---
 
-The SDK provides a typed error hierarchy with type guards for common cases.
+The SDK provides a typed error hierarchy with type guards for safe error handling.
+
+## Error hierarchy
+
+```
+KomgaError (base)
+├── ApiError          # HTTP errors (4xx, 5xx)
+├── ValidationError   # Zod schema validation failures
+├── NetworkError      # Connection/DNS failures
+└── TimeoutError      # Request timeouts
+```
 
 ## Quick example
 
@@ -30,11 +41,352 @@ try {
 }
 ```
 
+## Error types
+
+<AccordionGroup>
+  <Accordion title="ApiError" icon="server">
+    Thrown for HTTP error responses (4xx, 5xx).
+    
+    ```typescript
+    interface ApiError {
+      status: number;      // HTTP status code
+      statusText: string;  // HTTP status text
+      message: string;     // Error message
+      response?: unknown;  // Raw response body
+    }
+    ```
+    
+    **Common status codes:**
+    | Code | Meaning | Action |
+    |------|---------|--------|
+    | 400 | Bad Request | Check request parameters |
+    | 401 | Unauthorized | Check credentials |
+    | 403 | Forbidden | Check permissions |
+    | 404 | Not Found | Resource doesn't exist |
+    | 429 | Too Many Requests | Implement rate limiting |
+    | 500 | Server Error | Retry or contact admin |
+  </Accordion>
+  
+  <Accordion title="ValidationError" icon="shield-exclamation">
+    Thrown when response data doesn't match expected Zod schema.
+    
+    ```typescript
+    interface ValidationError {
+      message: string;
+      issues: ZodIssue[];  // Detailed validation issues
+      getFieldErrors(): Record<string, string[]>;
+    }
+    ```
+    
+    **Example:**
+    ```typescript
+    try {
+      await bookService.getById('book-123');
+    } catch (error) {
+      if (isValidationError(error)) {
+        console.log('Invalid fields:', error.getFieldErrors());
+        // { "metadata.title": ["Expected string, received null"] }
+      }
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="NetworkError" icon="wifi-slash">
+    Thrown for connection failures, DNS errors, etc.
+    
+    ```typescript
+    interface NetworkError {
+      message: string;
+      cause?: Error;  // Original error
+    }
+    ```
+    
+    **Common causes:**
+    - Server not reachable
+    - DNS resolution failed
+    - Connection refused
+    - SSL/TLS errors
+  </Accordion>
+  
+  <Accordion title="TimeoutError" icon="clock">
+    Thrown when a request exceeds the configured timeout.
+    
+    ```typescript
+    interface TimeoutError {
+      message: string;
+      timeout: number;  // Timeout in ms
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Type guards
+
+Always use type guards for safe error handling:
+
+```typescript
+import { 
+  isApiError, 
+  isValidationError, 
+  isNetworkError, 
+  isTimeoutError,
+  isKomgaError 
+} from 'komga-sdk';
+
+// Check for any SDK error
+if (isKomgaError(error)) {
+  // error is KomgaError | ApiError | ValidationError | NetworkError | TimeoutError
+}
+
+// Check specific types
+if (isApiError(error)) {
+  // error is ApiError
+  console.log(error.status);
+}
+```
+
+## Handling patterns
+
+### Graceful 404 handling
+
+```typescript
+async function getBookOrNull(id: string): Promise<BookDto | null> {
+  try {
+    return await bookService.getById(id);
+  } catch (error) {
+    if (isApiError(error) && error.status === 404) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+// Usage
+const book = await getBookOrNull('maybe-exists');
+if (book) {
+  console.log(book.metadata.title);
+} else {
+  console.log('Book not found');
+}
+```
+
+### Retry logic
+
+<Tabs>
+  <Tab title="Simple retry">
+    ```typescript
+    async function withRetry<T>(
+      fn: () => Promise<T>,
+      maxAttempts = 3,
+      delay = 1000
+    ): Promise<T> {
+      let lastError: Error | undefined;
+      
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          return await fn();
+        } catch (error) {
+          lastError = error as Error;
+          
+          // Only retry on retryable errors
+          const shouldRetry = 
+            isTimeoutError(error) ||
+            isNetworkError(error) ||
+            (isApiError(error) && [429, 500, 502, 503, 504].includes(error.status));
+          
+          if (!shouldRetry || attempt === maxAttempts) {
+            throw error;
+          }
+          
+          console.log(`Attempt ${attempt} failed, retrying in ${delay}ms...`);
+          await new Promise(r => setTimeout(r, delay));
+          delay *= 2; // Exponential backoff
+        }
+      }
+      
+      throw lastError;
+    }
+    
+    // Usage
+    const book = await withRetry(() => bookService.getById('book-123'));
+    ```
+  </Tab>
+  
+  <Tab title="With rate limiting">
+    ```typescript
+    async function withRateLimitRetry<T>(
+      fn: () => Promise<T>,
+      maxAttempts = 5
+    ): Promise<T> {
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          return await fn();
+        } catch (error) {
+          if (isApiError(error) && error.status === 429) {
+            // Check Retry-After header
+            const retryAfter = error.response?.headers?.['retry-after'];
+            const delay = retryAfter ? parseInt(retryAfter) * 1000 : 5000;
+            
+            if (attempt < maxAttempts) {
+              console.log(`Rate limited. Waiting ${delay}ms...`);
+              await new Promise(r => setTimeout(r, delay));
+              continue;
+            }
+          }
+          throw error;
+        }
+      }
+      throw new Error('Max retries exceeded');
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Centralized error handler
+
+```typescript
+function handleError(error: unknown, context: string) {
+  if (isApiError(error)) {
+    switch (error.status) {
+      case 400:
+        console.error(`[${context}] Bad request:`, error.message);
+        break;
+      case 401:
+        console.error(`[${context}] Authentication failed. Please re-login.`);
+        // Trigger re-authentication flow
+        break;
+      case 403:
+        console.error(`[${context}] Permission denied.`);
+        break;
+      case 404:
+        console.error(`[${context}] Resource not found.`);
+        break;
+      case 429:
+        console.error(`[${context}] Rate limited. Slow down.`);
+        break;
+      default:
+        console.error(`[${context}] API error ${error.status}:`, error.message);
+    }
+  } else if (isValidationError(error)) {
+    console.error(`[${context}] Invalid response:`, error.getFieldErrors());
+  } else if (isTimeoutError(error)) {
+    console.error(`[${context}] Request timed out after ${error.timeout}ms`);
+  } else if (isNetworkError(error)) {
+    console.error(`[${context}] Network error:`, error.message);
+  } else {
+    console.error(`[${context}] Unknown error:`, error);
+  }
+}
+
+// Usage
+try {
+  await bookService.getById('book-123');
+} catch (error) {
+  handleError(error, 'getBook');
+}
+```
+
+### Error transformation
+
+Transform SDK errors to your app's error types:
+
+```typescript
+class AppError extends Error {
+  constructor(
+    message: string,
+    public code: string,
+    public recoverable: boolean
+  ) {
+    super(message);
+  }
+}
+
+function transformError(error: unknown): AppError {
+  if (isApiError(error)) {
+    if (error.status === 401) {
+      return new AppError('Please log in again', 'AUTH_REQUIRED', true);
+    }
+    if (error.status === 404) {
+      return new AppError('Item not found', 'NOT_FOUND', false);
+    }
+    if (error.status >= 500) {
+      return new AppError('Server error', 'SERVER_ERROR', true);
+    }
+    return new AppError(error.message, 'API_ERROR', false);
+  }
+  
+  if (isNetworkError(error) || isTimeoutError(error)) {
+    return new AppError('Connection failed', 'NETWORK_ERROR', true);
+  }
+  
+  if (isValidationError(error)) {
+    return new AppError('Invalid data received', 'VALIDATION_ERROR', false);
+  }
+  
+  return new AppError('Unknown error', 'UNKNOWN', false);
+}
+```
+
+## Client-side retry configuration
+
+Configure automatic retries at the client level:
+
+```typescript
+const client = createKomgaClient({
+  baseUrl: 'http://localhost:25600',
+  auth: { type: 'apiKey', key: 'your-key' },
+  retry: {
+    limit: 3,                              // Max attempts
+    methods: ['GET', 'PUT', 'HEAD', 'DELETE', 'OPTIONS', 'TRACE'],
+    statusCodes: [408, 413, 429, 500, 502, 503, 504],
+    backoffLimit: 5000,                    // Max delay between retries
+  },
+});
+```
+
+## Testing error handling
+
+```typescript
+import { ApiError, ValidationError } from 'komga-sdk';
+
+describe('error handling', () => {
+  it('handles 404 gracefully', async () => {
+    const mockService = {
+      getById: vi.fn().mockRejectedValue(
+        new ApiError('Not found', 404, 'Not Found')
+      )
+    };
+    
+    const result = await getBookOrNull.call({ bookService: mockService }, 'id');
+    expect(result).toBeNull();
+  });
+  
+  it('throws on validation errors', async () => {
+    const mockService = {
+      getById: vi.fn().mockRejectedValue(
+        new ValidationError('Invalid response', [
+          { path: ['metadata', 'title'], message: 'Required' }
+        ])
+      )
+    };
+    
+    await expect(mockService.getById('id')).rejects.toThrow(ValidationError);
+  });
+});
+```
+
 ## Full reference
 
-See `src/errors/README.md` for class details and guard usage.
+For detailed error class APIs, see `src/errors/README.md` in the SDK repository.
 
 ## Next steps
 
-- Configure retries: [Configuration](/reference/configuration)
-- Add error transforms: [Interceptors](/interceptors)
+<CardGroup cols={2}>
+  <Card title="Configuration" icon="gear" href="/reference/configuration">
+    Configure retry behavior at the client level.
+  </Card>
+  
+  <Card title="Best Practices" icon="star" href="/best-practices">
+    Error handling patterns for production.
+  </Card>
+</CardGroup>

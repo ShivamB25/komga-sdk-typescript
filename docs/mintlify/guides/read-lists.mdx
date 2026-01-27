@@ -1,0 +1,363 @@
+---
+title: "Read Lists"
+description: "Create ordered reading lists of individual books"
+icon: "list-ordered"
+---
+
+Read Lists let you organize books in a specific reading order, perfect for:
+- Crossover events spanning multiple series
+- Recommended reading orders for complex universes
+- Personal "to-read" queues
+- Curated book club selections
+
+Unlike [Collections](/guides/collections) which group entire series, Read Lists contain individual books in a defined sequence.
+
+## List read lists
+
+Get all read lists with pagination:
+
+```typescript
+import { getReadLists } from 'komga-sdk';
+
+const result = await getReadLists({
+  client,
+  query: { page: 0, size: 20 },
+});
+
+if (result.data) {
+  console.log(`Found ${result.data.totalElements} read lists`);
+  for (const readList of result.data.content) {
+    console.log(`${readList.name} - ${readList.bookIds.length} books`);
+  }
+}
+```
+
+## Get a read list by ID
+
+Retrieve details and the ordered book list:
+
+```typescript
+import { getReadListById } from 'komga-sdk';
+
+const result = await getReadListById({
+  client,
+  path: { readListId: 'readlist-123' },
+});
+
+if (result.data) {
+  console.log(`Read List: ${result.data.name}`);
+  console.log(`Books in order: ${result.data.bookIds.length}`);
+}
+```
+
+## Create a read list
+
+Create a new read list with books in specific order:
+
+```typescript
+import { createReadList } from 'komga-sdk';
+
+const result = await createReadList({
+  client,
+  body: {
+    name: 'Crisis on Infinite Earths Reading Order',
+    summary: 'Complete crossover event reading order',
+    ordered: true, // Books must be read in this sequence
+    bookIds: [
+      'book-001', // Issue #1
+      'book-002', // Issue #2
+      'book-003', // Tie-in: Superman
+      'book-004', // Issue #3
+      // ...
+    ],
+  },
+});
+
+if (result.data) {
+  console.log(`Created read list: ${result.data.name}`);
+}
+```
+
+<Tip>
+Use `ordered: true` for reading orders where sequence matters. Use `ordered: false` for thematic groupings without a required order.
+</Tip>
+
+## Update a read list
+
+Modify the read list name, summary, or book order:
+
+```typescript
+import { updateReadList } from 'komga-sdk';
+
+const result = await updateReadList({
+  client,
+  path: { readListId: 'readlist-123' },
+  body: {
+    name: 'Updated Reading Order',
+    summary: 'Revised reading order with additional tie-ins',
+    ordered: true,
+    bookIds: ['book-001', 'book-002', 'book-005', 'book-006'],
+  },
+});
+```
+
+## Delete a read list
+
+Remove a read list (books themselves are not deleted):
+
+```typescript
+import { deleteReadListById } from 'komga-sdk';
+
+await deleteReadListById({
+  client,
+  path: { readListId: 'readlist-123' },
+});
+```
+
+## Get books in a read list
+
+Retrieve the actual book objects in reading order:
+
+```typescript
+import { getBooksByReadListId } from 'komga-sdk';
+
+const result = await getBooksByReadListId({
+  client,
+  path: { readListId: 'readlist-123' },
+  query: { page: 0, size: 50 },
+});
+
+if (result.data) {
+  // Books are returned in the read list order
+  for (const book of result.data.content) {
+    console.log(`${book.metadata.title} (${book.metadata.number})`);
+  }
+}
+```
+
+## Thumbnails
+
+### Get read list thumbnail
+
+Retrieve the thumbnail for a read list:
+
+```typescript
+import { getReadListThumbnail } from 'komga-sdk';
+
+const result = await getReadListThumbnail({
+  client,
+  path: { readListId: 'readlist-123' },
+});
+
+if (result.data) {
+  const thumbnailUrl = URL.createObjectURL(result.data);
+}
+```
+
+### Upload custom thumbnail
+
+Add a custom thumbnail to represent the read list:
+
+```typescript
+import { addUserUploadedReadListThumbnail } from 'komga-sdk';
+
+const file = new File([imageBlob], 'thumbnail.jpg', { type: 'image/jpeg' });
+
+await addUserUploadedReadListThumbnail({
+  client,
+  path: { readListId: 'readlist-123' },
+  body: { file },
+});
+```
+
+### Delete custom thumbnail
+
+Remove a user-uploaded thumbnail:
+
+```typescript
+import { deleteUserUploadedReadListThumbnail } from 'komga-sdk';
+
+await deleteUserUploadedReadListThumbnail({
+  client,
+  path: { readListId: 'readlist-123' },
+});
+```
+
+## Navigation helpers
+
+Komga provides endpoints to navigate through books in a read list:
+
+### Get next book
+
+```typescript
+import { getBookSiblingNextInReadList } from 'komga-sdk';
+
+const result = await getBookSiblingNextInReadList({
+  client,
+  path: { 
+    readListId: 'readlist-123',
+    bookId: 'book-001' 
+  },
+});
+
+if (result.data) {
+  console.log(`Next: ${result.data.metadata.title}`);
+} else {
+  console.log('End of read list');
+}
+```
+
+### Get previous book
+
+```typescript
+import { getBookSiblingPreviousInReadList } from 'komga-sdk';
+
+const result = await getBookSiblingPreviousInReadList({
+  client,
+  path: { 
+    readListId: 'readlist-123',
+    bookId: 'book-002' 
+  },
+});
+
+if (result.data) {
+  console.log(`Previous: ${result.data.metadata.title}`);
+} else {
+  console.log('Beginning of read list');
+}
+```
+
+## Common workflows
+
+### Build a crossover reading order
+
+```typescript
+async function createCrossoverReadList(eventName: string, bookIds: string[]) {
+  const result = await createReadList({
+    client,
+    body: {
+      name: `${eventName} Reading Order`,
+      summary: `Complete reading order for ${eventName}`,
+      ordered: true,
+      bookIds,
+    },
+  });
+
+  return result.data;
+}
+
+// Example: Create a reading order for a major event
+const crisisBooks = [
+  'book-crisis-01',
+  'book-crisis-02', 
+  'book-superman-tiein-01',
+  'book-crisis-03',
+  'book-batman-tiein-01',
+  'book-crisis-04',
+];
+
+await createCrossoverReadList('Infinite Crisis', crisisBooks);
+```
+
+### Create a "Next Up" read list
+
+```typescript
+async function createNextUpReadList(userId: string) {
+  // Get books with progress
+  const booksResult = await getBooks({
+    client,
+    body: { 
+      readStatus: 'UNREAD' 
+    },
+    query: { 
+      page: 0, 
+      size: 20,
+      sort: ['metadata.releaseDate,desc']
+    },
+  });
+
+  if (!booksResult.data) return;
+
+  const bookIds = booksResult.data.content.map(b => b.id);
+  
+  await createReadList({
+    client,
+    body: {
+      name: 'My Next Reads',
+      summary: 'Recently released books to read',
+      ordered: false,
+      bookIds,
+    },
+  });
+}
+```
+
+### Update progress through a read list
+
+```typescript
+async function getReadingProgress(readListId: string) {
+  // Get all books in the read list
+  const booksResult = await getBooksByReadListId({
+    client,
+    path: { readListId },
+    query: { unpaged: true },
+  });
+
+  if (!booksResult.data) return;
+
+  const books = booksResult.data.content;
+  const totalBooks = books.length;
+  
+  // Count read books
+  const readBooks = books.filter(b => 
+    b.readProgress?.read === true
+  ).length;
+  
+  const progress = {
+    total: totalBooks,
+    read: readBooks,
+    percentage: Math.round((readBooks / totalBooks) * 100),
+  };
+
+  console.log(`Progress: ${progress.read}/${progress.total} (${progress.percentage}%)`);
+  return progress;
+}
+```
+
+### Find read lists containing a book
+
+```typescript
+async function findBookInReadLists(bookId: string) {
+  // Get all read lists
+  const readListsResult = await getReadLists({
+    client,
+    query: { unpaged: true },
+  });
+
+  if (!readListsResult.data) return [];
+
+  // Filter to read lists containing this book
+  const containingReadLists = readListsResult.data.content.filter(
+    list => list.bookIds.includes(bookId)
+  );
+
+  console.log(`Book appears in ${containingReadLists.length} read lists`);
+  return containingReadLists;
+}
+```
+
+## Comparison: Collections vs Read Lists
+
+| Feature | Collections | Read Lists |
+|---------|-------------|------------|
+| Contains | Series | Individual books |
+| Ordering | Optional (`ordered` flag) | Optional (`ordered` flag) |
+| Use case | Group related series | Define reading sequences |
+| Example | "Marvel Events" | "Civil War Reading Order" |
+| Navigation | Browse series | Next/previous book helpers |
+
+## Next steps
+
+- Learn about [Collections](/guides/collections) for grouping series
+- Explore [Books guide](/guides/books) for managing individual books
+- See [Series guide](/guides/series) for series management

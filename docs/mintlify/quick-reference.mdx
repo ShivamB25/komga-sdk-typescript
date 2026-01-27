@@ -1,0 +1,337 @@
+---
+title: "Quick Reference"
+description: "Common patterns and code snippets at a glance"
+icon: "bolt"
+---
+
+A cheat sheet of the most common Komga SDK patterns. Copy, paste, and customize.
+
+## Client Setup
+
+<CodeGroup>
+
+```typescript Basic Auth
+import { createKomgaClient } from 'komga-sdk';
+
+const client = createKomgaClient({
+  baseUrl: 'http://localhost:25600',
+  auth: {
+    type: 'basic',
+    username: 'user@example.com',
+    password: 'password',
+  },
+});
+```
+
+```typescript API Key
+import { createKomgaClient } from 'komga-sdk';
+
+const client = createKomgaClient({
+  baseUrl: 'http://localhost:25600',
+  auth: {
+    type: 'apiKey',
+    key: 'your-api-key',
+  },
+});
+```
+
+```typescript Full Options
+import { createKomgaClient } from 'komga-sdk';
+
+const client = createKomgaClient({
+  baseUrl: 'http://localhost:25600',
+  auth: { type: 'basic', username: 'admin', password: 'password' },
+  timeout: 30000,
+  retry: { limit: 3, backoffLimit: 5000 },
+  debug: false,
+});
+```
+
+</CodeGroup>
+
+## Domain Services
+
+### Books
+
+```typescript
+import { BookService } from 'komga-sdk';
+const bookService = new BookService(client);
+
+// List books
+const books = await bookService.list({ page: 0, size: 20 });
+
+// Search books
+const results = await bookService.list({
+  search: { fullTextSearch: 'manga' },
+  page: 0,
+  size: 20,
+  sort: ['metadata.title,asc'],
+});
+
+// Get by ID
+const book = await bookService.getById('book-123');
+
+// Update metadata
+await bookService.updateMetadata('book-123', { title: 'New Title' });
+
+// Get pages
+const pages = await bookService.getPages('book-123');
+
+// Get thumbnail URL
+const url = bookService.getThumbnailUrl('book-123');
+```
+
+### Series
+
+```typescript
+import { SeriesService } from 'komga-sdk';
+const seriesService = new SeriesService(client);
+
+// List series
+const series = await seriesService.list({ page: 0, size: 20 });
+
+// Get by ID
+const s = await seriesService.getById('series-123');
+
+// Get books in series
+const books = await seriesService.getBooks('series-123', { page: 0, size: 50 });
+
+// Update metadata
+await seriesService.updateMetadata('series-123', { status: 'ONGOING' });
+
+// Get collections containing series
+const collections = await seriesService.getCollections('series-123');
+```
+
+### Libraries
+
+```typescript
+import { LibraryService } from 'komga-sdk';
+const libraryService = new LibraryService(client);
+
+// List libraries
+const libraries = await libraryService.getAll();
+
+// Get by ID
+const library = await libraryService.getById('library-123');
+
+// Update
+await libraryService.update('library-123', { name: 'New Name' });
+
+// Scan
+await libraryService.scan('library-123');
+
+// Delete
+await libraryService.delete('library-123');
+```
+
+## Direct API Functions
+
+```typescript
+import { getBookById, getBooks, getSeries } from 'komga-sdk';
+
+// Get single item
+const result = await getBookById({
+  client,
+  path: { bookId: 'book-123' },
+});
+if (result.data) console.log(result.data.metadata.title);
+
+// List with search
+const booksResult = await getBooks({
+  client,
+  body: { fullTextSearch: 'manga' },
+  query: { page: 0, size: 20, sort: ['metadata.title,asc'] },
+});
+```
+
+## Pagination Patterns
+
+```typescript
+// Basic pagination
+const page1 = await bookService.list({ page: 0, size: 20 });
+const page2 = await bookService.list({ page: 1, size: 20 });
+
+// With sorting
+const sorted = await bookService.list({
+  page: 0,
+  size: 20,
+  sort: ['metadata.title,asc'],
+});
+
+// Get all (unpaged)
+const all = await bookService.list({ unpaged: true });
+
+// Iterate all pages
+let page = 0;
+let hasMore = true;
+while (hasMore) {
+  const result = await bookService.list({ page, size: 100 });
+  processBooks(result.content);
+  hasMore = page < result.totalPages - 1;
+  page++;
+}
+```
+
+## Error Handling
+
+```typescript
+import {
+  isApiError,
+  isValidationError,
+  isNetworkError,
+  isTimeoutError,
+} from 'komga-sdk';
+
+try {
+  await bookService.getById('invalid-id');
+} catch (error) {
+  if (isApiError(error)) {
+    console.log(`HTTP ${error.status}: ${error.statusText}`);
+    if (error.status === 404) console.log('Not found');
+    if (error.status === 401) console.log('Unauthorized');
+  } else if (isValidationError(error)) {
+    console.log('Validation failed:', error.getFieldErrors());
+  } else if (isTimeoutError(error)) {
+    console.log('Request timed out');
+  } else if (isNetworkError(error)) {
+    console.log('Network error:', error.message);
+  }
+}
+```
+
+## Validation
+
+```typescript
+import { 
+  BookDtoSchema, 
+  validateResponse, 
+  safeValidateResponse,
+  createPageSchema 
+} from 'komga-sdk';
+
+// Throw on invalid
+const book = validateResponse(BookDtoSchema, data);
+
+// Safe (no throw)
+const result = safeValidateResponse(BookDtoSchema, data);
+if (result.success) {
+  console.log(result.data);
+} else {
+  console.log(result.error);
+}
+
+// Paginated response
+const PageBookSchema = createPageSchema(BookDtoSchema);
+const page = PageBookSchema.parse(rawData);
+```
+
+## Interceptors
+
+```typescript
+import {
+  createLoggingInterceptor,
+  createErrorTransformInterceptor,
+  createValidationInterceptor,
+  BookDtoSchema,
+} from 'komga-sdk';
+
+// Logging
+const { request, response } = createLoggingInterceptor({ logHeaders: true });
+client.interceptors.request.use(request);
+client.interceptors.response.use(response);
+
+// Error transform
+const errorTransform = createErrorTransformInterceptor();
+client.interceptors.error.use(errorTransform);
+
+// Validation
+const validation = createValidationInterceptor({
+  schemas: { '/api/books': BookDtoSchema },
+  throwOnError: true,
+});
+client.interceptors.response.use(validation);
+```
+
+## Common Workflows
+
+### Batch update metadata
+
+```typescript
+const books = await bookService.list({ 
+  search: { fullTextSearch: 'tag:untagged' },
+  unpaged: true 
+});
+
+for (const book of books.content) {
+  await bookService.updateMetadata(book.id, {
+    tags: ['processed'],
+  });
+}
+```
+
+### Build thumbnail gallery
+
+```typescript
+const books = await bookService.list({ page: 0, size: 20 });
+
+const gallery = books.content.map(book => ({
+  id: book.id,
+  title: book.metadata.title,
+  thumbnail: bookService.getThumbnailUrl(book.id),
+}));
+```
+
+### Scan and wait
+
+```typescript
+await libraryService.scan('library-123');
+// Note: scan is async on server side
+// Poll or use websockets to check completion
+```
+
+## TypeScript Types
+
+```typescript
+import type {
+  BookDto,
+  SeriesDto,
+  LibraryDto,
+  BookMetadataUpdateDto,
+  SeriesMetadataUpdateDto,
+  PageBookDto,
+} from 'komga-sdk';
+
+function processBook(book: BookDto) {
+  console.log(book.metadata.title);
+}
+
+function updateBook(id: string, updates: BookMetadataUpdateDto) {
+  return bookService.updateMetadata(id, updates);
+}
+```
+
+## Environment Variables
+
+```typescript
+const client = createKomgaClient({
+  baseUrl: process.env.KOMGA_URL || 'http://localhost:25600',
+  auth: {
+    type: 'basic',
+    username: process.env.KOMGA_USER || 'admin',
+    password: process.env.KOMGA_PASS || 'password',
+  },
+});
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Domain Services" icon="boxes" href="/domain-services">
+    Full documentation for all service methods.
+  </Card>
+  
+  <Card title="Direct API" icon="code" href="/direct-api">
+    Low-level API function reference.
+  </Card>
+</CardGroup>

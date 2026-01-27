@@ -1,16 +1,112 @@
 ---
 title: "Introduction"
 description: "Type-safe TypeScript SDK for the Komga media server API"
+icon: "book-open"
 ---
 
-Komga SDK is a TypeScript-first client for the Komga API. It provides a typed HTTP client, Zod validation, and domain services for common workflows.
+<img
+  className="block dark:hidden"
+  src="/logo/light.svg"
+  alt="Komga SDK Logo"
+/>
+
+# Komga SDK
+
+Build powerful applications for managing comics, manga, and ebooks with a type-safe TypeScript client.
+
+<CardGroup cols={2}>
+  <Card title="Type-Safe API" icon="shield-check" iconType="regular">
+    Full TypeScript support with autocompletion and compile-time type checking. Know your data structure before runtime.
+  </Card>
+  
+  <Card title="Runtime Validation" icon="check-circle" iconType="regular">
+    Zod schemas validate all API responses. Catch mismatches between expected and actual data immediately.
+  </Card>
+  
+  <Card title="Domain Services" icon="boxes" iconType="regular">
+    High-level services for Books, Series, and Libraries. Write less boilerplate, focus on your app logic.
+  </Card>
+  
+  <Card title="Flexible Auth" icon="key" iconType="regular">
+    Support for Basic Auth, API Keys, and Bearer tokens. Secure your connections your way.
+  </Card>
+
+</CardGroup>
+
+## What is Komga?
+
+[Komga](https://komga.org) is a media server for comics, manga, BDs, magazines, and eBooks. It organizes your digital library, manages metadata, and serves content to readers.
+
+**Komga SDK** provides a modern TypeScript client to interact with the Komga API programmatically.
 
 ## What you get
 
-- Typed API calls with runtime validation
-- Domain services for books, series, and libraries
-- Interceptors for logging, validation, and error transforms
-- Source-only ESM package with strong TypeScript support
+<Tabs>
+  <Tab title="Type Safety">
+    Full TypeScript coverage means:
+    - Autocomplete in your IDE
+    - Compile-time error catching
+    - Inline documentation
+    - Refactoring support
+    
+    ```typescript
+    import { BookService } from 'komga-sdk';
+    
+    const service = new BookService(client);
+    const book = await service.getById('book-123');
+    // book.metadata.title is fully typed
+    ```
+  </Tab>
+  
+  <Tab title="Validation">
+    Runtime validation with Zod ensures data integrity:
+    - All responses validated against schemas
+    - Strict mode catches unexpected fields
+    - Clear error messages when validation fails
+    - Type inference from schemas
+    
+    ```typescript
+    import { BookDtoSchema, validateResponse } from 'komga-sdk';
+    
+    const validated = validateResponse(BookDtoSchema, responseData);
+    // validated is fully typed AND runtime-checked
+    ```
+  </Tab>
+  
+  <Tab title="Interceptors">
+    Hook into request/response lifecycle:
+    - Logging for debugging
+    - Error transformation
+    - Custom validation
+    - Request modification
+    
+    ```typescript
+    const { request, response } = createLoggingInterceptor();
+    client.interceptors.request.use(request);
+    client.interceptors.response.use(response);
+    ```
+  </Tab>
+  
+  <Tab title="Error Handling">
+    Typed error hierarchy for reliable handling:
+    - `ApiError` for HTTP errors
+    - `ValidationError` for schema mismatches
+    - `NetworkError` for connection issues
+    - Type guards for safe error checking
+    
+    ```typescript
+    import { isApiError, isValidationError } from 'komga-sdk';
+    
+    try {
+      await bookService.getById('invalid');
+    } catch (error) {
+      if (isApiError(error)) {
+        console.log(`HTTP ${error.status}`);
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
 
 ## Choose your integration style
 
@@ -18,18 +114,108 @@ Komga SDK is a TypeScript-first client for the Komga API. It provides a typed HT
 
 Use high-level services that validate responses and expose friendly methods.
 
+<Card>
+```typescript
+import { BookService } from 'komga-sdk';
+
+const service = new BookService(client);
+
+// Simple, validated methods
+const book = await service.getById('book-123');
+const books = await service.list({ page: 0, size: 20 });
+await service.updateMetadata('book-123', { title: 'New Title' });
+```
+</Card>
+
+**Best for:** Application code, rapid development, validated workflows
+
 ### Direct API functions
 
 Call low-level endpoints directly for full API coverage and advanced use cases.
 
+<Card>
+```typescript
+import { getBookById } from 'komga-sdk';
+
+const result = await getBookById({
+  client,
+  path: { bookId: 'book-123' },
+});
+
+if (result.data) {
+  console.log(result.data.metadata.title);
+}
+```
+</Card>
+
+**Best for:** Advanced usage, custom workflows, endpoints not covered by services
+
 ## Typical workflow
 
-1. Create a client with `createKomgaClient`.
-2. Use a domain service for common tasks.
-3. Add interceptors for logging, validation, or error handling.
+<Steps>
+  <Step title="Create a client" icon="plug">
+    Initialize with your Komga server URL and authentication:
+    ```typescript
+    import { createKomgaClient } from 'komga-sdk';
+    
+    const client = createKomgaClient({
+      baseUrl: 'http://localhost:25600',
+      auth: {
+        type: 'basic',
+        username: 'admin@example.com',
+        password: 'your-password',
+      },
+    });
+    ```
+  </Step>
+  
+  <Step title="Use a domain service" icon="boxes">
+    Work with high-level services for common tasks:
+    ```typescript
+    import { BookService } from 'komga-sdk';
+    
+    const bookService = new BookService(client);
+    const books = await bookService.list({ page: 0, size: 20 });
+    ```
+  </Step>
+  
+  <Step title="Add interceptors" icon="filter">
+    Enhance behavior with logging, validation, or error handling:
+    ```typescript
+    const { request, response } = createLoggingInterceptor();
+    client.interceptors.request.use(request);
+    client.interceptors.response.use(response);
+    ```
+  </Step>
+</Steps>
+
+## API Coverage
+
+This SDK covers Komga API v1.23.6 with:
+
+- **130 endpoint paths**
+- **165 operations**
+- **100% coverage** of documented endpoints
+- All 6 deprecated endpoints properly marked
+
+## Requirements
+
+- Runtime with Fetch and Web Crypto (Node 18+ or modern browsers)
+- Komga server (API v1.23.6)
+- TypeScript 5.0+ (recommended)
 
 ## Next steps
 
-- Get started: [Quickstart](/quickstart)
-- Configure auth: [Authentication](/authentication)
-- Explore services: [Domain services](/domain-services)
+<CardGroup cols={3}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Install the SDK and make your first request in under 5 minutes.
+  </Card>
+  
+  <Card title="Authentication" icon="key" href="/authentication">
+    Configure Basic Auth, API keys, or Bearer tokens.
+  </Card>
+  
+  <Card title="Domain Services" icon="boxes" href="/domain-services">
+    Learn about BookService, SeriesService, and LibraryService.
+  </Card>
+</CardGroup>

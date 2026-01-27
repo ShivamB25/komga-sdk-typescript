@@ -1,0 +1,446 @@
+---
+title: "Best Practices"
+description: "Patterns for building robust, maintainable Komga integrations"
+icon: "star"
+---
+
+Learn proven patterns for building production-ready applications with Komga SDK.
+
+## Client Management
+
+### Create one client, reuse everywhere
+
+<Tabs>
+  <Tab title="Good">
+    ```typescript title="lib/komga.ts"
+    import { createKomgaClient, BookService, SeriesService } from 'komga-sdk';
+
+    // Single client instance
+    export const client = createKomgaClient({
+      baseUrl: process.env.KOMGA_URL!,
+      auth: {
+        type: 'apiKey',
+        key: process.env.KOMGA_API_KEY!,
+      },
+    });
+
+    // Reusable services
+    export const bookService = new BookService(client);
+    export const seriesService = new SeriesService(client);
+    ```
+  </Tab>
+  
+  <Tab title="Avoid">
+    ```typescript
+    // Creating new clients per request - wasteful!
+    async function getBook(id: string) {
+      const client = createKomgaClient({ /* ... */ });
+      const service = new BookService(client);
+      return service.getById(id);
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Use environment variables
+
+<Warning>
+Never hardcode credentials in source code. Use environment variables or a secrets manager.
+</Warning>
+
+```typescript title=".env"
+KOMGA_URL=http://localhost:25600
+KOMGA_API_KEY=your-api-key-here
+```
+
+```typescript title="lib/komga.ts"
+const client = createKomgaClient({
+  baseUrl: process.env.KOMGA_URL!,
+  auth: {
+    type: 'apiKey',
+    key: process.env.KOMGA_API_KEY!,
+  },
+});
+```
+
+## Error Handling
+
+### Always use type guards
+
+```typescript
+import { 
+  isApiError, 
+  isValidationError, 
+  isNetworkError,
+  isTimeoutError 
+} from 'komga-sdk';
+
+async function safeGetBook(id: string) {
+  try {
+    return await bookService.getById(id);
+  } catch (error) {
+    if (isApiError(error)) {
+      if (error.status === 404) {
+        return null; // Book doesn't exist
+      }
+      if (error.status === 401) {
+        throw new Error('Authentication failed - check credentials');
+      }
+      throw new Error(`API error: ${error.status} ${error.statusText}`);
+    }
+    
+    if (isValidationError(error)) {
+      console.error('Unexpected API response format:', error.issues);
+      throw new Error('Invalid API response');
+    }
+    
+    if (isTimeoutError(error)) {
+      throw new Error('Request timed out - try again');
+    }
+    
+    if (isNetworkError(error)) {
+      throw new Error('Network error - check connection');
+    }
+    
+    throw error; // Unknown error
+  }
+}
+```
+
+### Create wrapper functions for common patterns
+
+```typescript
+async function getOrNull<T>(
+  fn: () => Promise<T>
+): Promise<T | null> {
+  try {
+    return await fn();
+  } catch (error) {
+    if (isApiError(error) && error.status === 404) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+// Usage
+const book = await getOrNull(() => bookService.getById('book-123'));
+if (book) {
+  console.log(book.metadata.title);
+} else {
+  console.log('Book not found');
+}
+```
+
+## Pagination
+
+### Use appropriate page sizes
+
+<Tabs>
+  <Tab title="UI Display">
+    ```typescript
+    // For displaying in a grid/list
+    const books = await bookService.list({
+      page: 0,
+      size: 20, // Reasonable for UI
+    });
+    ```
+  </Tab>
+  
+  <Tab title="Batch Processing">
+    ```typescript
+    // For batch operations
+    const books = await bookService.list({
+      page: 0,
+      size: 100, // Larger for processing
+    });
+    ```
+  </Tab>
+  
+  <Tab title="Export All">
+    ```typescript
+    // Be careful with unpaged!
+    const allBooks = await bookService.list({
+      unpaged: true, // May be slow for large libraries
+    });
+    ```
+  </Tab>
+</Tabs>
+
+### Implement proper pagination loops
+
+```typescript
+async function* getAllBooks() {
+  let page = 0;
+  let hasMore = true;
+  
+  while (hasMore) {
+    const result = await bookService.list({ 
+      page, 
+      size: 100,
+      sort: ['metadata.title,asc'] 
+    });
+    
+    for (const book of result.content) {
+      yield book;
+    }
+    
+    hasMore = page < result.totalPages - 1;
+    page++;
+  }
+}
+
+// Usage with async iterator
+for await (const book of getAllBooks()) {
+  console.log(book.metadata.title);
+}
+```
+
+### Add delays for large batch operations
+
+```typescript
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+async function updateAllBooks(updates: BookMetadataUpdateDto) {
+  let page = 0;
+  let hasMore = true;
+  let processed = 0;
+  
+  while (hasMore) {
+    const result = await bookService.list({ page, size: 50 });
+    
+    for (const book of result.content) {
+      await bookService.updateMetadata(book.id, updates);
+      processed++;
+      
+      // Avoid overwhelming the server
+      if (processed % 10 === 0) {
+        await sleep(100);
+      }
+    }
+    
+    hasMore = page < result.totalPages - 1;
+    page++;
+  }
+  
+  return processed;
+}
+```
+
+## Caching
+
+### Cache static data appropriately
+
+```typescript
+let cachedLibraries: LibraryDto[] | null = null;
+let cacheTime: number = 0;
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+async function getLibraries(): Promise<LibraryDto[]> {
+  const now = Date.now();
+  
+  if (cachedLibraries && now - cacheTime < CACHE_TTL) {
+    return cachedLibraries;
+  }
+  
+  cachedLibraries = await libraryService.getAll();
+  cacheTime = now;
+  return cachedLibraries;
+}
+
+function invalidateLibraryCache() {
+  cachedLibraries = null;
+}
+```
+
+### Don't cache dynamic data
+
+<Warning>
+Avoid caching book lists, read progress, or frequently-changing data without careful invalidation.
+</Warning>
+
+## Validation
+
+### Validate responses when needed
+
+```typescript
+import { BookDtoSchema, safeValidateResponse } from 'komga-sdk';
+
+// For direct API calls, validate explicitly
+const result = await getBookById({ client, path: { bookId: 'book-123' } });
+
+if (result.data) {
+  const validated = safeValidateResponse(BookDtoSchema, result.data);
+  
+  if (validated.success) {
+    // Use validated.data safely
+    processBook(validated.data);
+  } else {
+    console.error('Unexpected response format:', validated.error);
+    // Handle gracefully
+  }
+}
+```
+
+### Domain services validate automatically
+
+```typescript
+// BookService validates responses internally
+const book = await bookService.getById('book-123');
+// book is already validated - safe to use
+```
+
+## TypeScript
+
+### Use explicit types for clarity
+
+```typescript
+import type { BookDto, BookMetadataUpdateDto } from 'komga-sdk';
+
+async function updateBookTitle(
+  bookId: string, 
+  title: string
+): Promise<void> {
+  const updates: BookMetadataUpdateDto = { title };
+  await bookService.updateMetadata(bookId, updates);
+}
+
+function displayBook(book: BookDto): void {
+  console.log(`${book.metadata.title} (${book.metadata.number})`);
+}
+```
+
+### Avoid `any` types
+
+<Tabs>
+  <Tab title="Good">
+    ```typescript
+    import type { BookDto } from 'komga-sdk';
+    
+    function processBooks(books: BookDto[]) {
+      return books.map(b => b.metadata.title);
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Avoid">
+    ```typescript
+    // Don't use any!
+    function processBooks(books: any[]) {
+      return books.map(b => b.metadata.title);
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Testing
+
+### Use dependency injection for testability
+
+```typescript
+class BookManager {
+  constructor(private bookService: BookService) {}
+  
+  async findByTitle(title: string) {
+    const result = await this.bookService.list({
+      search: { fullTextSearch: title },
+      page: 0,
+      size: 10,
+    });
+    return result.content;
+  }
+}
+
+// Production
+const manager = new BookManager(new BookService(client));
+
+// Testing - inject mock
+const mockService = {
+  list: vi.fn().mockResolvedValue({ content: [], totalElements: 0 })
+};
+const testManager = new BookManager(mockService as any);
+```
+
+### Test error paths
+
+```typescript
+import { ApiError } from 'komga-sdk';
+
+describe('BookManager', () => {
+  it('handles 404 gracefully', async () => {
+    const mockService = {
+      getById: vi.fn().mockRejectedValue(
+        new ApiError('Not found', 404, 'Not Found')
+      )
+    };
+    
+    const manager = new BookManager(mockService as any);
+    const result = await manager.findBook('invalid-id');
+    
+    expect(result).toBeNull();
+  });
+});
+```
+
+## Performance
+
+### Limit concurrent requests
+
+```typescript
+import pLimit from 'p-limit';
+
+const limit = pLimit(5); // Max 5 concurrent requests
+
+async function updateManyBooks(bookIds: string[], updates: BookMetadataUpdateDto) {
+  const promises = bookIds.map(id => 
+    limit(() => bookService.updateMetadata(id, updates))
+  );
+  
+  await Promise.all(promises);
+}
+```
+
+### Use appropriate timeouts
+
+```typescript
+const client = createKomgaClient({
+  baseUrl: 'http://localhost:25600',
+  auth: { type: 'apiKey', key: 'key' },
+  timeout: 30000, // 30s for normal operations
+});
+
+// For known slow operations (large file downloads)
+const slowClient = createKomgaClient({
+  baseUrl: 'http://localhost:25600',
+  auth: { type: 'apiKey', key: 'key' },
+  timeout: 120000, // 2 minutes
+});
+```
+
+## Summary
+
+<CardGroup cols={2}>
+  <Card title="Do" icon="check">
+    - Use single client instance
+    - Store credentials in env vars
+    - Handle all error types
+    - Use appropriate page sizes
+    - Add delays for batch ops
+    - Use TypeScript types
+  </Card>
+  
+  <Card title="Don't" icon="xmark">
+    - Create clients per request
+    - Hardcode credentials
+    - Swallow errors silently
+    - Use `unpaged` carelessly
+    - Overwhelm the server
+    - Use `any` types
+  </Card>
+</CardGroup>
+
+## Next steps
+
+- Review [Error Handling](/errors) in depth
+- Learn [Pagination patterns](/pagination)
+- See [Testing guide](/guides/testing)

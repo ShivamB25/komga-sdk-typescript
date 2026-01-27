@@ -1,67 +1,370 @@
 ---
-title: "Pagination and search"
+title: "Pagination and Search"
 description: "List resources with pagination, sorting, and filters"
+icon: "list"
 ---
 
-List endpoints accept pagination and optional search filters. Domain services expose this via `list()`.
+List endpoints accept pagination and optional search filters. Domain services expose this via the `list()` method.
+
+## Understanding the response
+
+Every paginated response includes metadata about the result set:
+
+```typescript
+interface PageResponse<T> {
+  content: T[];         // Items in current page
+  totalElements: number; // Total items across all pages
+  totalPages: number;    // Total number of pages
+  size: number;          // Items per page
+  number: number;        // Current page index (0-based)
+  first: boolean;        // Is this the first page?
+  last: boolean;         // Is this the last page?
+  empty: boolean;        // Is the page empty?
+}
+```
 
 ## Pagination basics
 
-```typescript
+<CodeGroup>
+
+```typescript Domain Service
 const books = await bookService.list({
-  page: 0,
-  size: 20,
+  page: 0,   // First page (0-indexed)
+  size: 20,  // 20 items per page
 });
 
-console.log(books.totalElements, books.totalPages);
+console.log(`Page ${books.number + 1} of ${books.totalPages}`);
+console.log(`Showing ${books.content.length} of ${books.totalElements} total`);
 ```
+
+```typescript Direct API
+import { getBooks } from 'komga-sdk';
+
+const result = await getBooks({
+  client,
+  body: {},
+  query: { page: 0, size: 20 },
+});
+
+if (result.data) {
+  console.log(`Total: ${result.data.totalElements}`);
+}
+```
+
+</CodeGroup>
 
 ## Sorting
 
-Sort values are comma-separated: `field,asc` or `field,desc`.
+Sort values use the format `field,direction` where direction is `asc` or `desc`.
 
 ```typescript
-const series = await seriesService.list({
+// Single sort
+const books = await bookService.list({
   page: 0,
   size: 20,
   sort: ['metadata.title,asc'],
 });
+
+// Multiple sorts (applied in order)
+const books = await bookService.list({
+  page: 0,
+  size: 20,
+  sort: ['metadata.releaseDate,desc', 'metadata.title,asc'],
+});
 ```
+
+### Common sort fields
+
+<Tabs>
+  <Tab title="Books">
+    | Field | Description |
+    |-------|-------------|
+    | `metadata.title` | Book title |
+    | `metadata.number` | Issue/volume number |
+    | `metadata.releaseDate` | Release date |
+    | `created` | When added to Komga |
+    | `lastModified` | Last modification |
+    | `fileSize` | File size |
+  </Tab>
+  
+  <Tab title="Series">
+    | Field | Description |
+    |-------|-------------|
+    | `metadata.title` | Series title |
+    | `metadata.status` | Publication status |
+    | `created` | When added to Komga |
+    | `lastModified` | Last modification |
+    | `booksCount` | Number of books |
+  </Tab>
+</Tabs>
 
 ## Search filters
 
-Search filters are passed under `search` and are typed as `BookSearch` or `SeriesSearch`.
+Search filters narrow results. They're passed under the `search` parameter for domain services or `body` for direct API calls.
 
 ```typescript
 const books = await bookService.list({
-  search: { fullTextSearch: 'manga' },
+  search: {
+    fullTextSearch: 'manga',    // Text search
+    tags: ['favorite'],          // Filter by tags
+    readStatus: 'UNREAD',        // UNREAD, IN_PROGRESS, READ
+    libraryId: 'library-123',    // Specific library
+  },
   page: 0,
   size: 20,
 });
 ```
 
+### Available filters
+
+<AccordionGroup>
+  <Accordion title="Book filters">
+    ```typescript
+    interface BookSearch {
+      fullTextSearch?: string;  // Search title, summary, etc.
+      libraryId?: string[];     // Filter by library IDs
+      seriesId?: string[];      // Filter by series IDs
+      tags?: string[];          // Filter by tags
+      readStatus?: 'UNREAD' | 'IN_PROGRESS' | 'READ';
+      authors?: string[];       // Filter by author names
+      deleted?: boolean;        // Include deleted books
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Series filters">
+    ```typescript
+    interface SeriesSearch {
+      fullTextSearch?: string;  // Search title, summary
+      libraryId?: string[];     // Filter by library IDs
+      status?: 'ENDED' | 'ONGOING' | 'ABANDONED' | 'HIATUS';
+      readStatus?: 'UNREAD' | 'IN_PROGRESS' | 'READ';
+      publishers?: string[];    // Filter by publishers
+      genres?: string[];        // Filter by genres
+      tags?: string[];          // Filter by tags
+      deleted?: boolean;        // Include deleted series
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
 ## Unpaged requests
 
+For small datasets, you can request all items at once:
+
 ```typescript
-const all = await bookService.list({
+const allBooks = await bookService.list({
   unpaged: true,
   sort: ['metadata.title,asc'],
 });
+
+console.log(`Got all ${allBooks.content.length} books`);
 ```
 
-## Raw API functions
+<Warning>
+Use `unpaged` carefully! Large libraries may have thousands of items. This can be slow and memory-intensive.
+</Warning>
+
+## Pagination patterns
+
+### Simple iteration
+
+```typescript
+async function processAllBooks() {
+  let page = 0;
+  let hasMore = true;
+  
+  while (hasMore) {
+    const result = await bookService.list({ page, size: 100 });
+    
+    for (const book of result.content) {
+      processBook(book);
+    }
+    
+    hasMore = !result.last;
+    page++;
+  }
+}
+```
+
+### Async generator
+
+A more elegant approach using async generators:
+
+```typescript
+async function* getAllBooks() {
+  let page = 0;
+  let hasMore = true;
+  
+  while (hasMore) {
+    const result = await bookService.list({ 
+      page, 
+      size: 100,
+      sort: ['metadata.title,asc'] 
+    });
+    
+    for (const book of result.content) {
+      yield book;
+    }
+    
+    hasMore = !result.last;
+    page++;
+  }
+}
+
+// Usage
+for await (const book of getAllBooks()) {
+  console.log(book.metadata.title);
+}
+```
+
+### Parallel fetching (advanced)
+
+Fetch multiple pages in parallel for better performance:
+
+```typescript
+async function fetchAllPagesParallel<T>(
+  fetcher: (page: number) => Promise<PageResponse<T>>,
+  concurrency = 3
+): Promise<T[]> {
+  // First, get total pages
+  const firstPage = await fetcher(0);
+  const { totalPages } = firstPage;
+  
+  if (totalPages <= 1) return firstPage.content;
+  
+  // Fetch remaining pages in batches
+  const allContent = [...firstPage.content];
+  
+  for (let batch = 1; batch < totalPages; batch += concurrency) {
+    const pagePromises = [];
+    for (let i = batch; i < Math.min(batch + concurrency, totalPages); i++) {
+      pagePromises.push(fetcher(i));
+    }
+    
+    const pages = await Promise.all(pagePromises);
+    for (const page of pages) {
+      allContent.push(...page.content);
+    }
+  }
+  
+  return allContent;
+}
+
+// Usage
+const allBooks = await fetchAllPagesParallel(
+  (page) => bookService.list({ page, size: 100 })
+);
+```
+
+### UI pagination component
+
+```typescript
+interface PaginationState {
+  page: number;
+  size: number;
+  sort: string[];
+  search?: BookSearch;
+}
+
+async function fetchPage(state: PaginationState) {
+  const result = await bookService.list({
+    page: state.page,
+    size: state.size,
+    sort: state.sort,
+    search: state.search,
+  });
+  
+  return {
+    items: result.content,
+    totalItems: result.totalElements,
+    totalPages: result.totalPages,
+    currentPage: result.number,
+    hasNext: !result.last,
+    hasPrevious: !result.first,
+  };
+}
+
+// React example
+function useBooks(initialPage = 0, pageSize = 20) {
+  const [page, setPage] = useState(initialPage);
+  const [data, setData] = useState(null);
+  
+  useEffect(() => {
+    fetchPage({ page, size: pageSize, sort: ['metadata.title,asc'] })
+      .then(setData);
+  }, [page, pageSize]);
+  
+  return {
+    ...data,
+    nextPage: () => setPage(p => p + 1),
+    prevPage: () => setPage(p => Math.max(0, p - 1)),
+    goToPage: setPage,
+  };
+}
+```
+
+## Raw API pagination
+
+When using direct API functions:
 
 ```typescript
 import { getBooks } from 'komga-sdk';
 
 const result = await getBooks({
   client,
-  body: { fullTextSearch: 'manga' },
-  query: { page: 0, size: 20, sort: ['metadata.title,asc'] },
+  body: { 
+    fullTextSearch: 'manga' 
+  },
+  query: { 
+    page: 0, 
+    size: 20, 
+    sort: ['metadata.title,asc'] 
+  },
 });
+
+if (result.data) {
+  console.log(result.data.totalElements);
+  console.log(result.data.content);
+}
 ```
+
+## Performance tips
+
+<CardGroup cols={2}>
+  <Card title="Use appropriate page sizes" icon="gauge">
+    - UI display: 10-50 items
+    - Batch processing: 50-100 items
+    - Never use unpaged on large datasets
+  </Card>
+  
+  <Card title="Add filters when possible" icon="filter">
+    - Use libraryId to narrow scope
+    - Use readStatus to filter
+    - Use tags for categorization
+  </Card>
+  
+  <Card title="Cache wisely" icon="database">
+    - Cache total counts
+    - Don't cache content that changes
+    - Invalidate on mutations
+  </Card>
+  
+  <Card title="Handle errors" icon="triangle-exclamation">
+    - Retry on timeouts
+    - Handle empty results
+    - Validate page bounds
+  </Card>
+</CardGroup>
 
 ## Next steps
 
-- Books guide: [Books](/guides/books)
-- Series guide: [Series](/guides/series)
+<CardGroup cols={2}>
+  <Card title="Books Guide" icon="book" href="/guides/books">
+    Full book listing examples.
+  </Card>
+  
+  <Card title="Best Practices" icon="star" href="/best-practices">
+    More pagination patterns.
+  </Card>
+</CardGroup>

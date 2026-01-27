@@ -1,27 +1,98 @@
 ---
 title: "Quickstart"
 description: "Install the SDK, create a client, and make your first request"
+icon: "rocket"
 ---
+
+Get up and running with Komga SDK in under 5 minutes.
+
+## Prerequisites
+
+<Check>
+  **Komga server** running and accessible (local or remote)
+</Check>
+
+<Check>
+  **Node.js 18+** or a modern browser environment
+</Check>
+
+<Check>
+  **Valid credentials** (username/password or API key)
+</Check>
 
 ## Install
 
-```bash
-bun add komga-sdk
-```
-
-```bash
-npm install komga-sdk
-```
-
-```bash
-pnpm add komga-sdk
-```
+<Tabs>
+  <Tab title="bun">
+    ```bash
+    bun add komga-sdk
+    ```
+  </Tab>
+  
+  <Tab title="npm">
+    ```bash
+    npm install komga-sdk
+    ```
+  </Tab>
+  
+  <Tab title="pnpm">
+    ```bash
+    pnpm add komga-sdk
+    ```
+  </Tab>
+  
+  <Tab title="yarn">
+    ```bash
+    yarn add komga-sdk
+    ```
+  </Tab>
+</Tabs>
 
 ## Create a client
 
-```typescript
-import { createKomgaClient } from 'komga-sdk';
+<Steps>
+  <Step title="Import and configure">
+    ```typescript
+    import { createKomgaClient } from 'komga-sdk';
 
+    const client = createKomgaClient({
+      baseUrl: 'http://localhost:25600',
+      auth: {
+        type: 'basic',
+        username: 'admin@example.com',
+        password: 'your-password',
+      },
+      timeout: 30000,
+      retry: { limit: 3 },
+    });
+    ```
+  </Step>
+  
+  <Step title="Use a domain service">
+    ```typescript
+    import { LibraryService } from 'komga-sdk';
+
+    const libraryService = new LibraryService(client);
+    const libraries = await libraryService.getAll();
+    
+    console.log('Your libraries:');
+    libraries.forEach(lib => console.log(`- ${lib.name}`));
+    ```
+  </Step>
+</Steps>
+
+<Note>
+Replace `localhost:25600` with your Komga server address if running remotely.
+</Note>
+
+## Complete example
+
+Here's a full working example:
+
+```typescript title="index.ts"
+import { createKomgaClient, BookService, SeriesService, LibraryService } from 'komga-sdk';
+
+// 1. Create the client
 const client = createKomgaClient({
   baseUrl: 'http://localhost:25600',
   auth: {
@@ -29,22 +100,89 @@ const client = createKomgaClient({
     username: 'admin@example.com',
     password: 'your-password',
   },
-  timeout: 30000,
-  retry: { limit: 3 },
 });
+
+// 2. Initialize services
+const bookService = new BookService(client);
+const seriesService = new SeriesService(client);
+const libraryService = new LibraryService(client);
+
+// 3. Fetch data
+async function main() {
+  // List libraries
+  const libraries = await libraryService.getAll();
+  console.log(`Found ${libraries.length} libraries`);
+
+  // List recent books
+  const books = await bookService.list({ 
+    page: 0, 
+    size: 10,
+    sort: ['created,desc'] 
+  });
+  console.log(`Found ${books.totalElements} total books`);
+  
+  // Show first book details
+  if (books.content.length > 0) {
+    const firstBook = books.content[0];
+    console.log(`Latest book: ${firstBook.metadata.title}`);
+  }
+}
+
+main().catch(console.error);
 ```
 
-## Fetch your libraries
+## Verify it works
 
-```typescript
-import { LibraryService } from 'komga-sdk';
+Run your script:
 
-const libraries = await new LibraryService(client).getAll();
-console.log(libraries.map((library) => library.name));
+<Tabs>
+  <Tab title="bun">
+    ```bash
+    bun run index.ts
+    ```
+  </Tab>
+  
+  <Tab title="Node.js + tsx">
+    ```bash
+    npx tsx index.ts
+    ```
+  </Tab>
+  
+  <Tab title="Node.js + ts-node">
+    ```bash
+    npx ts-node index.ts
+    ```
+  </Tab>
+</Tabs>
+
+You should see output like:
+
+```
+Found 3 libraries
+Found 1247 total books
+Latest book: One Piece Vol. 1
 ```
 
-## Next steps
+<Tip>
+If you get authentication errors, double-check your credentials. See [Troubleshooting](/guides/troubleshooting) for common issues.
+</Tip>
 
-- Set up auth options: [Authentication](/authentication)
-- Work with books: [Books guide](/guides/books)
-- Learn pagination: [Pagination](/pagination)
+## What's next?
+
+<CardGroup cols={2}>
+  <Card title="Authentication" icon="key" href="/authentication">
+    Learn about API keys, Bearer tokens, and security best practices.
+  </Card>
+  
+  <Card title="Books Guide" icon="book" href="/guides/books">
+    List, search, and manage books in your library.
+  </Card>
+  
+  <Card title="Pagination" icon="list" href="/pagination">
+    Handle large datasets with pagination and sorting.
+  </Card>
+  
+  <Card title="Error Handling" icon="triangle-exclamation" href="/errors">
+    Gracefully handle API and validation errors.
+  </Card>
+</CardGroup>

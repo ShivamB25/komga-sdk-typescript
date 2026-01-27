@@ -1,81 +1,340 @@
 ---
-title: "Domain services"
+title: "Domain Services"
 description: "High-level services that wrap API calls with validation"
+icon: "boxes"
 ---
 
-Domain services provide a validated, task-focused interface over the raw API functions.
+Domain services provide a validated, task-focused interface over the raw API functions. They're the recommended way to interact with Komga.
+
+## Why use domain services?
+
+<CardGroup cols={2}>
+  <Card title="Automatic Validation" icon="shield-check">
+    All responses are validated against Zod schemas. Invalid data throws immediately.
+  </Card>
+  
+  <Card title="Type Safety" icon="code">
+    Full TypeScript support with proper return types. No manual casting.
+  </Card>
+  
+  <Card title="Simplified API" icon="wand-magic-sparkles">
+    Intuitive method names and parameters. Less boilerplate code.
+  </Card>
+  
+  <Card title="Error Handling" icon="triangle-exclamation">
+    Consistent error types across all operations. Easy to catch and handle.
+  </Card>
+</CardGroup>
 
 ## Available services
 
-- `BookService`
-- `SeriesService`
-- `LibraryService`
+| Service | Domain | Key Operations |
+|---------|--------|----------------|
+| `BookService` | Individual books | List, get, update metadata, pages, thumbnails |
+| `SeriesService` | Series (grouped books) | List, get, update metadata, get books |
+| `LibraryService` | Libraries (file locations) | List, get, create, update, scan, delete |
 
-If you need endpoints beyond these services, use direct API functions from the main package exports.
+<Note>
+For Collections and Read Lists, use [Direct API functions](/direct-api) as they're not yet wrapped in domain services. See the [Collections](/guides/collections) and [Read Lists](/guides/read-lists) guides.
+</Note>
 
 ## BookService
+
+Manage individual books in your library.
 
 ```typescript
 import { BookService } from 'komga-sdk';
 
 const service = new BookService(client);
-
-const book = await service.getById('book-123');
-const books = await service.list({
-  search: { fullTextSearch: 'manga' },
-  page: 0,
-  size: 20,
-  sort: ['metadata.title,asc'],
-});
-
-await service.updateMetadata('book-123', {
-  title: 'New Title',
-  summary: 'Updated summary',
-});
-
-const pages = await service.getPages('book-123');
 ```
 
+### Methods
+
+<AccordionGroup>
+  <Accordion title="list(options)" icon="list">
+    List books with pagination and search.
+    
+    ```typescript
+    const books = await service.list({
+      search: { fullTextSearch: 'manga' },
+      page: 0,
+      size: 20,
+      sort: ['metadata.title,asc'],
+    });
+    
+    console.log(books.totalElements); // Total matching books
+    console.log(books.content);       // Current page
+    ```
+    
+    **Parameters:**
+    - `search` - Search filters (fullTextSearch, tags, etc.)
+    - `page` - Page index (0-based)
+    - `size` - Items per page
+    - `sort` - Sort fields and directions
+    - `unpaged` - Return all results (use carefully)
+  </Accordion>
+  
+  <Accordion title="getById(bookId)" icon="book">
+    Get a single book by ID.
+    
+    ```typescript
+    const book = await service.getById('book-123');
+    console.log(book.metadata.title);
+    console.log(book.metadata.summary);
+    ```
+  </Accordion>
+  
+  <Accordion title="updateMetadata(bookId, updates)" icon="pen">
+    Update book metadata.
+    
+    ```typescript
+    await service.updateMetadata('book-123', {
+      title: 'New Title',
+      summary: 'Updated summary',
+      tags: ['favorite', 'manga'],
+    });
+    ```
+  </Accordion>
+  
+  <Accordion title="getPages(bookId)" icon="images">
+    Get all pages in a book.
+    
+    ```typescript
+    const pages = await service.getPages('book-123');
+    console.log(`${pages.length} pages`);
+    pages.forEach((page, i) => {
+      console.log(`Page ${i + 1}: ${page.width}x${page.height}`);
+    });
+    ```
+  </Accordion>
+  
+  <Accordion title="getThumbnailUrl(bookId)" icon="image">
+    Get the thumbnail URL for a book.
+    
+    ```typescript
+    const url = service.getThumbnailUrl('book-123');
+    // /api/v1/books/book-123/thumbnail
+    ```
+  </Accordion>
+  
+  <Accordion title="deleteReadProgress(bookId)" icon="trash">
+    Clear read progress for a book.
+    
+    ```typescript
+    await service.deleteReadProgress('book-123');
+    ```
+  </Accordion>
+</AccordionGroup>
+
 ## SeriesService
+
+Manage series (collections of books).
 
 ```typescript
 import { SeriesService } from 'komga-sdk';
 
 const service = new SeriesService(client);
-
-const series = await service.getById('series-123');
-const list = await service.list({ page: 0, size: 20 });
-
-await service.updateMetadata('series-123', {
-  status: 'ONGOING',
-  publisher: 'Example Publisher',
-});
-
-const books = await service.getBooks('series-123', { page: 0, size: 50 });
 ```
 
+### Methods
+
+<AccordionGroup>
+  <Accordion title="list(options)" icon="list">
+    List series with pagination and search.
+    
+    ```typescript
+    const series = await service.list({
+      search: { fullTextSearch: 'fantasy' },
+      page: 0,
+      size: 20,
+      sort: ['metadata.title,asc'],
+    });
+    ```
+  </Accordion>
+  
+  <Accordion title="getById(seriesId)" icon="folder">
+    Get a single series by ID.
+    
+    ```typescript
+    const series = await service.getById('series-123');
+    console.log(series.metadata.title);
+    console.log(series.booksCount);
+    ```
+  </Accordion>
+  
+  <Accordion title="updateMetadata(seriesId, updates)" icon="pen">
+    Update series metadata.
+    
+    ```typescript
+    await service.updateMetadata('series-123', {
+      status: 'ONGOING',
+      publisher: 'Example Publisher',
+      genres: ['Fantasy', 'Adventure'],
+    });
+    ```
+  </Accordion>
+  
+  <Accordion title="getBooks(seriesId, options)" icon="books">
+    Get books in a series.
+    
+    ```typescript
+    const books = await service.getBooks('series-123', {
+      page: 0,
+      size: 50,
+      sort: ['metadata.number,asc'],
+    });
+    ```
+  </Accordion>
+  
+  <Accordion title="getCollections(seriesId)" icon="folder-tree">
+    Get collections containing this series.
+    
+    ```typescript
+    const collections = await service.getCollections('series-123');
+    collections.forEach(c => console.log(c.name));
+    ```
+  </Accordion>
+</AccordionGroup>
+
 ## LibraryService
+
+Manage libraries (root folders where Komga scans for content).
 
 ```typescript
 import { LibraryService } from 'komga-sdk';
 
 const service = new LibraryService(client);
-
-const libraries = await service.getAll();
-const library = await service.getById('library-123');
-
-await service.update(library.id, { name: 'Updated Library' });
-await service.scan(library.id);
 ```
+
+### Methods
+
+<AccordionGroup>
+  <Accordion title="getAll()" icon="list">
+    Get all libraries.
+    
+    ```typescript
+    const libraries = await service.getAll();
+    libraries.forEach(lib => {
+      console.log(`${lib.name}: ${lib.root}`);
+    });
+    ```
+  </Accordion>
+  
+  <Accordion title="getById(libraryId)" icon="database">
+    Get a single library by ID.
+    
+    ```typescript
+    const library = await service.getById('library-123');
+    console.log(library.name);
+    console.log(library.root);
+    ```
+  </Accordion>
+  
+  <Accordion title="create(payload)" icon="plus">
+    Create a new library.
+    
+    ```typescript
+    const library = await service.create({
+      name: 'Comics',
+      root: '/data/comics',
+      // ... many other options
+    });
+    ```
+    
+    See [Libraries guide](/guides/libraries) for full creation options.
+  </Accordion>
+  
+  <Accordion title="update(libraryId, updates)" icon="pen">
+    Update library settings.
+    
+    ```typescript
+    await service.update('library-123', {
+      name: 'Updated Name',
+    });
+    ```
+  </Accordion>
+  
+  <Accordion title="scan(libraryId)" icon="arrows-rotate">
+    Trigger a library scan.
+    
+    ```typescript
+    await service.scan('library-123');
+    // Scan runs async on server
+    ```
+  </Accordion>
+  
+  <Accordion title="delete(libraryId)" icon="trash">
+    Delete a library.
+    
+    ```typescript
+    await service.delete('library-123');
+    ```
+    
+    <Warning>This permanently removes the library from Komga (files on disk are not deleted).</Warning>
+  </Accordion>
+</AccordionGroup>
 
 ## Domain services vs direct API
 
-| Approach | When to use | Tradeoffs |
-| --- | --- | --- |
-| Domain services | Most app code | Validated responses, higher-level interface |
-| Direct API functions | Advanced or unsupported endpoints | Full coverage, manual validation |
+<Tabs>
+  <Tab title="When to use services">
+    **Use domain services when:**
+    - Building application features
+    - You want automatic validation
+    - You prefer a cleaner API
+    - The endpoint is supported by a service
+    
+    ```typescript
+    // Clean, validated, typed
+    const book = await bookService.getById('book-123');
+    console.log(book.metadata.title); // TypeScript knows the shape
+    ```
+  </Tab>
+  
+  <Tab title="When to use direct API">
+    **Use direct API when:**
+    - Endpoint not covered by services (Collections, Read Lists, Users, etc.)
+    - You need full control over the request
+    - You're building custom abstractions
+    - You need access to raw response data
+    
+    ```typescript
+    import { getCollections } from 'komga-sdk';
+    
+    const result = await getCollections({
+      client,
+      query: { page: 0, size: 20 },
+    });
+    
+    if (result.data) {
+      console.log(result.data.content);
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Comparison table
+
+| Aspect | Domain Services | Direct API |
+|--------|-----------------|------------|
+| Validation | Automatic | Manual |
+| Return type | `BookDto` | `{ data?, error? }` |
+| Error handling | Throws | Returns error object |
+| Coverage | ~60% of API | 100% of API |
+| Boilerplate | Minimal | More verbose |
 
 ## Next steps
 
-- Use raw endpoints: [Direct API](/direct-api)
-- Pagination patterns: [Pagination](/pagination)
+<CardGroup cols={3}>
+  <Card title="Books Guide" icon="book" href="/guides/books">
+    Deep dive into book operations.
+  </Card>
+  
+  <Card title="Direct API" icon="code" href="/direct-api">
+    Use low-level API functions.
+  </Card>
+  
+  <Card title="Validation" icon="shield-check" href="/validation">
+    Understand response validation.
+  </Card>
+</CardGroup>

@@ -1,11 +1,30 @@
 ---
 title: "Authentication"
 description: "Configure Komga authentication for the SDK client"
+icon: "key"
 ---
 
-Komga SDK supports basic auth and API key auth through `createKomgaClient`.
+Komga SDK supports multiple authentication methods. Choose the one that fits your use case.
 
-## Basic auth
+## Authentication methods
+
+<CardGroup cols={3}>
+  <Card title="Basic Auth" icon="user">
+    Username and password authentication. Good for development and simple integrations.
+  </Card>
+  
+  <Card title="API Key" icon="key">
+    Long-lived tokens for server-to-server communication. Recommended for production.
+  </Card>
+  
+  <Card title="Bearer Token" icon="shield-check">
+    JWT tokens for session-based authentication. Use with OAuth/SSO flows.
+  </Card>
+</CardGroup>
+
+## Basic Auth
+
+The simplest authentication method using username and password.
 
 ```typescript
 import { createKomgaClient } from 'komga-sdk';
@@ -20,7 +39,25 @@ const client = createKomgaClient({
 });
 ```
 
-## API key auth
+<Note>
+Basic Auth credentials are sent with every request. The SDK handles Base64 encoding automatically.
+</Note>
+
+### When to use
+
+- Local development
+- Simple scripts and automation
+- Testing environments
+
+### Limitations
+
+- Credentials sent with every request
+- Password rotation requires code changes
+- Not ideal for distributed systems
+
+## API Key Auth
+
+API keys are long-lived tokens generated in the Komga UI. They're the recommended authentication method for production applications.
 
 ```typescript
 import { createKomgaClient } from 'komga-sdk';
@@ -34,12 +71,208 @@ const client = createKomgaClient({
 });
 ```
 
-## Security notes
+### Generate an API key
 
-- Store credentials in environment variables.
-- Avoid logging secrets in debug output.
+<Steps>
+  <Step title="Open Komga settings">
+    Navigate to your Komga server and open the user settings page.
+  </Step>
+  
+  <Step title="Create API key">
+    Click "Create API Key" and provide a descriptive name (e.g., "SDK Integration").
+  </Step>
+  
+  <Step title="Copy the key">
+    Copy the generated key immediately - it won't be shown again.
+  </Step>
+  
+  <Step title="Store securely">
+    Store the key in environment variables or a secrets manager.
+  </Step>
+</Steps>
+
+### When to use
+
+- Production applications
+- CI/CD pipelines
+- Server-to-server integrations
+- Long-running services
+
+### Benefits
+
+- Revocable without password changes
+- Scoped permissions possible
+- Audit trail in Komga
+- No password exposure
+
+## Bearer Token Auth
+
+For session-based authentication using JWT tokens.
+
+```typescript
+import { createKomgaClient } from 'komga-sdk';
+
+const client = createKomgaClient({
+  baseUrl: 'http://localhost:25600',
+  auth: {
+    type: 'bearer',
+    token: 'your-jwt-token',
+  },
+});
+```
+
+### When to use
+
+- OAuth/OpenID Connect flows
+- Session-based web applications
+- Temporary access tokens
+
+## Security best practices
+
+<Warning>
+Never hardcode credentials in source code. Use environment variables or a secrets manager.
+</Warning>
+
+### Use environment variables
+
+```typescript title=".env"
+KOMGA_URL=http://localhost:25600
+KOMGA_API_KEY=your-api-key-here
+```
+
+```typescript title="lib/komga.ts"
+import { createKomgaClient } from 'komga-sdk';
+
+const client = createKomgaClient({
+  baseUrl: process.env.KOMGA_URL!,
+  auth: {
+    type: 'apiKey',
+    key: process.env.KOMGA_API_KEY!,
+  },
+});
+```
+
+### Rotate credentials regularly
+
+<AccordionGroup>
+  <Accordion title="API key rotation strategy">
+    1. Generate a new API key in Komga
+    2. Update your application with the new key
+    3. Verify the application works with the new key
+    4. Delete the old API key in Komga
+    
+    Consider using a secrets manager that supports automatic rotation.
+  </Accordion>
+  
+  <Accordion title="Handling expired tokens">
+    For Bearer tokens, implement refresh logic:
+    
+    ```typescript
+    async function getClient() {
+      let token = await getStoredToken();
+      
+      if (isTokenExpired(token)) {
+        token = await refreshToken();
+        await storeToken(token);
+      }
+      
+      return createKomgaClient({
+        baseUrl: process.env.KOMGA_URL!,
+        auth: { type: 'bearer', token },
+      });
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Disable debug in production
+
+```typescript
+const client = createKomgaClient({
+  baseUrl: process.env.KOMGA_URL!,
+  auth: { type: 'apiKey', key: process.env.KOMGA_API_KEY! },
+  debug: process.env.NODE_ENV !== 'production', // Only in dev
+});
+```
+
+### Use HTTPS in production
+
+<Tabs>
+  <Tab title="Production">
+    ```typescript
+    const client = createKomgaClient({
+      baseUrl: 'https://komga.example.com', // HTTPS
+      auth: { type: 'apiKey', key: process.env.KOMGA_API_KEY! },
+    });
+    ```
+  </Tab>
+  
+  <Tab title="Development">
+    ```typescript
+    const client = createKomgaClient({
+      baseUrl: 'http://localhost:25600', // HTTP OK for local
+      auth: { type: 'basic', username: 'admin', password: 'password' },
+    });
+    ```
+  </Tab>
+</Tabs>
+
+## Comparison table
+
+| Method | Security | Ease of Use | Best For |
+|--------|----------|-------------|----------|
+| Basic Auth | Medium | Easy | Development, scripts |
+| API Key | High | Medium | Production, automation |
+| Bearer Token | High | Complex | OAuth/SSO, sessions |
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="401 Unauthorized">
+    **Causes:**
+    - Incorrect username/password
+    - Invalid or expired API key
+    - Expired bearer token
+    
+    **Solutions:**
+    - Verify credentials are correct
+    - Check API key hasn't been revoked
+    - Refresh bearer token if expired
+    - Ensure user has required permissions
+  </Accordion>
+  
+  <Accordion title="403 Forbidden">
+    **Causes:**
+    - User lacks permission for the requested resource
+    - API key has insufficient scope
+    
+    **Solutions:**
+    - Check user permissions in Komga
+    - Verify the user can access the library/book
+    - Use an admin account for full access
+  </Accordion>
+  
+  <Accordion title="Connection refused">
+    **Causes:**
+    - Komga server not running
+    - Wrong baseUrl
+    - Firewall blocking connection
+    
+    **Solutions:**
+    - Verify Komga is running
+    - Check baseUrl includes correct port
+    - Test with curl or browser
+  </Accordion>
+</AccordionGroup>
 
 ## Next steps
 
-- Configure retries and timeouts: [Configuration](/reference/configuration)
-- Add interceptors: [Interceptors](/interceptors)
+<CardGroup cols={2}>
+  <Card title="Configuration" icon="gear" href="/reference/configuration">
+    Configure timeouts, retries, and other client options.
+  </Card>
+  
+  <Card title="Best Practices" icon="star" href="/best-practices">
+    Learn security best practices for production.
+  </Card>
+</CardGroup>
