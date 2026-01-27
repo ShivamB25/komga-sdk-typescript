@@ -8,6 +8,7 @@ We provide multiple documentation formats:
 
 ### Mintlify Docs (Recommended)
 Stripe-quality usage documentation with interactive API reference.
+- Deployed: https://routrtechnologiesllc.mintlify.app/
 - Location: `docs/mintlify/`
 - Local preview: `cd docs/mintlify && bun run --bun mint dev`
 - Structure:
