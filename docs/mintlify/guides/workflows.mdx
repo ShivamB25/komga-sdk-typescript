@@ -1,0 +1,64 @@
+---
+title: "Workflows"
+description: "End-to-end usage patterns for common tasks"
+---
+
+These workflows combine multiple SDK calls into practical flows.
+
+## Update metadata for matching books
+
+```typescript
+import { BookService } from 'komga-sdk';
+
+const service = new BookService(client);
+const page = await service.list({
+  search: { fullTextSearch: 'classic' },
+  page: 0,
+  size: 50,
+});
+
+for (const book of page.content) {
+  await service.updateMetadata(book.id, {
+    summary: 'Curated collection',
+  });
+}
+```
+
+## Scan a library and list recent books
+
+```typescript
+import { LibraryService, BookService } from 'komga-sdk';
+
+const libraries = await new LibraryService(client).getAll();
+const library = libraries[0];
+
+await new LibraryService(client).scan(library.id);
+
+const books = await new BookService(client).list({
+  page: 0,
+  size: 20,
+  sort: ['metadata.releaseDate,desc'],
+});
+
+console.log(books.content.map((book) => book.metadata.title));
+```
+
+## Build thumbnail URLs for a UI
+
+```typescript
+import { BookService } from 'komga-sdk';
+
+const service = new BookService(client);
+const page = await service.list({ page: 0, size: 20 });
+
+const thumbnails = page.content.map((book) => ({
+  id: book.id,
+  title: book.metadata.title,
+  thumbnailUrl: service.getThumbnailUrl(book.id),
+}));
+```
+
+## Next steps
+
+- Interceptors: [Interceptors](/interceptors)
+- Error handling: [Errors](/errors)

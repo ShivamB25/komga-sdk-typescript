@@ -1,0 +1,70 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "name": "Komga SDK",
+  "theme": "mint",
+  "colors": {
+    "primary": "#0D9373"
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Guides",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "authentication"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "domain-services",
+              "direct-api",
+              "pagination",
+              "validation",
+              "errors",
+              "interceptors"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/books",
+              "guides/series",
+              "guides/libraries",
+              "guides/workflows"
+            ]
+          },
+          {
+            "group": "Operations",
+            "pages": [
+              "guides/troubleshooting",
+              "guides/testing",
+              "guides/migration"
+            ]
+          },
+          {
+            "group": "Reference",
+            "pages": [
+              "reference/configuration",
+              "reference/typescript",
+              "reference/glossary",
+              "reference/api-reference"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "openapi": "https://raw.githubusercontent.com/gotson/komga/refs/heads/master/komga/docs/openapi.json"
+      },
+      {
+        "tab": "TypeDoc",
+        "href": "/api/"
+      }
+    ]
+  }
+}

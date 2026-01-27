@@ -1,0 +1,40 @@
+---
+title: "Errors"
+description: "Typed errors with guards and retry helpers"
+---
+
+The SDK provides a typed error hierarchy with type guards for common cases.
+
+## Quick example
+
+```typescript
+import {
+  isApiError,
+  isValidationError,
+  isNetworkError,
+  isTimeoutError,
+} from 'komga-sdk';
+
+try {
+  await bookService.getById('invalid-id');
+} catch (error) {
+  if (isApiError(error)) {
+    console.log(`HTTP ${error.status}: ${error.statusText}`);
+  } else if (isValidationError(error)) {
+    console.log('Validation failed:', error.getFieldErrors());
+  } else if (isTimeoutError(error)) {
+    console.log('Request timed out');
+  } else if (isNetworkError(error)) {
+    console.log('Network error:', error.message);
+  }
+}
+```
+
+## Full reference
+
+See `src/errors/README.md` for class details and guard usage.
+
+## Next steps
+
+- Configure retries: [Configuration](/reference/configuration)
+- Add error transforms: [Interceptors](/interceptors)

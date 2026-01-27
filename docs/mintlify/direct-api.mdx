@@ -1,0 +1,56 @@
+---
+title: "Direct API functions"
+description: "Use low-level endpoints when you need full API coverage"
+---
+
+Direct API functions return `{ data, error }` and require manual response validation if you want runtime checks.
+
+## Fetch a book
+
+```typescript
+import { createKomgaClient, getBookById } from 'komga-sdk';
+
+const client = createKomgaClient({
+  baseUrl: 'http://localhost:25600',
+  auth: { type: 'basic', username: 'admin', password: 'password' },
+});
+
+const result = await getBookById({
+  client,
+  path: { bookId: 'book-123' },
+});
+
+if (result.data) {
+  console.log(result.data.metadata.title);
+}
+```
+
+## List books with search and pagination
+
+```typescript
+import { getBooks } from 'komga-sdk';
+
+const result = await getBooks({
+  client,
+  body: { fullTextSearch: 'manga' },
+  query: { page: 0, size: 20, sort: ['metadata.title,asc'] },
+});
+
+if (result.data) {
+  console.log(result.data.totalElements);
+}
+```
+
+## Validate responses
+
+```typescript
+import { BookDtoSchema, validateResponse } from 'komga-sdk';
+
+const validated = validateResponse(BookDtoSchema, result.data);
+console.log(validated.id);
+```
+
+## Next steps
+
+- Learn validation helpers: [Validation](/validation)
+- Learn error handling: [Errors](/errors)

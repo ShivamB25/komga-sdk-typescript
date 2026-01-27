@@ -1,0 +1,63 @@
+---
+title: "Series"
+description: "List and manage series, then drill into books"
+---
+
+This guide covers series workflows using `SeriesService`.
+
+## List series
+
+```typescript
+import { SeriesService } from 'komga-sdk';
+
+const service = new SeriesService(client);
+const page = await service.list({ page: 0, size: 20 });
+
+console.log(page.totalElements);
+```
+
+## Search series
+
+```typescript
+const page = await service.list({
+  search: { fullTextSearch: 'fantasy' },
+  page: 0,
+  size: 20,
+  sort: ['metadata.title,asc'],
+});
+```
+
+## Get a series by ID
+
+```typescript
+const series = await service.getById('series-123');
+console.log(series.metadata.title);
+```
+
+## Update metadata
+
+```typescript
+await service.updateMetadata('series-123', {
+  status: 'ONGOING',
+  publisher: 'Example Publisher',
+});
+```
+
+## List books in a series
+
+```typescript
+const books = await service.getBooks('series-123', { page: 0, size: 50 });
+console.log(books.totalElements);
+```
+
+## List collections containing a series
+
+```typescript
+const collections = await service.getCollections('series-123');
+console.log(collections.length);
+```
+
+## Next steps
+
+- Books guide: [Books](/guides/books)
+- Libraries guide: [Libraries](/guides/libraries)

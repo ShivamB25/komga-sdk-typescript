@@ -1,0 +1,45 @@
+---
+title: "Authentication"
+description: "Configure Komga authentication for the SDK client"
+---
+
+Komga SDK supports basic auth and API key auth through `createKomgaClient`.
+
+## Basic auth
+
+```typescript
+import { createKomgaClient } from 'komga-sdk';
+
+const client = createKomgaClient({
+  baseUrl: 'http://localhost:25600',
+  auth: {
+    type: 'basic',
+    username: 'admin@example.com',
+    password: 'your-password',
+  },
+});
+```
+
+## API key auth
+
+```typescript
+import { createKomgaClient } from 'komga-sdk';
+
+const client = createKomgaClient({
+  baseUrl: 'http://localhost:25600',
+  auth: {
+    type: 'apiKey',
+    key: 'your-api-key',
+  },
+});
+```
+
+## Security notes
+
+- Store credentials in environment variables.
+- Avoid logging secrets in debug output.
+
+## Next steps
+
+- Configure retries and timeouts: [Configuration](/reference/configuration)
+- Add interceptors: [Interceptors](/interceptors)

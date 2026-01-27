@@ -33,6 +33,14 @@ Manual TypeScript SDK for the Komga API. Source lives in `src/` and ships a ky-b
 │   ├── validation/           # zod schemas + helpers (*.test.ts for tests)
 │   ├── interceptors/         # request/response middleware (*.test.ts for tests)
 │   └── errors/               # error types (*.test.ts for tests)
+├── docs/
+│   ├── mintlify/             # Mintlify documentation site
+│   │   ├── docs.json         # Mintlify configuration
+│   │   ├── *.mdx             # Core concept pages
+│   │   ├── guides/           # Usage guides (books, series, libraries)
+│   │   └── reference/        # Reference docs (config, typescript, api)
+│   ├── api/                  # TypeDoc output (generated)
+│   └── *.md                  # Legacy markdown docs
 ├── vitest.config.ts          # Test configuration
 ├── tsconfig.json
 ├── package.json
@@ -52,6 +60,9 @@ Manual TypeScript SDK for the Komga API. Source lives in `src/` and ships a ky-b
 | Interceptors | `src/interceptors/` | logging, validation, error transform |
 | Tests | `src/**/*.test.ts` | vitest tests co-located with source |
 | Test config | `vitest.config.ts` | coverage thresholds, exclusions |
+| Mintlify docs | `docs/mintlify/` | Stripe-quality usage docs |
+| TypeDoc output | `docs/api/` | Generated API reference |
+| Legacy docs | `docs/*.md` | Markdown documentation |
 
 ## CONVENTIONS
 - Source-only repo: `noEmit` TypeScript config; no build scripts defined.
@@ -72,6 +83,19 @@ bun tsc --noEmit        # TypeScript check
 bun run test            # Run tests
 bun run test:watch      # Watch mode
 bun run test:coverage   # With coverage report
+bun run docs            # Generate TypeDoc API docs
+```
+
+## DOCUMENTATION COMMANDS
+```bash
+# Mintlify docs (Stripe-quality usage docs)
+cd docs/mintlify && bun run --bun mint dev          # Local preview
+bun run docs                                         # Generate TypeDoc to docs/api/
+
+# TypeDoc API reference
+bun run docs            # Output to docs/api/
+bun run docs:watch      # Watch mode
+bun run docs:serve      # Generate and serve
 ```
 
 ## VERIFICATION CHECKLIST
@@ -82,6 +106,8 @@ bun run test:coverage   # With coverage report
 - [x] TypeScript compiles clean (`bun tsc --noEmit`)
 - [x] Tests pass (`bun run test`) - 134 tests across 5 suites
 - [x] README.md created with full documentation
+- [x] Mintlify docs created with full structure
+- [x] TypeDoc and Mintlify coexist side-by-side
 
 ## DEPRECATED ENDPOINTS
 | Endpoint | Replacement | Since |

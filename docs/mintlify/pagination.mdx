@@ -1,0 +1,67 @@
+---
+title: "Pagination and search"
+description: "List resources with pagination, sorting, and filters"
+---
+
+List endpoints accept pagination and optional search filters. Domain services expose this via `list()`.
+
+## Pagination basics
+
+```typescript
+const books = await bookService.list({
+  page: 0,
+  size: 20,
+});
+
+console.log(books.totalElements, books.totalPages);
+```
+
+## Sorting
+
+Sort values are comma-separated: `field,asc` or `field,desc`.
+
+```typescript
+const series = await seriesService.list({
+  page: 0,
+  size: 20,
+  sort: ['metadata.title,asc'],
+});
+```
+
+## Search filters
+
+Search filters are passed under `search` and are typed as `BookSearch` or `SeriesSearch`.
+
+```typescript
+const books = await bookService.list({
+  search: { fullTextSearch: 'manga' },
+  page: 0,
+  size: 20,
+});
+```
+
+## Unpaged requests
+
+```typescript
+const all = await bookService.list({
+  unpaged: true,
+  sort: ['metadata.title,asc'],
+});
+```
+
+## Raw API functions
+
+```typescript
+import { getBooks } from 'komga-sdk';
+
+const result = await getBooks({
+  client,
+  body: { fullTextSearch: 'manga' },
+  query: { page: 0, size: 20, sort: ['metadata.title,asc'] },
+});
+```
+
+## Next steps
+
+- Books guide: [Books](/guides/books)
+- Series guide: [Series](/guides/series)

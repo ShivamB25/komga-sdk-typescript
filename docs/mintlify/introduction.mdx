@@ -1,0 +1,35 @@
+---
+title: "Introduction"
+description: "Type-safe TypeScript SDK for the Komga media server API"
+---
+
+Komga SDK is a TypeScript-first client for the Komga API. It provides a typed HTTP client, Zod validation, and domain services for common workflows.
+
+## What you get
+
+- Typed API calls with runtime validation
+- Domain services for books, series, and libraries
+- Interceptors for logging, validation, and error transforms
+- Source-only ESM package with strong TypeScript support
+
+## Choose your integration style
+
+### Domain services (recommended)
+
+Use high-level services that validate responses and expose friendly methods.
+
+### Direct API functions
+
+Call low-level endpoints directly for full API coverage and advanced use cases.
+
+## Typical workflow
+
+1. Create a client with `createKomgaClient`.
+2. Use a domain service for common tasks.
+3. Add interceptors for logging, validation, or error handling.
+
+## Next steps
+
+- Get started: [Quickstart](/quickstart)
+- Configure auth: [Authentication](/authentication)
+- Explore services: [Domain services](/domain-services)

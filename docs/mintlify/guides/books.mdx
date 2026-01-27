@@ -1,0 +1,69 @@
+---
+title: "Books"
+description: "List, search, and manage books"
+---
+
+This guide covers common book workflows using `BookService`.
+
+## List books
+
+```typescript
+import { BookService } from 'komga-sdk';
+
+const service = new BookService(client);
+const page = await service.list({ page: 0, size: 20 });
+
+console.log(page.totalElements);
+```
+
+## Search books
+
+```typescript
+const page = await service.list({
+  search: { fullTextSearch: 'manga' },
+  page: 0,
+  size: 20,
+  sort: ['metadata.title,asc'],
+});
+```
+
+## Get a book by ID
+
+```typescript
+const book = await service.getById('book-123');
+console.log(book.metadata.title);
+```
+
+## Update metadata
+
+```typescript
+await service.updateMetadata('book-123', {
+  title: 'New Title',
+  summary: 'Updated summary',
+});
+```
+
+## Get pages
+
+```typescript
+const pages = await service.getPages('book-123');
+console.log(pages.length);
+```
+
+## Delete read progress
+
+```typescript
+await service.deleteReadProgress('book-123');
+```
+
+## Thumbnails
+
+```typescript
+const url = service.getThumbnailUrl('book-123');
+// /api/v1/books/book-123/thumbnail
+```
+
+## Next steps
+
+- Series guide: [Series](/guides/series)
+- Pagination details: [Pagination](/pagination)

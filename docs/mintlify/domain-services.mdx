@@ -1,0 +1,81 @@
+---
+title: "Domain services"
+description: "High-level services that wrap API calls with validation"
+---
+
+Domain services provide a validated, task-focused interface over the raw API functions.
+
+## Available services
+
+- `BookService`
+- `SeriesService`
+- `LibraryService`
+
+If you need endpoints beyond these services, use direct API functions from the main package exports.
+
+## BookService
+
+```typescript
+import { BookService } from 'komga-sdk';
+
+const service = new BookService(client);
+
+const book = await service.getById('book-123');
+const books = await service.list({
+  search: { fullTextSearch: 'manga' },
+  page: 0,
+  size: 20,
+  sort: ['metadata.title,asc'],
+});
+
+await service.updateMetadata('book-123', {
+  title: 'New Title',
+  summary: 'Updated summary',
+});
+
+const pages = await service.getPages('book-123');
+```
+
+## SeriesService
+
+```typescript
+import { SeriesService } from 'komga-sdk';
+
+const service = new SeriesService(client);
+
+const series = await service.getById('series-123');
+const list = await service.list({ page: 0, size: 20 });
+
+await service.updateMetadata('series-123', {
+  status: 'ONGOING',
+  publisher: 'Example Publisher',
+});
+
+const books = await service.getBooks('series-123', { page: 0, size: 50 });
+```
+
+## LibraryService
+
+```typescript
+import { LibraryService } from 'komga-sdk';
+
+const service = new LibraryService(client);
+
+const libraries = await service.getAll();
+const library = await service.getById('library-123');
+
+await service.update(library.id, { name: 'Updated Library' });
+await service.scan(library.id);
+```
+
+## Domain services vs direct API
+
+| Approach | When to use | Tradeoffs |
+| --- | --- | --- |
+| Domain services | Most app code | Validated responses, higher-level interface |
+| Direct API functions | Advanced or unsupported endpoints | Full coverage, manual validation |
+
+## Next steps
+
+- Use raw endpoints: [Direct API](/direct-api)
+- Pagination patterns: [Pagination](/pagination)

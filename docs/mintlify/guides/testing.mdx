@@ -1,0 +1,39 @@
+---
+title: "Testing"
+description: "Test your integration and run the SDK test suite"
+---
+
+## Integration testing
+
+Use a local Komga instance and real credentials to validate your integration end to end.
+
+```typescript
+import { createKomgaClient, BookService } from 'komga-sdk';
+
+const client = createKomgaClient({
+  baseUrl: process.env.KOMGA_URL || 'http://localhost:25600',
+  auth: {
+    type: 'basic',
+    username: process.env.KOMGA_USER || 'admin',
+    password: process.env.KOMGA_PASS || 'password',
+  },
+});
+
+const book = await new BookService(client).getById('book-123');
+console.log(book.id);
+```
+
+## SDK test suite (repo)
+
+```bash
+bun run test
+```
+
+```bash
+bun run test:coverage
+```
+
+## Next steps
+
+- Troubleshooting: [Troubleshooting](/guides/troubleshooting)
+- Configuration: [Configuration](/reference/configuration)

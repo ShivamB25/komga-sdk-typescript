@@ -4,6 +4,19 @@ A TypeScript SDK for the [Komga](https://komga.org/) media server API. It provid
 
 ## Documentation
 
+We provide multiple documentation formats:
+
+### Mintlify Docs (Recommended)
+Stripe-quality usage documentation with interactive API reference.
+- Location: `docs/mintlify/`
+- Local preview: `cd docs/mintlify && bun run --bun mint dev`
+- Structure:
+  - **Guides**: Getting Started, Core Concepts, Domain Guides, Operations
+  - **API Reference**: Auto-generated from Komga OpenAPI spec
+  - **TypeDoc**: Links to TypeScript SDK reference
+
+### Markdown Docs
+Traditional markdown documentation for quick reference.
 - Start here: `docs/getting-started.md`
 - Domain Services: `docs/domain-services.md`
 - Pagination & Search: `docs/pagination-search.md`
@@ -18,6 +31,7 @@ A TypeScript SDK for the [Komga](https://komga.org/) media server API. It provid
 
 ## Table of Contents
 
+- Documentation (Mintlify + Markdown)
 - Installation
 - Quick Start
 - Requirements

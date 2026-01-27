@@ -1,0 +1,59 @@
+---
+title: "Interceptors"
+description: "Hook into request, response, and error lifecycles"
+---
+
+Interceptors let you add logging, validation, and error transforms without changing call sites.
+
+## Attach interceptors
+
+```typescript
+import {
+  createKomgaClient,
+  createLoggingInterceptor,
+  createErrorTransformInterceptor,
+  createValidationInterceptor,
+  BookDtoSchema,
+} from 'komga-sdk';
+
+const client = createKomgaClient({
+  baseUrl: 'http://localhost:25600',
+  auth: { type: 'basic', username: 'admin', password: 'password' },
+});
+
+const { request, response } = createLoggingInterceptor({ logHeaders: true });
+const errorTransform = createErrorTransformInterceptor();
+const validation = createValidationInterceptor({
+  schemas: { '/api/books': BookDtoSchema },
+});
+
+client.interceptors.request.use(request);
+client.interceptors.response.use(response);
+client.interceptors.response.use(validation);
+client.interceptors.error.use(errorTransform);
+```
+
+## Logging
+
+Use `createLoggingInterceptor` to log requests and responses during development.
+
+## Error transforms
+
+`createErrorTransformInterceptor` converts HTTP and network errors into typed errors.
+
+## Response validation
+
+```typescript
+const validation = createValidationInterceptor({
+  schemas: {
+    '/api/books': BookDtoSchema,
+    '/api/books/.*': BookDtoSchema,
+  },
+  throwOnError: true,
+});
+```
+
+## Next steps
+
+- Handle errors: [Errors](/errors)
+- Validate with schemas: [Validation](/validation)

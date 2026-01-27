@@ -1,0 +1,53 @@
+---
+title: "Troubleshooting"
+description: "Resolve common integration issues"
+---
+
+## 401 Unauthorized
+
+Confirm your credentials and auth type. Basic auth and API key auth are supported by the client.
+
+```typescript
+const client = createKomgaClient({
+  baseUrl: 'http://localhost:25600',
+  auth: { type: 'basic', username: 'admin', password: 'password' },
+});
+```
+
+## 404 Not Found
+
+Verify IDs and endpoint compatibility with your Komga version. Some endpoints are deprecated.
+
+## Validation errors
+
+If Zod validation fails, inspect the issues to identify mismatched fields.
+
+```typescript
+import { isValidationError } from 'komga-sdk';
+
+try {
+  await bookService.getById('book-123');
+} catch (error) {
+  if (isValidationError(error)) {
+    console.log(error.issues);
+  }
+}
+```
+
+## Timeouts and retries
+
+Increase timeout or tune retry settings for large requests.
+
+```typescript
+const client = createKomgaClient({
+  baseUrl: 'http://localhost:25600',
+  auth: { type: 'apiKey', key: 'your-api-key' },
+  timeout: 60000,
+  retry: { limit: 5, backoffLimit: 5000 },
+});
+```
+
+## Next steps
+
+- Configuration: [Configuration](/reference/configuration)
+- Migration guide: [Migration](/guides/migration)

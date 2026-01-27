@@ -1,0 +1,88 @@
+---
+title: "Libraries"
+description: "Create, update, scan, and manage libraries"
+---
+
+This guide covers common library workflows using `LibraryService`.
+
+## List libraries
+
+```typescript
+import { LibraryService } from 'komga-sdk';
+
+const service = new LibraryService(client);
+const libraries = await service.getAll();
+
+console.log(libraries.map((library) => library.name));
+```
+
+## Get a library by ID
+
+```typescript
+const library = await service.getById('library-123');
+console.log(library.root);
+```
+
+## Create a library
+
+`LibraryCreationDto` has many required fields. Use the API reference if you need to tune defaults.
+
+```typescript
+import { type LibraryCreationDto } from 'komga-sdk';
+
+const payload: LibraryCreationDto = {
+  name: 'Comics',
+  root: '/data/comics',
+  oneshotsDirectory: '/data/comics/oneshots',
+  scanInterval: 'DAILY',
+  seriesCover: 'FIRST',
+  scanDirectoryExclusions: [],
+  analyzeDimensions: false,
+  convertToCbz: false,
+  emptyTrashAfterScan: false,
+  hashFiles: false,
+  hashKoreader: false,
+  hashPages: false,
+  importBarcodeIsbn: false,
+  importComicInfoBook: true,
+  importComicInfoCollection: true,
+  importComicInfoReadList: true,
+  importComicInfoSeries: true,
+  importComicInfoSeriesAppendVolume: false,
+  importEpubBook: false,
+  importEpubSeries: false,
+  importLocalArtwork: true,
+  importMylarSeries: false,
+  repairExtensions: false,
+  scanCbx: true,
+  scanEpub: false,
+  scanPdf: true,
+  scanForceModifiedTime: false,
+  scanOnStartup: true,
+};
+
+const created = await service.create(payload);
+```
+
+## Update a library
+
+```typescript
+await service.update('library-123', { name: 'Updated Library' });
+```
+
+## Scan a library
+
+```typescript
+await service.scan('library-123');
+```
+
+## Delete a library
+
+```typescript
+await service.delete('library-123');
+```
+
+## Next steps
+
+- Configuration reference: [Configuration](/reference/configuration)
+- Troubleshooting: [Troubleshooting](/guides/troubleshooting)

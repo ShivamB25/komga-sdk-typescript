@@ -1,0 +1,50 @@
+---
+title: "Quickstart"
+description: "Install the SDK, create a client, and make your first request"
+---
+
+## Install
+
+```bash
+bun add komga-sdk
+```
+
+```bash
+npm install komga-sdk
+```
+
+```bash
+pnpm add komga-sdk
+```
+
+## Create a client
+
+```typescript
+import { createKomgaClient } from 'komga-sdk';
+
+const client = createKomgaClient({
+  baseUrl: 'http://localhost:25600',
+  auth: {
+    type: 'basic',
+    username: 'admin@example.com',
+    password: 'your-password',
+  },
+  timeout: 30000,
+  retry: { limit: 3 },
+});
+```
+
+## Fetch your libraries
+
+```typescript
+import { LibraryService } from 'komga-sdk';
+
+const libraries = await new LibraryService(client).getAll();
+console.log(libraries.map((library) => library.name));
+```
+
+## Next steps
+
+- Set up auth options: [Authentication](/authentication)
+- Work with books: [Books guide](/guides/books)
+- Learn pagination: [Pagination](/pagination)

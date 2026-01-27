@@ -1,0 +1,29 @@
+---
+title: "TypeScript"
+description: "Recommended compiler settings for the SDK"
+---
+
+This SDK is source-only and ships ESM. Use these `tsconfig.json` settings for best results.
+
+```json
+{
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "target": "ES2020",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true
+  }
+}
+```
+
+## Notes
+
+- Ensure your runtime supports Fetch and Web Crypto (Node 18+ or modern browsers).
+- Prefer ESM imports in your app.
+
+## Next steps
+
+- Quickstart: [Quickstart](/quickstart)
+- Configuration: [Configuration](/reference/configuration)

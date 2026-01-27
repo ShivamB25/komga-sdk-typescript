@@ -1,0 +1,25 @@
+---
+title: "Migration and deprecations"
+description: "Navigate deprecated endpoints and upgrade paths"
+---
+
+Some Komga endpoints are deprecated. Prefer the replacements below.
+
+| Deprecated endpoint | Replacement | Since |
+| --- | --- | --- |
+| `GET /api/v1/books` | `POST /api/v1/books/list` | 1.19.0 |
+| `GET /api/v1/series` | `POST /api/v1/series/list` | 1.19.0 |
+| `GET /api/v1/series/alphabetical-groups` | `POST /api/v1/series/list/alphabetical-groups` | 1.19.0 |
+| `GET /api/v1/series/{seriesId}/books` | `POST /api/v1/books/list` | 1.19.0 |
+| `GET /api/v1/authors` | `GET /api/v2/authors` | 1.20.0 |
+| `PUT /api/v1/libraries/{libraryId}` | `PATCH /api/v1/libraries/{libraryId}` | 1.3.0 |
+
+## Practical guidance
+
+- Prefer `list` endpoints with body + query split for search and pagination.
+- Use domain services where available to avoid deprecated endpoints.
+
+## Next steps
+
+- Direct API usage: [Direct API](/direct-api)
+- API reference: [API reference](/reference/api-reference)
