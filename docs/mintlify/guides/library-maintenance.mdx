@@ -1,0 +1,449 @@
+---
+title: "Library Maintenance"
+description: "Scan, analyze, and maintain your Komga libraries"
+icon: "screwdriver-wrench"
+---
+
+This guide covers library maintenance operations including scanning, analysis, metadata refresh, and administrative tasks.
+
+<Warning>
+Most operations in this guide require **ADMIN** role.
+</Warning>
+
+## Library CRUD operations
+
+### List all libraries
+
+Get all configured libraries:
+
+```typescript
+import { getLibraries } from 'komga-sdk';
+
+const result = await getLibraries({ client });
+
+if (result.data) {
+  for (const library of result.data) {
+    console.log(`${library.name}: ${library.root}`);
+    console.log(`  Type: ${library.importComicInfoBook}, ${library.importComicInfoSeries}`);
+  }
+}
+```
+
+### Get library by ID
+
+Retrieve details about a specific library:
+
+```typescript
+import { getLibraryById } from 'komga-sdk';
+
+const result = await getLibraryById({
+  client,
+  path: { libraryId: 'library-123' },
+});
+
+if (result.data) {
+  console.log(`Library: ${result.data.name}`);
+  console.log(`Root path: ${result.data.root}`);
+  console.log(`Scan interval: ${result.data.scanInterval}`);
+}
+```
+
+### Update library
+
+Modify library settings:
+
+```typescript
+import { updateLibraryById } from 'komga-sdk';
+
+await updateLibraryById({
+  client,
+  path: { libraryId: 'library-123' },
+  body: {
+    name: 'Updated Library Name',
+    importComicInfoBook: true,
+    importComicInfoSeries: true,
+    scanInterval: 'EVERY_6H',
+  },
+});
+```
+
+<Warning>
+`updateLibraryByIdDeprecated` uses the legacy PUT endpoint. Prefer `updateLibraryById` unless you need backward compatibility.
+</Warning>
+
+```typescript
+import { updateLibraryByIdDeprecated } from 'komga-sdk';
+
+await updateLibraryByIdDeprecated({
+  client,
+  path: { libraryId: 'library-123' },
+  body: {
+    name: 'Legacy Update Example',
+    scanInterval: 'EVERY_12H',
+  },
+});
+```
+
+### Delete library
+
+<Warning>
+This removes the library from Komga but does NOT delete the underlying files.
+</Warning>
+
+```typescript
+import { deleteLibraryById } from 'komga-sdk';
+
+await deleteLibraryById({
+  client,
+  path: { libraryId: 'library-123' },
+});
+```
+
+## Library maintenance operations
+
+### Scan library
+
+Trigger a scan to detect new, modified, or deleted books:
+
+```typescript
+import { libraryScan } from 'komga-sdk';
+
+await libraryScan({
+  client,
+  path: { libraryId: 'library-123' },
+});
+```
+
+<Tip>
+Library scans run as background tasks. Monitor the task queue or historical events to track progress.
+</Tip>
+
+### Analyze library
+
+Analyze all books in a library for metadata and page information:
+
+```typescript
+import { libraryAnalyze } from 'komga-sdk';
+
+await libraryAnalyze({
+  client,
+  path: { libraryId: 'library-123' },
+});
+```
+
+### Refresh metadata
+
+Refresh metadata for all series in a library from external sources:
+
+```typescript
+import { libraryRefreshMetadata } from 'komga-sdk';
+
+await libraryRefreshMetadata({
+  client,
+  path: { libraryId: 'library-123' },
+});
+```
+
+### Empty trash
+
+Permanently delete books marked for deletion:
+
+```typescript
+import { libraryEmptyTrash } from 'komga-sdk';
+
+await libraryEmptyTrash({
+  client,
+  path: { libraryId: 'library-123' },
+});
+```
+
+## Book maintenance
+
+### Analyze a book
+
+Re-analyze a single book:
+
+```typescript
+import { bookAnalyze } from 'komga-sdk';
+
+await bookAnalyze({
+  client,
+  path: { bookId: 'book-123' },
+});
+```
+
+### Refresh book metadata
+
+Refresh metadata for a single book:
+
+```typescript
+import { bookRefreshMetadata } from 'komga-sdk';
+
+await bookRefreshMetadata({
+  client,
+  path: { bookId: 'book-123' },
+});
+```
+
+### Delete book file
+
+<Warning>
+This permanently deletes the book file from disk. Cannot be undone.
+</Warning>
+
+```typescript
+import { deleteBookFile } from 'komga-sdk';
+
+await deleteBookFile({
+  client,
+  path: { bookId: 'book-123' },
+});
+```
+
+### Delete series file
+
+<Warning>
+This permanently deletes all book files in the series from disk. Cannot be undone.
+</Warning>
+
+```typescript
+import { deleteSeriesFile } from 'komga-sdk';
+
+await deleteSeriesFile({
+  client,
+  path: { seriesId: 'series-123' },
+});
+```
+
+### Update book metadata
+
+Update metadata for a single book:
+
+```typescript
+import { updateBookMetadata } from 'komga-sdk';
+
+await updateBookMetadata({
+  client,
+  path: { bookId: 'book-123' },
+  body: {
+    title: 'New Title',
+    summary: 'Updated summary',
+    authors: [{ name: 'Author Name', role: 'writer' }],
+  },
+});
+```
+
+### Batch update book metadata
+
+Update metadata for multiple books at once:
+
+```typescript
+import { updateBookMetadataByBatch } from 'komga-sdk';
+
+await updateBookMetadataByBatch({
+  client,
+  body: {
+    ids: ['book-1', 'book-2', 'book-3'],
+    metadata: {
+      tags: ['batch-updated'],
+    },
+  },
+});
+```
+
+## Common workflows
+
+### Full library refresh
+
+Perform a complete maintenance cycle on a library:
+
+```typescript
+import { 
+  libraryScan, 
+  libraryAnalyze, 
+  libraryRefreshMetadata,
+  booksRegenerateThumbnails 
+} from 'komga-sdk';
+
+async function fullLibraryMaintenance(libraryId: string) {
+  console.log('Starting library maintenance...');
+  
+  // Step 1: Scan for changes
+  await libraryScan({ client, path: { libraryId } });
+  console.log('Scan triggered');
+  
+  // Step 2: Analyze books
+  await libraryAnalyze({ client, path: { libraryId } });
+  console.log('Analysis triggered');
+  
+  // Step 3: Refresh metadata
+  await libraryRefreshMetadata({ client, path: { libraryId } });
+  console.log('Metadata refresh triggered');
+  
+  // Step 4: Regenerate thumbnails
+  await booksRegenerateThumbnails({ client });
+  console.log('Thumbnail regeneration triggered');
+  
+  console.log('Maintenance tasks queued. Check server tasks for progress.');
+}
+```
+
+### Batch operations on library
+
+```typescript
+import { getBooks, updateBookMetadataByBatch } from 'komga-sdk';
+
+async function batchTagUntaggedBooks(libraryId: string) {
+  // Get all books in library
+  const result = await getBooks({
+    client,
+    body: { libraryId },
+    query: { unpaged: true },
+  });
+
+  if (!result.data) return;
+
+  // Find books without tags
+  const untaggedBooks = result.data.content.filter(
+    book => !book.metadata.tags || book.metadata.tags.length === 0
+  );
+
+  if (untaggedBooks.length === 0) {
+    console.log('No untagged books found');
+    return;
+  }
+
+  // Batch tag them
+  await updateBookMetadataByBatch({
+    client,
+    body: {
+      ids: untaggedBooks.map(b => b.id),
+      metadata: {
+        tags: ['needs-tagging'],
+      },
+    },
+  });
+
+  console.log(`Tagged ${untaggedBooks.length} books`);
+}
+```
+
+### Library statistics
+
+```typescript
+import { getLibraries, getSeries, getBooks } from 'komga-sdk';
+
+async function getLibraryStatistics() {
+  const libraries = await getLibraries({ client });
+  
+  if (!libraries.data) return;
+
+  const stats = [];
+
+  for (const library of libraries.data) {
+    const [series, books] = await Promise.all([
+      getSeries({
+        client,
+        body: { libraryId: library.id },
+        query: { unpaged: true },
+      }),
+      getBooks({
+        client,
+        body: { libraryId: library.id },
+        query: { unpaged: true },
+      }),
+    ]);
+
+    stats.push({
+      name: library.name,
+      seriesCount: series.data?.totalElements ?? 0,
+      bookCount: books.data?.totalElements ?? 0,
+      lastScan: library.lastScanDate,
+    });
+  }
+
+  return stats;
+}
+```
+
+### Maintenance scheduler
+
+```typescript
+class MaintenanceScheduler {
+  private libraryId: string;
+
+  constructor(libraryId: string) {
+    this.libraryId = libraryId;
+  }
+
+  async runDailyMaintenance() {
+    await libraryScan({
+      client,
+      path: { libraryId: this.libraryId },
+    });
+  }
+
+  async runWeeklyMaintenance() {
+    await libraryAnalyze({
+      client,
+      path: { libraryId: this.libraryId },
+    });
+  }
+
+  async runMonthlyMaintenance() {
+    await libraryRefreshMetadata({
+      client,
+      path: { libraryId: this.libraryId },
+    });
+    
+    await booksRegenerateThumbnails({ client });
+  }
+}
+```
+
+## Error handling
+
+```typescript
+import { libraryScan } from 'komga-sdk';
+
+const result = await libraryScan({
+  client,
+  path: { libraryId: 'library-123' },
+});
+
+if (result.error) {
+  switch (result.response?.status) {
+    case 401:
+      console.error('Not authenticated');
+      break;
+    case 403:
+      console.error('Admin access required');
+      break;
+    case 404:
+      console.error('Library not found');
+      break;
+    default:
+      console.error('Scan failed:', result.error);
+  }
+}
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Libraries" icon="book-open" href="/guides/libraries">
+    Learn about library creation and configuration.
+  </Card>
+  
+  <Card title="Admin" icon="shield-halved" href="/guides/admin">
+    Server administration and settings.
+  </Card>
+  
+  <Card title="Book Content" icon="images" href="/guides/book-content">
+    Access book pages and thumbnails.
+  </Card>
+  
+  <Card title="Series Discovery" icon="compass" href="/guides/series-discovery">
+    Browse and discover series.
+  </Card>
+</CardGroup>

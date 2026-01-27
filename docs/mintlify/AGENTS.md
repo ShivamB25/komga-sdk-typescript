@@ -10,6 +10,13 @@
 - Config: docs.json for navigation, theme, settings
 - Components: Mintlify components
 
+## Guide inventory
+- Core domain guides: `books`, `series`, `libraries`, `collections`, `read-lists`, `users`
+- Reading & discovery: `read-progress`, `mihon-sync`, `book-discovery`, `series-discovery`
+- Content & media: `book-content`, `thumbnails`, `downloads`, `fonts`
+- Admin & configuration: `admin`, `library-maintenance`, `client-settings`
+- Reference/support: `metadata-lookups`, `deprecated-endpoints`, `workflows`
+
 ## Content strategy
 - Document just enough for user success—not too much, not too little
 - Prioritize accuracy and usability

@@ -1,0 +1,143 @@
+---
+title: "Mihon Sync"
+description: "Sync read progress for Mihon/Tachiyomi clients"
+icon: "arrows-rotate"
+---
+
+Komga supports Mihon/Tachiyomi read progress syncing for both series and read lists.
+
+<Warning>
+These endpoints are intended for Mihon/Tachiyomi-compatible clients. Use standard read progress endpoints for other clients.
+</Warning>
+
+## Read list progress (Mihon/Tachiyomi)
+
+### Get read list progress
+
+```typescript
+import { getMihonReadProgressByReadListId } from 'komga-sdk';
+
+const result = await getMihonReadProgressByReadListId({
+  client,
+  path: { readListId: 'readlist-123' },
+});
+
+if (result.data) {
+  console.log(`Chapters read: ${result.data.read}`);
+  console.log(`Chapters total: ${result.data.total}`);
+}
+```
+
+### Update read list progress
+
+```typescript
+import { updateMihonReadProgressByReadListId } from 'komga-sdk';
+
+await updateMihonReadProgressByReadListId({
+  client,
+  path: { readListId: 'readlist-123' },
+  body: {
+    read: 12,
+    total: 25,
+  },
+});
+```
+
+## Series progress (Mihon/Tachiyomi)
+
+### Get series progress
+
+```typescript
+import { getMihonReadProgressBySeriesId } from 'komga-sdk';
+
+const result = await getMihonReadProgressBySeriesId({
+  client,
+  path: { seriesId: 'series-123' },
+});
+
+if (result.data) {
+  console.log(`Chapters read: ${result.data.read}`);
+  console.log(`Chapters total: ${result.data.total}`);
+}
+```
+
+### Update series progress
+
+```typescript
+import { updateMihonReadProgressBySeriesId } from 'komga-sdk';
+
+await updateMihonReadProgressBySeriesId({
+  client,
+  path: { seriesId: 'series-123' },
+  body: {
+    read: 42,
+    total: 100,
+  },
+});
+```
+
+## Common workflows
+
+### Sync progress from client state
+
+```typescript
+import { updateMihonReadProgressBySeriesId } from 'komga-sdk';
+
+async function syncSeriesProgress(seriesId: string, read: number, total: number) {
+  await updateMihonReadProgressBySeriesId({
+    client,
+    path: { seriesId },
+    body: { read, total },
+  });
+}
+```
+
+### Mirror read list progress
+
+```typescript
+import { updateMihonReadProgressByReadListId } from 'komga-sdk';
+
+async function syncReadListProgress(readListId: string, read: number, total: number) {
+  await updateMihonReadProgressByReadListId({
+    client,
+    path: { readListId },
+    body: { read, total },
+  });
+}
+```
+
+## Error handling
+
+```typescript
+import { getMihonReadProgressBySeriesId } from 'komga-sdk';
+
+const result = await getMihonReadProgressBySeriesId({
+  client,
+  path: { seriesId: 'series-123' },
+});
+
+if (result.error) {
+  switch (result.response?.status) {
+    case 404:
+      console.error('Series not found');
+      break;
+    case 401:
+      console.error('Not authenticated');
+      break;
+    default:
+      console.error('Sync error:', result.error);
+  }
+}
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Read Progress" icon="bookmark" href="/guides/read-progress">
+    Standard read progress tracking.
+  </Card>
+  
+  <Card title="Read Lists" icon="list-ordered" href="/guides/read-lists">
+    Create and manage reading lists.
+  </Card>
+</CardGroup>

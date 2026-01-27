@@ -1,0 +1,139 @@
+---
+title: "Book Discovery"
+description: "Find latest books, on-deck items, and duplicates"
+icon: "magnifying-glass"
+---
+
+This guide covers endpoints for discovering books: recent additions, on-deck items, and duplicates.
+
+## Latest books
+
+Get the most recently added books:
+
+```typescript
+import { getBooksLatest } from 'komga-sdk';
+
+const result = await getBooksLatest({
+  client,
+  query: { page: 0, size: 20 },
+});
+
+if (result.data) {
+  result.data.content.forEach(book => {
+    console.log(`${book.metadata.title} (added: ${book.created})`);
+  });
+}
+```
+
+## On-deck books
+
+Fetch books recommended for continuing reading:
+
+```typescript
+import { getBooksOnDeck } from 'komga-sdk';
+
+const result = await getBooksOnDeck({
+  client,
+  query: { page: 0, size: 20 },
+});
+
+if (result.data) {
+  result.data.content.forEach(book => {
+    console.log(`${book.metadata.title} (progress: ${book.readProgress?.page ?? 0})`);
+  });
+}
+```
+
+## Duplicate books
+
+List books that Komga flagged as duplicates:
+
+```typescript
+import { getBooksDuplicates } from 'komga-sdk';
+
+const result = await getBooksDuplicates({
+  client,
+  query: { page: 0, size: 20 },
+});
+
+if (result.data) {
+  result.data.content.forEach(duplicate => {
+    console.log(`${duplicate.title} - ${duplicate.count} copies`);
+  });
+}
+```
+
+<Tip>
+Use the [Admin](/guides/admin) guide to manage duplicate pages and cleanup operations.
+</Tip>
+
+## Common workflows
+
+### Home dashboard data
+
+```typescript
+import { getBooksLatest, getBooksOnDeck } from 'komga-sdk';
+
+async function getDashboardData() {
+  const [latest, onDeck] = await Promise.all([
+    getBooksLatest({ client, query: { page: 0, size: 12 } }),
+    getBooksOnDeck({ client, query: { page: 0, size: 12 } }),
+  ]);
+
+  return {
+    latest: latest.data?.content ?? [],
+    onDeck: onDeck.data?.content ?? [],
+  };
+}
+```
+
+### Find duplicates and notify admin
+
+```typescript
+import { getBooksDuplicates } from 'komga-sdk';
+
+async function notifyDuplicates() {
+  const result = await getBooksDuplicates({
+    client,
+    query: { page: 0, size: 50 },
+  });
+
+  if (!result.data || result.data.content.length === 0) return;
+
+  const report = result.data.content.map(item =>
+    `${item.title} (${item.count} copies)`
+  );
+
+  console.log('Duplicates found:', report);
+}
+```
+
+## Error handling
+
+```typescript
+import { getBooksLatest } from 'komga-sdk';
+
+const result = await getBooksLatest({ client });
+
+if (result.error) {
+  switch (result.response?.status) {
+    case 401:
+      console.error('Not authenticated');
+      break;
+    default:
+      console.error('Error fetching latest books:', result.error);
+  }
+}
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Book Content" icon="images" href="/guides/book-content">
+    Access pages, thumbnails, and manifests.
+  </Card>
+  
+  <Card title="Series Discovery" icon="compass" href="/guides/series-discovery">
+    Find new series and release dates.
+  </Card>
+</CardGroup>

@@ -1,0 +1,398 @@
+---
+title: "Book Content"
+description: "Access book pages, images, and reading positions"
+icon: "images"
+---
+
+This guide covers accessing book content including pages, thumbnails, reading positions, and WebPub manifests for different book formats.
+
+## Get book pages
+
+Retrieve metadata about all pages in a book:
+
+```typescript
+import { getBookPages } from 'komga-sdk';
+
+const result = await getBookPages({
+  client,
+  path: { bookId: 'book-123' },
+});
+
+if (result.data) {
+  console.log(`Total pages: ${result.data.length}`);
+  result.data.forEach((page, index) => {
+    console.log(`Page ${index + 1}: ${page.width}x${page.height}`);
+  });
+}
+```
+
+## Get a specific page
+
+### Get page image
+
+Retrieve a specific page as an image:
+
+```typescript
+import { getBookPageByNumber } from 'komga-sdk';
+
+const result = await getBookPageByNumber({
+  client,
+  path: { 
+    bookId: 'book-123',
+    pageNumber: 5 
+  },
+});
+
+if (result.data) {
+  // result.data is a Blob containing the image
+  const imageUrl = URL.createObjectURL(result.data);
+  // Display in an img tag or canvas
+}
+```
+
+### Get raw page (unprocessed)
+
+Get the raw image file without any processing:
+
+```typescript
+import { getBookPageRawByNumber } from 'komga-sdk';
+
+const result = await getBookPageRawByNumber({
+  client,
+  path: { 
+    bookId: 'book-123',
+    pageNumber: 5 
+  },
+});
+
+if (result.data) {
+  const rawImageUrl = URL.createObjectURL(result.data);
+}
+```
+
+### Get page thumbnail
+
+Get a thumbnail version of a page:
+
+```typescript
+import { getBookPageThumbnailByNumber } from 'komga-sdk';
+
+const result = await getBookPageThumbnailByNumber({
+  client,
+  path: { 
+    bookId: 'book-123',
+    pageNumber: 5 
+  },
+});
+
+if (result.data) {
+  const thumbnailUrl = URL.createObjectURL(result.data);
+}
+```
+
+## Get reading positions
+
+Retrieve calculated reading positions for EPUB books:
+
+```typescript
+import { getBookPositions } from 'komga-sdk';
+
+const result = await getBookPositions({
+  client,
+  path: { bookId: 'book-123' },
+});
+
+if (result.data) {
+  // Positions are used for EPUB reading progress
+  console.log(`Total positions: ${result.data.length}`);
+}
+```
+
+## Book thumbnails
+
+### Get book thumbnail
+
+Retrieve the thumbnail for a book:
+
+```typescript
+import { getBookThumbnail } from 'komga-sdk';
+
+const result = await getBookThumbnail({
+  client,
+  path: { bookId: 'book-123' },
+});
+
+if (result.data) {
+  const thumbnailUrl = URL.createObjectURL(result.data);
+}
+```
+
+### List available thumbnails
+
+Get all available thumbnails for a book:
+
+```typescript
+import { getBookThumbnails } from 'komga-sdk';
+
+const result = await getBookThumbnails({
+  client,
+  path: { bookId: 'book-123' },
+});
+
+if (result.data) {
+  result.data.forEach(thumb => {
+    console.log(`Thumbnail ID: ${thumb.id}, Selected: ${thumb.selected}`);
+  });
+}
+```
+
+### Get specific thumbnail
+
+Retrieve a thumbnail by its ID:
+
+```typescript
+import { getBookThumbnailById } from 'komga-sdk';
+
+const result = await getBookThumbnailById({
+  client,
+  path: { 
+    bookId: 'book-123',
+    thumbnailId: 'thumb-456'
+  },
+});
+
+if (result.data) {
+  const thumbnailUrl = URL.createObjectURL(result.data);
+}
+```
+
+### Upload custom thumbnail
+
+Add a custom thumbnail to a book:
+
+```typescript
+import { addUserUploadedBookThumbnail } from 'komga-sdk';
+
+const file = new File([imageBlob], 'custom-thumb.jpg', { type: 'image/jpeg' });
+
+const result = await addUserUploadedBookThumbnail({
+  client,
+  path: { bookId: 'book-123' },
+  body: { file },
+});
+
+if (result.data) {
+  console.log(`Uploaded thumbnail: ${result.data.id}`);
+}
+```
+
+### Delete custom thumbnail
+
+Remove a user-uploaded thumbnail:
+
+```typescript
+import { deleteUserUploadedBookThumbnail } from 'komga-sdk';
+
+await deleteUserUploadedBookThumbnail({
+  client,
+  path: { 
+    bookId: 'book-123',
+    thumbnailId: 'thumb-456'
+  },
+});
+```
+
+### Mark thumbnail as selected
+
+Set a specific thumbnail as the active one:
+
+```typescript
+import { markBookThumbnailSelected } from 'komga-sdk';
+
+await markBookThumbnailSelected({
+  client,
+  path: { 
+    bookId: 'book-123',
+    thumbnailId: 'thumb-456'
+  },
+});
+```
+
+## WebPub manifests
+
+Komga provides WebPub manifests for different book formats to support various readers.
+
+### Generic manifest
+
+```typescript
+import { getBookWebPubManifest } from 'komga-sdk';
+
+const result = await getBookWebPubManifest({
+  client,
+  path: { bookId: 'book-123' },
+});
+
+if (result.data) {
+  console.log('WebPub manifest:', result.data);
+}
+```
+
+### Format-specific manifests
+
+```typescript
+import { 
+  getBookWebPubManifestDivina,
+  getBookWebPubManifestEpub,
+  getBookWebPubManifestPdf 
+} from 'komga-sdk';
+
+// DiViNa manifest (for webtoons/long-strip)
+const divinaResult = await getBookWebPubManifestDivina({
+  client,
+  path: { bookId: 'book-123' },
+});
+
+// EPUB manifest
+const epubResult = await getBookWebPubManifestEpub({
+  client,
+  path: { bookId: 'book-123' },
+});
+
+// PDF manifest
+const pdfResult = await getBookWebPubManifestPdf({
+  client,
+  path: { bookId: 'book-123' },
+});
+```
+
+## EPUB resources
+
+Access resources within EPUB files:
+
+```typescript
+import { getBookEpubResource } from 'komga-sdk';
+
+const result = await getBookEpubResource({
+  client,
+  path: { 
+    bookId: 'book-123',
+    resource: 'OEBPS/images/cover.jpg'
+  },
+});
+
+if (result.data) {
+  // Resource content as Blob
+  const resourceUrl = URL.createObjectURL(result.data);
+}
+```
+
+## Common workflows
+
+### Build a simple page viewer
+
+```typescript
+import { getBookPages, getBookPageByNumber } from 'komga-sdk';
+
+async function createPageViewer(bookId: string) {
+  // Get page metadata
+  const pagesResult = await getBookPages({
+    client,
+    path: { bookId },
+  });
+
+  if (!pagesResult.data) return;
+
+  const pages = pagesResult.data;
+  let currentPage = 1;
+
+  async function showPage(pageNum: number) {
+    if (pageNum < 1 || pageNum > pages.length) return;
+
+    const result = await getBookPageByNumber({
+      client,
+      path: { bookId, pageNumber: pageNum },
+    });
+
+    if (result.data) {
+      const imageUrl = URL.createObjectURL(result.data);
+      // Display imageUrl in your viewer
+      currentPage = pageNum;
+    }
+  }
+
+  return {
+    showPage,
+    nextPage: () => showPage(currentPage + 1),
+    prevPage: () => showPage(currentPage - 1),
+    totalPages: pages.length,
+  };
+}
+```
+
+### Create thumbnail gallery
+
+```typescript
+import { getBookThumbnails, getBookThumbnailById } from 'komga-sdk';
+
+async function createThumbnailGallery(bookId: string) {
+  const result = await getBookThumbnails({
+    client,
+    path: { bookId },
+  });
+
+  if (!result.data) return [];
+
+  const thumbnails = [];
+  
+  for (const thumb of result.data) {
+    const thumbResult = await getBookThumbnailById({
+      client,
+      path: { bookId, thumbnailId: thumb.id },
+    });
+
+    if (thumbResult.data) {
+      thumbnails.push({
+        id: thumb.id,
+        url: URL.createObjectURL(thumbResult.data),
+        selected: thumb.selected,
+      });
+    }
+  }
+
+  return thumbnails;
+}
+```
+
+### Display book with WebPub reader
+
+```typescript
+import { getBookWebPubManifest } from 'komga-sdk';
+
+async function loadWebPubReader(bookId: string) {
+  const result = await getBookWebPubManifest({
+    client,
+    path: { bookId },
+  });
+
+  if (!result.data) return;
+
+  // Use with a WebPub-compatible reader like Readium
+  const manifest = result.data;
+  
+  // Example: Initialize Readium Web Reader
+  // const reader = new ReadiumWebReader();
+  // await reader.loadManifest(manifest);
+}
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Books" icon="book" href="/guides/books">
+    Learn about book management operations.
+  </Card>
+  
+  <Card title="Thumbnails" icon="image" href="/guides/thumbnails">
+    Deep dive into thumbnail management across all content types.
+  </Card>
+</CardGroup>

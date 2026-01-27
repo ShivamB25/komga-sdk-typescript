@@ -127,6 +127,53 @@ const client = createKomgaClient({
 - Session-based web applications
 - Temporary access tokens
 
+## OAuth providers
+
+Discover configured OAuth/OpenID Connect providers:
+
+```typescript
+import { getOAuth2Providers } from 'komga-sdk';
+
+const result = await getOAuth2Providers({ client });
+
+if (result.data) {
+  result.data.forEach(provider => {
+    console.log(`${provider.id}: ${provider.displayName}`);
+  });
+}
+```
+
+## Session cookie conversion
+
+If you authenticate with a session header and need a cookie for browser-based clients:
+
+```typescript
+import { convertHeaderSessionToCookie } from 'komga-sdk';
+
+const result = await convertHeaderSessionToCookie({ client });
+
+if (result.response) {
+  const setCookie = result.response.headers.get('set-cookie');
+  console.log(`Cookie: ${setCookie}`);
+}
+```
+
+## Logout
+
+Komga supports logout via both GET and POST. Use POST when possible.
+
+```typescript
+import { postLogout1 } from 'komga-sdk';
+
+await postLogout1({ client });
+```
+
+```typescript
+import { postLogout } from 'komga-sdk';
+
+await postLogout({ client });
+```
+
 ## Security best practices
 
 <Warning>

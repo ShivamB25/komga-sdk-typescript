@@ -64,6 +64,15 @@ Manual TypeScript SDK for the Komga API. Source lives in `src/` and ships a ky-b
 | TypeDoc output | `docs/api/` | Generated API reference |
 | Legacy docs | `docs/*.md` | Markdown documentation |
 
+## MINTLIFY GUIDE COVERAGE
+- Book operations: `guides/books`, `guides/book-content`, `guides/book-discovery`, `guides/thumbnails`
+- Series operations: `guides/series`, `guides/series-discovery`
+- Libraries: `guides/libraries`, `guides/library-maintenance`
+- Collections & read lists: `guides/collections`, `guides/read-lists`
+- Users & settings: `guides/users`, `guides/client-settings`, `guides/mihon-sync`
+- Media & downloads: `guides/downloads`, `guides/fonts`
+- Admin & reference: `guides/admin`, `guides/metadata-lookups`, `guides/deprecated-endpoints`
+
 ## CONVENTIONS
 - Source-only repo: `noEmit` TypeScript config; no build scripts defined.
 - Filenames may use `.gen.ts`, but these are manually maintained in this repo.

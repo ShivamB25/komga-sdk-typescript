@@ -1,0 +1,702 @@
+---
+title: "Administration"
+description: "Server settings, tasks, duplicate detection, and system management"
+icon: "shield-halved"
+---
+
+This guide covers administrative operations for managing your Komga server, including server settings, task management, duplicate page detection, and initial server setup.
+
+<Warning>
+All operations in this guide require **ADMIN** role unless otherwise noted.
+</Warning>
+
+## Server claim (initial setup)
+
+When Komga is first installed, it needs to be "claimed" by creating the initial admin user.
+
+### Check claim status
+
+```typescript
+import { getClaimStatus } from 'komga-sdk';
+
+const result = await getClaimStatus({ client });
+
+if (result.data) {
+  if (result.data.isClaimed) {
+    console.log('Server is already configured');
+  } else {
+    console.log('Server needs initial setup');
+  }
+}
+```
+
+<Note>
+This endpoint does not require authentication - it's designed for initial setup.
+</Note>
+
+### Claim the server
+
+Create the initial admin user:
+
+```typescript
+import { claimServer } from 'komga-sdk';
+
+const result = await claimServer({
+  client,
+  body: {
+    email: 'admin@example.com',
+    password: 'secure-admin-password',
+  },
+});
+
+if (result.data) {
+  console.log('Server claimed successfully');
+  // The response includes the created user
+  console.log(`Admin user ID: ${result.data.id}`);
+}
+```
+
+<Warning>
+The claim endpoint can only be called once. After claiming, you must authenticate with the admin credentials.
+</Warning>
+
+## Server settings
+
+### Get server settings
+
+```typescript
+import { getServerSettings } from 'komga-sdk';
+
+const result = await getServerSettings({ client });
+
+if (result.data) {
+  console.log('Server settings:');
+  console.log(`- Delete empty collections: ${result.data.deleteEmptyCollections}`);
+  console.log(`- Delete empty read lists: ${result.data.deleteEmptyReadLists}`);
+  console.log(`- Remember me duration: ${result.data.rememberMeDurationDays} days`);
+  console.log(`- Thumbnail size: ${result.data.thumbnailSize}`);
+}
+```
+
+### Update server settings
+
+You can update individual settings without affecting others:
+
+```typescript
+import { updateServerSettings } from 'komga-sdk';
+
+await updateServerSettings({
+  client,
+  body: {
+    deleteEmptyCollections: true,
+    deleteEmptyReadLists: true,
+    rememberMeDurationDays: 30,
+    thumbnailSize: 'DEFAULT',
+    taskPoolSize: 4,
+  },
+});
+```
+
+### Available settings
+
+| Setting | Type | Description |
+|---------|------|-------------|
+| `deleteEmptyCollections` | boolean | Auto-delete collections when empty |
+| `deleteEmptyReadLists` | boolean | Auto-delete read lists when empty |
+| `rememberMeDurationDays` | number | "Remember me" cookie duration |
+| `thumbnailSize` | string | Thumbnail quality: `DEFAULT`, `MEDIUM`, `LARGE`, `XLARGE` |
+| `taskPoolSize` | number | Number of concurrent background tasks |
+| `serverPort` | number | Server port (requires restart) |
+| `serverContextPath` | string | URL context path |
+
+## Server information
+
+### Get server info
+
+Retrieve version and runtime information:
+
+```typescript
+import { getActuatorInfo } from 'komga-sdk';
+
+const result = await getActuatorInfo({ client });
+
+if (result.data) {
+  console.log('Server information:');
+  // Response contains build and runtime details
+  console.log(JSON.stringify(result.data, null, 2));
+}
+```
+
+## Releases
+
+Check available Komga releases:
+
+```typescript
+import { getReleases } from 'komga-sdk';
+
+const result = await getReleases({ client });
+
+if (result.data) {
+  result.data.forEach(release => {
+    console.log(`${release.version} - ${release.releaseDate}`);
+  });
+}
+```
+
+## Announcements
+
+Komga displays announcements for important updates and information.
+
+### Get announcements
+
+```typescript
+import { getAnnouncements } from 'komga-sdk';
+
+const result = await getAnnouncements({ client });
+
+if (result.data) {
+  for (const announcement of result.data) {
+    console.log(`[${announcement.id}] ${announcement.title}`);
+    console.log(`  ${announcement.body}`);
+  }
+}
+```
+
+### Mark announcements as read
+
+```typescript
+import { markAnnouncementsRead } from 'komga-sdk';
+
+await markAnnouncementsRead({
+  client,
+  body: {
+    ids: ['announcement-1', 'announcement-2'],
+  },
+});
+```
+
+## Task management
+
+### Clear the task queue
+
+Cancel all pending background tasks:
+
+```typescript
+import { emptyTaskQueue } from 'komga-sdk';
+
+await emptyTaskQueue({ client });
+console.log('Task queue cleared');
+```
+
+<Warning>
+This cancels all pending tasks including library scans, metadata refreshes, and thumbnail generation. Use with caution.
+</Warning>
+
+## Historical events
+
+View a log of important events on the server:
+
+```typescript
+import { getHistoricalEvents } from 'komga-sdk';
+
+const result = await getHistoricalEvents({
+  client,
+  query: {
+    page: 0,
+    size: 50,
+  },
+});
+
+if (result.data) {
+  for (const event of result.data.content) {
+    console.log(`${event.timestamp}: ${event.type}`);
+  }
+}
+```
+
+## Directory browsing
+
+Browse the server's filesystem (for library setup):
+
+```typescript
+import { getDirectoryListing } from 'komga-sdk';
+
+const result = await getDirectoryListing({
+  client,
+  body: {
+    path: '/media/comics',
+  },
+});
+
+if (result.data) {
+  console.log(`Parent: ${result.data.parent}`);
+  for (const dir of result.data.directories) {
+    console.log(`📁 ${dir.name}`);
+  }
+}
+```
+
+<Note>
+This endpoint is typically used in admin UIs when setting up new libraries.
+</Note>
+
+## Duplicate page detection
+
+Komga can detect duplicate pages across your library (useful for finding credit pages, ads, etc.).
+
+### List unknown duplicates
+
+Get pages that appear multiple times but haven't been categorized:
+
+```typescript
+import { getUnknownPageHashes } from 'komga-sdk';
+
+const result = await getUnknownPageHashes({
+  client,
+  query: {
+    page: 0,
+    size: 20,
+  },
+});
+
+if (result.data) {
+  for (const hash of result.data.content) {
+    console.log(`Hash: ${hash.hash}`);
+    console.log(`  Matches: ${hash.matchCount}`);
+    console.log(`  Size: ${hash.size} bytes`);
+  }
+}
+```
+
+### Get duplicate thumbnail
+
+Preview a duplicate page:
+
+```typescript
+import { getUnknownPageHashThumbnail } from 'komga-sdk';
+
+const result = await getUnknownPageHashThumbnail({
+  client,
+  path: { pageHash: 'abc123def456' },
+});
+
+if (result.data) {
+  // result.data is the image blob
+  const url = URL.createObjectURL(result.data);
+  // Display in UI
+}
+```
+
+### View duplicate matches
+
+See which books contain a specific duplicate page:
+
+```typescript
+import { getPageHashMatches } from 'komga-sdk';
+
+const result = await getPageHashMatches({
+  client,
+  path: { pageHash: 'abc123def456' },
+});
+
+if (result.data) {
+  for (const match of result.data) {
+    console.log(`Book: ${match.bookId}, Page: ${match.pageNumber}`);
+  }
+}
+```
+
+### Mark duplicate as known
+
+Categorize a duplicate page:
+
+```typescript
+import { createOrUpdateKnownPageHash } from 'komga-sdk';
+
+await createOrUpdateKnownPageHash({
+  client,
+  body: {
+    hash: 'abc123def456',
+    action: 'DELETE_AUTO',
+    size: 12345,
+  },
+});
+```
+
+### Duplicate actions
+
+| Action | Description |
+|--------|-------------|
+| `DELETE_AUTO` | Automatically delete this page when found |
+| `DELETE_MANUAL` | Flag for manual review |
+| `IGNORE` | Ignore this duplicate |
+
+### Delete duplicate pages
+
+Remove duplicate pages by hash:
+
+```typescript
+import { deleteDuplicatePagesByPageHash } from 'komga-sdk';
+
+await deleteDuplicatePagesByPageHash({
+  client,
+  path: { pageHash: 'abc123def456' },
+});
+```
+
+### List known duplicates
+
+View pages you've already categorized:
+
+```typescript
+import { getKnownPageHashes } from 'komga-sdk';
+
+const result = await getKnownPageHashes({
+  client,
+  query: {
+    page: 0,
+    size: 50,
+  },
+});
+
+if (result.data) {
+  for (const known of result.data.content) {
+    console.log(`${known.hash}: ${known.action}`);
+  }
+}
+```
+
+### Get known duplicate thumbnail
+
+Preview a known duplicate page:
+
+```typescript
+import { getKnownPageHashThumbnail } from 'komga-sdk';
+
+const result = await getKnownPageHashThumbnail({
+  client,
+  path: { pageHash: 'abc123def456' },
+});
+
+if (result.data) {
+  const url = URL.createObjectURL(result.data);
+}
+```
+
+### Delete a single duplicate match
+
+Remove one specific match instead of all occurrences:
+
+```typescript
+import { deleteSingleMatchByPageHash } from 'komga-sdk';
+
+await deleteSingleMatchByPageHash({
+  client,
+  path: { pageHash: 'abc123def456' },
+  body: {
+    bookId: 'book-123',
+    pageNumber: 5,
+  },
+});
+```
+
+## Transient books (import)
+
+Scan and import books from a folder without adding them to a library.
+
+### Scan a folder
+
+```typescript
+import { scanTransientBooks } from 'komga-sdk';
+
+const result = await scanTransientBooks({
+  client,
+  body: {
+    path: '/downloads/comics',
+  },
+});
+
+if (result.data) {
+  console.log(`Found ${result.data.length} books`);
+  for (const book of result.data) {
+    console.log(`- ${book.name}`);
+  }
+}
+```
+
+### Analyze a transient book
+
+Get details about a book before importing:
+
+```typescript
+import { analyzeTransientBook } from 'komga-sdk';
+
+const result = await analyzeTransientBook({
+  client,
+  path: { transientBookId: 'transient-123' },
+});
+
+if (result.data) {
+  console.log(`Pages: ${result.data.media?.pagesCount}`);
+  console.log(`Format: ${result.data.media?.mediaType}`);
+}
+```
+
+### Preview a transient book page
+
+Retrieve a page image from a transient book:
+
+```typescript
+import { getPageByTransientBookId } from 'komga-sdk';
+
+const result = await getPageByTransientBookId({
+  client,
+  path: { 
+    transientBookId: 'transient-123',
+    pageNumber: 1,
+  },
+});
+
+if (result.data) {
+  const url = URL.createObjectURL(result.data);
+}
+```
+
+### Import books
+
+Import books into a series:
+
+```typescript
+import { importBooks } from 'komga-sdk';
+
+await importBooks({
+  client,
+  body: {
+    books: [
+      {
+        sourceFile: '/downloads/comics/book1.cbz',
+        seriesId: 'series-123',
+        upgradeBookId: null, // or book ID to replace
+        destinationName: 'Chapter 1.cbz',
+      },
+    ],
+    copyMode: 'COPY', // 'COPY', 'MOVE', or 'HARDLINK'
+  },
+});
+```
+
+### Copy modes
+
+| Mode | Description |
+|------|-------------|
+| `COPY` | Copy file to library (original remains) |
+| `MOVE` | Move file to library (original deleted) |
+| `HARDLINK` | Create hard link (saves space, same filesystem only) |
+
+## Client settings
+
+Store application settings for clients (web UI, mobile apps).
+
+### Save global settings
+
+```typescript
+import { saveGlobalSetting } from 'komga-sdk';
+
+await saveGlobalSetting({
+  client,
+  body: {
+    key: 'webui.theme.mode',
+    value: 'dark',
+  },
+});
+```
+
+### Delete global settings
+
+```typescript
+import { deleteGlobalSettings } from 'komga-sdk';
+
+await deleteGlobalSettings({
+  client,
+  body: {
+    keys: ['webui.theme.mode'],
+  },
+});
+```
+
+## Common workflows
+
+### Initial server setup
+
+Complete setup flow for a new Komga installation:
+
+```typescript
+import {
+  getClaimStatus,
+  claimServer,
+  updateServerSettings,
+  addLibrary,
+} from 'komga-sdk';
+
+async function setupServer(
+  adminEmail: string,
+  adminPassword: string,
+  libraryPath: string
+) {
+  // Check if server needs setup
+  const claimStatus = await getClaimStatus({ client });
+  
+  if (claimStatus.data?.isClaimed) {
+    throw new Error('Server is already configured');
+  }
+
+  // Claim the server
+  await claimServer({
+    client,
+    body: {
+      email: adminEmail,
+      password: adminPassword,
+    },
+  });
+
+  // Now authenticate as admin
+  const adminClient = createClient({
+    baseUrl: 'http://localhost:25600',
+    auth: { username: adminEmail, password: adminPassword },
+  });
+
+  // Configure server settings
+  await updateServerSettings({
+    client: adminClient,
+    body: {
+      deleteEmptyCollections: true,
+      deleteEmptyReadLists: true,
+      thumbnailSize: 'LARGE',
+    },
+  });
+
+  // Add initial library
+  await addLibrary({
+    client: adminClient,
+    body: {
+      name: 'Comics',
+      root: libraryPath,
+      scanOnStartup: true,
+      scanInterval: 'EVERY_6H',
+    },
+  });
+
+  return adminClient;
+}
+```
+
+### Duplicate cleanup workflow
+
+Review and clean up duplicate pages:
+
+```typescript
+import {
+  getUnknownPageHashes,
+  getUnknownPageHashThumbnail,
+  createOrUpdateKnownPageHash,
+  deleteDuplicatePagesByPageHash,
+} from 'komga-sdk';
+
+interface DuplicateReview {
+  hash: string;
+  matchCount: number;
+  thumbnailUrl: string;
+}
+
+async function getDuplicatesForReview(limit = 10): Promise<DuplicateReview[]> {
+  const result = await getUnknownPageHashes({
+    client,
+    query: { page: 0, size: limit },
+  });
+
+  if (!result.data) return [];
+
+  const reviews: DuplicateReview[] = [];
+  
+  for (const hash of result.data.content) {
+    const thumbnail = await getUnknownPageHashThumbnail({
+      client,
+      path: { pageHash: hash.hash },
+    });
+
+    reviews.push({
+      hash: hash.hash,
+      matchCount: hash.matchCount,
+      thumbnailUrl: thumbnail.data 
+        ? URL.createObjectURL(thumbnail.data) 
+        : '',
+    });
+  }
+
+  return reviews;
+}
+
+async function handleDuplicateDecision(
+  hash: string,
+  action: 'delete' | 'ignore',
+  size: number
+) {
+  if (action === 'delete') {
+    // Mark for auto-deletion
+    await createOrUpdateKnownPageHash({
+      client,
+      body: { hash, action: 'DELETE_AUTO', size },
+    });
+    
+    // Delete existing matches
+    await deleteDuplicatePagesByPageHash({
+      client,
+      path: { pageHash: hash },
+    });
+  } else {
+    // Ignore this duplicate
+    await createOrUpdateKnownPageHash({
+      client,
+      body: { hash, action: 'IGNORE', size },
+    });
+  }
+}
+```
+
+## Error handling
+
+```typescript
+import { getServerSettings } from 'komga-sdk';
+
+const result = await getServerSettings({ client });
+
+if (result.error) {
+  switch (result.response?.status) {
+    case 401:
+      console.error('Not authenticated');
+      break;
+    case 403:
+      console.error('Admin access required');
+      break;
+    default:
+      console.error('Error:', result.error);
+  }
+}
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Users" icon="users" href="/guides/users">
+    Manage users and their permissions.
+  </Card>
+  <Card title="Libraries" icon="book-open" href="/guides/libraries">
+    Configure and manage libraries.
+  </Card>
+  <Card title="Configuration" icon="gear" href="/reference/configuration">
+    Client configuration options.
+  </Card>
+  <Card title="Troubleshooting" icon="wrench" href="/guides/troubleshooting">
+    Common issues and solutions.
+  </Card>
+</CardGroup>

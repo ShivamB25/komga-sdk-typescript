@@ -1,0 +1,112 @@
+---
+title: "Fonts"
+description: "Access font resources for EPUB and WebPub readers"
+icon: "font"
+---
+
+Komga exposes font resources for WebPub and EPUB readers. These endpoints help you list fonts and retrieve font files.
+
+## List available fonts
+
+Get the list of font families:
+
+```typescript
+import { getFonts } from 'komga-sdk';
+
+const result = await getFonts({ client });
+
+if (result.data) {
+  result.data.forEach(font => {
+    console.log(`${font.family} (${font.files.length} files)`);
+  });
+}
+```
+
+## Get font family CSS
+
+Retrieve the CSS for a font family (useful for embedding in a reader):
+
+```typescript
+import { getFontFamilyAsCss } from 'komga-sdk';
+
+const result = await getFontFamilyAsCss({
+  client,
+  path: { fontFamily: 'Noto Sans' },
+});
+
+if (result.data) {
+  // result.data is CSS text
+  console.log(result.data);
+}
+```
+
+## Get a font file
+
+Download a specific font file:
+
+```typescript
+import { getFontFile } from 'komga-sdk';
+
+const result = await getFontFile({
+  client,
+  path: {
+    fontFamily: 'Noto Sans',
+    fontFile: 'NotoSans-Regular.ttf',
+  },
+});
+
+if (result.data) {
+  const fontUrl = URL.createObjectURL(result.data);
+}
+```
+
+## Common workflows
+
+### Inject fonts into a WebPub reader
+
+```typescript
+import { getFontFamilyAsCss } from 'komga-sdk';
+
+async function injectFonts(family: string) {
+  const result = await getFontFamilyAsCss({
+    client,
+    path: { fontFamily: family },
+  });
+
+  if (!result.data) return;
+
+  const style = document.createElement('style');
+  style.textContent = result.data;
+  document.head.appendChild(style);
+}
+```
+
+## Error handling
+
+```typescript
+import { getFonts } from 'komga-sdk';
+
+const result = await getFonts({ client });
+
+if (result.error) {
+  switch (result.response?.status) {
+    case 401:
+      console.error('Not authenticated');
+      break;
+    default:
+      console.error('Error fetching fonts:', result.error);
+  }
+}
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Book Content" icon="images" href="/guides/book-content">
+    Access pages, manifests, and resources.
+  </Card>
+  
+  <Card title="Authentication" icon="key" href="/authentication">
+    Configure access to Komga.
+  </Card>
+</CardGroup>

@@ -31,34 +31,29 @@
               "interceptors"
             ]
           },
-          {
+{
             "group": "Domain Guides",
             "pages": [
-              "guides/books",
-              "guides/series",
-              "guides/libraries",
-              "guides/collections",
-              "guides/read-lists",
-              "guides/workflows"
-            ]
-          },
-          {
-            "group": "Best Practices",
-            "pages": [
-              "best-practices",
-              "guides/testing",
-              "guides/troubleshooting",
-              "guides/migration"
-            ]
-          },
-          {
-            "group": "Reference",
-            "pages": [
-              "reference/configuration",
-              "reference/typescript",
-              "reference/glossary",
-              "reference/api-reference",
-              "faq"
+            "guides/books",
+            "guides/book-content",
+            "guides/book-discovery",
+            "guides/series",
+            "guides/series-discovery",
+            "guides/libraries",
+            "guides/library-maintenance",
+            "guides/collections",
+            "guides/read-lists",
+            "guides/read-progress",
+            "guides/mihon-sync",
+            "guides/users",
+            "guides/client-settings",
+            "guides/downloads",
+            "guides/metadata-lookups",
+            "guides/thumbnails",
+            "guides/fonts",
+            "guides/admin",
+            "guides/deprecated-endpoints",
+            "guides/workflows"
             ]
           }
         ]

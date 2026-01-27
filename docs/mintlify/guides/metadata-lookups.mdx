@@ -1,0 +1,463 @@
+---
+title: "Metadata Lookups"
+description: "Query genres, tags, authors, publishers, and other metadata"
+icon: "tags"
+---
+
+This guide covers metadata lookup endpoints that help you discover available values for filtering and organizing your library. These endpoints are useful for building filter UIs, autocomplete fields, and understanding what metadata exists in your collection.
+
+## Genres
+
+Get all genres used in your library:
+
+```typescript
+import { getGenres } from 'komga-sdk';
+
+const result = await getGenres({ client });
+
+if (result.data) {
+  console.log('Available genres:');
+  for (const genre of result.data) {
+    console.log(`- ${genre}`);
+  }
+}
+```
+
+### Filter genres by library
+
+```typescript
+const result = await getGenres({
+  client,
+  query: {
+    libraryId: ['library-123'],
+  },
+});
+```
+
+### Filter genres by collection
+
+```typescript
+const result = await getGenres({
+  client,
+  query: {
+    collectionId: ['collection-123'],
+  },
+});
+```
+
+## Tags
+
+Komga supports three types of tags: general tags, book-specific tags, and series-specific tags.
+
+### All tags
+
+Get all tags across books and series:
+
+```typescript
+import { getTags } from 'komga-sdk';
+
+const result = await getTags({ client });
+
+if (result.data) {
+  console.log(`Found ${result.data.length} tags`);
+}
+```
+
+### Book tags
+
+Get tags that are applied to books:
+
+```typescript
+import { getBookTags } from 'komga-sdk';
+
+const result = await getBookTags({ client });
+
+if (result.data) {
+  for (const tag of result.data) {
+    console.log(`Book tag: ${tag}`);
+  }
+}
+```
+
+### Series tags
+
+Get tags that are applied to series:
+
+```typescript
+import { getSeriesTags } from 'komga-sdk';
+
+const result = await getSeriesTags({ client });
+
+if (result.data) {
+  for (const tag of result.data) {
+    console.log(`Series tag: ${tag}`);
+  }
+}
+```
+
+### Filter tags by library
+
+All tag endpoints support library filtering:
+
+```typescript
+const result = await getTags({
+  client,
+  query: {
+    libraryId: ['library-123', 'library-456'],
+  },
+});
+```
+
+## Authors
+
+Get information about authors in your library.
+
+### List all authors
+
+```typescript
+import { getAuthors } from 'komga-sdk';
+
+const result = await getAuthors({
+  client,
+  query: {
+    page: 0,
+    size: 50,
+  },
+});
+
+if (result.data) {
+  for (const author of result.data.content) {
+    console.log(`${author.name} (${author.role})`);
+  }
+}
+```
+
+### Search authors by name
+
+```typescript
+const result = await getAuthors({
+  client,
+  query: {
+    search: 'Toriyama',
+    page: 0,
+    size: 20,
+  },
+});
+```
+
+### Filter by role
+
+```typescript
+const result = await getAuthors({
+  client,
+  query: {
+    role: 'writer',
+    page: 0,
+    size: 50,
+  },
+});
+```
+
+### Get author names only
+
+For autocomplete or lightweight lookups:
+
+```typescript
+import { getAuthorsNames } from 'komga-sdk';
+
+const result = await getAuthorsNames({
+  client,
+  query: {
+    search: 'Tor', // Partial match
+  },
+});
+
+if (result.data) {
+  // Returns just the names as strings
+  console.log(result.data); // ['Toriyama Akira', 'Torres, J.']
+}
+```
+
+### Get available author roles
+
+```typescript
+import { getAuthorsRoles } from 'komga-sdk';
+
+const result = await getAuthorsRoles({ client });
+
+if (result.data) {
+  console.log('Author roles:', result.data);
+  // ['writer', 'penciller', 'inker', 'colorist', 'letterer', 'cover', 'editor']
+}
+```
+
+## Publishers
+
+Get all publishers in your library:
+
+```typescript
+import { getPublishers } from 'komga-sdk';
+
+const result = await getPublishers({ client });
+
+if (result.data) {
+  for (const publisher of result.data) {
+    console.log(`Publisher: ${publisher}`);
+  }
+}
+```
+
+### Filter by library or collection
+
+```typescript
+const result = await getPublishers({
+  client,
+  query: {
+    libraryId: ['library-123'],
+    collectionId: ['collection-456'],
+  },
+});
+```
+
+## Languages
+
+Get all languages used in your library:
+
+```typescript
+import { getLanguages } from 'komga-sdk';
+
+const result = await getLanguages({ client });
+
+if (result.data) {
+  for (const language of result.data) {
+    console.log(`Language: ${language}`); // 'en', 'ja', 'fr', etc.
+  }
+}
+```
+
+<Note>
+Languages are returned as ISO 639-1 codes (e.g., `en`, `ja`, `fr`).
+</Note>
+
+## Age ratings
+
+Get all age ratings used in your library:
+
+```typescript
+import { getAgeRatings } from 'komga-sdk';
+
+const result = await getAgeRatings({ client });
+
+if (result.data) {
+  for (const rating of result.data) {
+    console.log(`Age rating: ${rating}`);
+  }
+}
+```
+
+## Sharing labels
+
+Get all sharing labels (used for content restrictions):
+
+```typescript
+import { getSharingLabels } from 'komga-sdk';
+
+const result = await getSharingLabels({ client });
+
+if (result.data) {
+  for (const label of result.data) {
+    console.log(`Sharing label: ${label}`);
+  }
+}
+```
+
+<Tip>
+Sharing labels are used with user restrictions to control content access. See the [Users guide](/guides/users) for more information.
+</Tip>
+
+## Common workflows
+
+### Build a filter UI
+
+Create a complete filter panel with all available options:
+
+```typescript
+import {
+  getGenres,
+  getTags,
+  getPublishers,
+  getLanguages,
+  getAgeRatings,
+  getAuthorsRoles,
+} from 'komga-sdk';
+
+interface FilterOptions {
+  genres: string[];
+  tags: string[];
+  publishers: string[];
+  languages: string[];
+  ageRatings: string[];
+  authorRoles: string[];
+}
+
+async function getFilterOptions(libraryId?: string): Promise<FilterOptions> {
+  const query = libraryId ? { libraryId: [libraryId] } : {};
+
+  // Fetch all filter options in parallel
+  const [genres, tags, publishers, languages, ageRatings, authorRoles] = await Promise.all([
+    getGenres({ client, query }),
+    getTags({ client, query }),
+    getPublishers({ client, query }),
+    getLanguages({ client, query }),
+    getAgeRatings({ client, query }),
+    getAuthorsRoles({ client }),
+  ]);
+
+  return {
+    genres: genres.data ?? [],
+    tags: tags.data ?? [],
+    publishers: publishers.data ?? [],
+    languages: languages.data ?? [],
+    ageRatings: ageRatings.data ?? [],
+    authorRoles: authorRoles.data ?? [],
+  };
+}
+```
+
+### Author autocomplete
+
+Implement an author search autocomplete:
+
+```typescript
+import { getAuthorsNames } from 'komga-sdk';
+
+async function searchAuthors(query: string): Promise<string[]> {
+  if (query.length < 2) return [];
+
+  const result = await getAuthorsNames({
+    client,
+    query: { search: query },
+  });
+
+  return result.data ?? [];
+}
+
+// Usage in a React component
+// const [suggestions, setSuggestions] = useState<string[]>([]);
+// const debouncedSearch = useMemo(
+//   () => debounce((q: string) => searchAuthors(q).then(setSuggestions), 300),
+//   []
+// );
+```
+
+### Get library statistics
+
+Build a summary of metadata in a library:
+
+```typescript
+import {
+  getGenres,
+  getTags,
+  getAuthors,
+  getPublishers,
+} from 'komga-sdk';
+
+interface LibraryStats {
+  genreCount: number;
+  tagCount: number;
+  authorCount: number;
+  publisherCount: number;
+  topGenres: string[];
+}
+
+async function getLibraryStats(libraryId: string): Promise<LibraryStats> {
+  const query = { libraryId: [libraryId] };
+
+  const [genres, tags, authors, publishers] = await Promise.all([
+    getGenres({ client, query }),
+    getTags({ client, query }),
+    getAuthors({ client, query: { ...query, page: 0, size: 1 } }),
+    getPublishers({ client, query }),
+  ]);
+
+  return {
+    genreCount: genres.data?.length ?? 0,
+    tagCount: tags.data?.length ?? 0,
+    authorCount: authors.data?.totalElements ?? 0,
+    publisherCount: publishers.data?.length ?? 0,
+    topGenres: (genres.data ?? []).slice(0, 5),
+  };
+}
+```
+
+### Filter by multiple criteria
+
+Use metadata lookups to build dynamic queries:
+
+```typescript
+import { getSeries, getGenres } from 'komga-sdk';
+
+async function findSeriesByGenre(genreSearch: string) {
+  // First, find matching genres
+  const genresResult = await getGenres({ client });
+  const matchingGenres = (genresResult.data ?? []).filter(g =>
+    g.toLowerCase().includes(genreSearch.toLowerCase())
+  );
+
+  if (matchingGenres.length === 0) {
+    return { data: { content: [], totalElements: 0 } };
+  }
+
+  // Then search for series with those genres
+  const result = await getSeries({
+    client,
+    body: {
+      genre: matchingGenres,
+    },
+    query: {
+      page: 0,
+      size: 20,
+    },
+  });
+
+  return result;
+}
+```
+
+## Error handling
+
+```typescript
+import { getGenres } from 'komga-sdk';
+
+const result = await getGenres({ client });
+
+if (result.error) {
+  switch (result.response?.status) {
+    case 401:
+      console.error('Not authenticated');
+      break;
+    case 403:
+      console.error('Access denied');
+      break;
+    default:
+      console.error('Error fetching genres:', result.error);
+  }
+}
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Series" icon="layer-group" href="/guides/series">
+    Filter and search series using metadata.
+  </Card>
+  <Card title="Books" icon="book" href="/guides/books">
+    Search books by author, genre, and more.
+  </Card>
+  <Card title="Collections" icon="folder-open" href="/guides/collections">
+    Organize content into collections.
+  </Card>
+  <Card title="Users" icon="users" href="/guides/users">
+    Configure content restrictions with labels.
+  </Card>
+</CardGroup>

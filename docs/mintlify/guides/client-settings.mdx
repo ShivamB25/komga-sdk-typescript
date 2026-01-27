@@ -1,0 +1,183 @@
+---
+title: "Client Settings"
+description: "Manage global and user-specific client settings"
+icon: "sliders"
+---
+
+Client settings store preferences for web and mobile readers. Settings can be global (admin-managed) or user-specific.
+
+<Note>
+Global settings affect all users. User settings override global defaults when present.
+</Note>
+
+## Global settings
+
+### List global settings
+
+```typescript
+import { getGlobalSettings } from 'komga-sdk';
+
+const result = await getGlobalSettings({ client });
+
+if (result.data) {
+  result.data.forEach(setting => {
+    console.log(`${setting.key} = ${setting.value}`);
+  });
+}
+```
+
+### Save a global setting
+
+<Warning>
+Requires **ADMIN** role.
+</Warning>
+
+```typescript
+import { saveGlobalSetting } from 'komga-sdk';
+
+await saveGlobalSetting({
+  client,
+  body: {
+    key: 'webui.theme.mode',
+    value: 'dark',
+  },
+});
+```
+
+### Delete global settings
+
+<Warning>
+Requires **ADMIN** role.
+</Warning>
+
+```typescript
+import { deleteGlobalSettings } from 'komga-sdk';
+
+await deleteGlobalSettings({
+  client,
+  body: {
+    keys: ['webui.theme.mode', 'reader.background'],
+  },
+});
+```
+
+## User settings
+
+### List user settings
+
+```typescript
+import { getUserSettings } from 'komga-sdk';
+
+const result = await getUserSettings({ client });
+
+if (result.data) {
+  result.data.forEach(setting => {
+    console.log(`${setting.key} = ${setting.value}`);
+  });
+}
+```
+
+### Save a user setting
+
+```typescript
+import { saveUserSetting } from 'komga-sdk';
+
+await saveUserSetting({
+  client,
+  body: {
+    key: 'reader.pageFit',
+    value: 'WIDTH',
+  },
+});
+```
+
+### Delete user settings
+
+```typescript
+import { deleteUserSettings } from 'komga-sdk';
+
+await deleteUserSettings({
+  client,
+  body: {
+    keys: ['reader.pageFit', 'reader.background'],
+  },
+});
+```
+
+## Common workflows
+
+### Apply global defaults with user overrides
+
+```typescript
+import { getGlobalSettings, getUserSettings } from 'komga-sdk';
+
+async function getEffectiveSettings() {
+  const [global, user] = await Promise.all([
+    getGlobalSettings({ client }),
+    getUserSettings({ client }),
+  ]);
+
+  const effective = new Map<string, string>();
+
+  for (const setting of global.data ?? []) {
+    effective.set(setting.key, setting.value);
+  }
+
+  for (const setting of user.data ?? []) {
+    effective.set(setting.key, setting.value);
+  }
+
+  return effective;
+}
+```
+
+### Reset user settings to defaults
+
+```typescript
+import { getUserSettings, deleteUserSettings } from 'komga-sdk';
+
+async function resetUserSettings() {
+  const result = await getUserSettings({ client });
+  if (!result.data) return;
+
+  await deleteUserSettings({
+    client,
+    body: {
+      keys: result.data.map(s => s.key),
+    },
+  });
+}
+```
+
+## Error handling
+
+```typescript
+import { getGlobalSettings } from 'komga-sdk';
+
+const result = await getGlobalSettings({ client });
+
+if (result.error) {
+  switch (result.response?.status) {
+    case 401:
+      console.error('Not authenticated');
+      break;
+    case 403:
+      console.error('Admin access required');
+      break;
+    default:
+      console.error('Error fetching settings:', result.error);
+  }
+}
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Users" icon="users" href="/guides/users">
+    Manage users and per-user preferences.
+  </Card>
+  
+  <Card title="Admin" icon="shield-halved" href="/guides/admin">
+    Server settings and administration.
+  </Card>
+</CardGroup>

@@ -1,0 +1,453 @@
+---
+title: "Thumbnails"
+description: "Manage thumbnails for books, series, collections, and read lists"
+icon: "image"
+---
+
+This guide covers thumbnail management across all content types in Komga, including retrieving, uploading, and selecting thumbnails.
+
+<Note>
+Thumbnails are generated automatically during library scans. You can also upload custom thumbnails to override the defaults.
+</Note>
+
+## Book thumbnails
+
+### Get book thumbnail
+
+Retrieve the currently selected thumbnail for a book:
+
+```typescript
+import { getBookThumbnail } from 'komga-sdk';
+
+const result = await getBookThumbnail({
+  client,
+  path: { bookId: 'book-123' },
+});
+
+if (result.data) {
+  // result.data is a Blob containing the image
+  const thumbnailUrl = URL.createObjectURL(result.data);
+  // Use in an img tag: <img src={thumbnailUrl} />
+}
+```
+
+### List available thumbnails
+
+Get all available thumbnails for a book (including auto-generated and user-uploaded):
+
+```typescript
+import { getBookThumbnails } from 'komga-sdk';
+
+const result = await getBookThumbnails({
+  client,
+  path: { bookId: 'book-123' },
+});
+
+if (result.data) {
+  result.data.forEach(thumb => {
+    console.log(`ID: ${thumb.id}`);
+    console.log(`Selected: ${thumb.selected}`);
+    console.log(`Type: ${thumb.type}`); // 'SIDECAR', 'EMBEDDED', or 'UPLOADED'
+  });
+}
+```
+
+### Get specific thumbnail by ID
+
+```typescript
+import { getBookThumbnailById } from 'komga-sdk';
+
+const result = await getBookThumbnailById({
+  client,
+  path: { 
+    bookId: 'book-123',
+    thumbnailId: 'thumb-456'
+  },
+});
+
+if (result.data) {
+  const thumbnailUrl = URL.createObjectURL(result.data);
+}
+```
+
+### Upload custom thumbnail
+
+Add a user-uploaded thumbnail to a book:
+
+```typescript
+import { addUserUploadedBookThumbnail } from 'komga-sdk';
+
+const fileInput = document.getElementById('thumbnail-input') as HTMLInputElement;
+const file = fileInput.files?.[0];
+
+if (file) {
+  const result = await addUserUploadedBookThumbnail({
+    client,
+    path: { bookId: 'book-123' },
+    body: { file },
+  });
+
+  if (result.data) {
+    console.log(`Uploaded thumbnail: ${result.data.id}`);
+  }
+}
+```
+
+### Select a thumbnail
+
+Mark a specific thumbnail as the active one:
+
+```typescript
+import { markBookThumbnailSelected } from 'komga-sdk';
+
+await markBookThumbnailSelected({
+  client,
+  path: { 
+    bookId: 'book-123',
+    thumbnailId: 'thumb-456'
+  },
+});
+```
+
+### Delete custom thumbnail
+
+Remove a user-uploaded thumbnail:
+
+```typescript
+import { deleteUserUploadedBookThumbnail } from 'komga-sdk';
+
+await deleteUserUploadedBookThumbnail({
+  client,
+  path: { 
+    bookId: 'book-123',
+    thumbnailId: 'thumb-456'
+  },
+});
+```
+
+## Series thumbnails
+
+### Get series thumbnail
+
+```typescript
+import { getSeriesThumbnail } from 'komga-sdk';
+
+const result = await getSeriesThumbnail({
+  client,
+  path: { seriesId: 'series-123' },
+});
+
+if (result.data) {
+  const thumbnailUrl = URL.createObjectURL(result.data);
+}
+```
+
+### List series thumbnails
+
+```typescript
+import { getSeriesThumbnails } from 'komga-sdk';
+
+const result = await getSeriesThumbnails({
+  client,
+  path: { seriesId: 'series-123' },
+});
+
+if (result.data) {
+  console.log(`Available thumbnails: ${result.data.length}`);
+}
+```
+
+### Get specific series thumbnail
+
+```typescript
+import { getSeriesThumbnailById } from 'komga-sdk';
+
+const result = await getSeriesThumbnailById({
+  client,
+  path: { 
+    seriesId: 'series-123',
+    thumbnailId: 'thumb-456'
+  },
+});
+```
+
+### Upload series thumbnail
+
+```typescript
+import { addUserUploadedSeriesThumbnail } from 'komga-sdk';
+
+const file = new File([imageBlob], 'series-thumb.jpg', { type: 'image/jpeg' });
+
+await addUserUploadedSeriesThumbnail({
+  client,
+  path: { seriesId: 'series-123' },
+  body: { file },
+});
+```
+
+### Select series thumbnail
+
+```typescript
+import { markSeriesThumbnailSelected } from 'komga-sdk';
+
+await markSeriesThumbnailSelected({
+  client,
+  path: { 
+    seriesId: 'series-123',
+    thumbnailId: 'thumb-456'
+  },
+});
+```
+
+### Delete series thumbnail
+
+```typescript
+import { deleteUserUploadedSeriesThumbnail } from 'komga-sdk';
+
+await deleteUserUploadedSeriesThumbnail({
+  client,
+  path: { 
+    seriesId: 'series-123',
+    thumbnailId: 'thumb-456'
+  },
+});
+```
+
+## Collection thumbnails
+
+### Get collection thumbnail
+
+```typescript
+import { getCollectionThumbnail } from 'komga-sdk';
+
+const result = await getCollectionThumbnail({
+  client,
+  path: { collectionId: 'collection-123' },
+});
+
+if (result.data) {
+  const thumbnailUrl = URL.createObjectURL(result.data);
+}
+```
+
+### List collection thumbnails
+
+```typescript
+import { getCollectionThumbnails } from 'komga-sdk';
+
+const result = await getCollectionThumbnails({
+  client,
+  path: { collectionId: 'collection-123' },
+});
+```
+
+### Get specific collection thumbnail
+
+```typescript
+import { getCollectionThumbnailById } from 'komga-sdk';
+
+const result = await getCollectionThumbnailById({
+  client,
+  path: { 
+    collectionId: 'collection-123',
+    thumbnailId: 'thumb-456'
+  },
+});
+```
+
+### Upload collection thumbnail
+
+```typescript
+import { addUserUploadedCollectionThumbnail } from 'komga-sdk';
+
+const file = new File([imageBlob], 'collection-thumb.jpg', { type: 'image/jpeg' });
+
+await addUserUploadedCollectionThumbnail({
+  client,
+  path: { collectionId: 'collection-123' },
+  body: { file },
+});
+```
+
+### Select collection thumbnail
+
+```typescript
+import { markCollectionThumbnailSelected } from 'komga-sdk';
+
+await markCollectionThumbnailSelected({
+  client,
+  path: { 
+    collectionId: 'collection-123',
+    thumbnailId: 'thumb-456'
+  },
+});
+```
+
+## Read list thumbnails
+
+### Get read list thumbnail
+
+```typescript
+import { getReadListThumbnail } from 'komga-sdk';
+
+const result = await getReadListThumbnail({
+  client,
+  path: { readListId: 'readlist-123' },
+});
+
+if (result.data) {
+  const thumbnailUrl = URL.createObjectURL(result.data);
+}
+```
+
+### List read list thumbnails
+
+```typescript
+import { getReadListThumbnails } from 'komga-sdk';
+
+const result = await getReadListThumbnails({
+  client,
+  path: { readListId: 'readlist-123' },
+});
+```
+
+### Get specific read list thumbnail
+
+```typescript
+import { getReadListThumbnailById } from 'komga-sdk';
+
+const result = await getReadListThumbnailById({
+  client,
+  path: { 
+    readListId: 'readlist-123',
+    thumbnailId: 'thumb-456'
+  },
+});
+```
+
+### Upload read list thumbnail
+
+```typescript
+import { addUserUploadedReadListThumbnail } from 'komga-sdk';
+
+const file = new File([imageBlob], 'readlist-thumb.jpg', { type: 'image/jpeg' });
+
+await addUserUploadedReadListThumbnail({
+  client,
+  path: { readListId: 'readlist-123' },
+  body: { file },
+});
+```
+
+### Select read list thumbnail
+
+```typescript
+import { markReadListThumbnailSelected } from 'komga-sdk';
+
+await markReadListThumbnailSelected({
+  client,
+  path: { 
+    readListId: 'readlist-123',
+    thumbnailId: 'thumb-456'
+  },
+});
+```
+
+## Regenerate thumbnails
+
+<Warning>
+Requires **ADMIN** role. This operation regenerates thumbnails for all books and can be resource-intensive.
+</Warning>
+
+Regenerate all thumbnails (useful after changing thumbnail settings):
+
+```typescript
+import { booksRegenerateThumbnails } from 'komga-sdk';
+
+await booksRegenerateThumbnails({ client });
+```
+
+## Common workflows
+
+### Thumbnail selector component
+
+```typescript
+import { getBookThumbnails, getBookThumbnailById, markBookThumbnailSelected } from 'komga-sdk';
+
+async function createThumbnailSelector(bookId: string, container: HTMLElement) {
+  const result = await getBookThumbnails({
+    client,
+    path: { bookId },
+  });
+
+  if (!result.data) return;
+
+  for (const thumb of result.data) {
+    const thumbResult = await getBookThumbnailById({
+      client,
+      path: { bookId, thumbnailId: thumb.id },
+    });
+
+    if (thumbResult.data) {
+      const img = document.createElement('img');
+      img.src = URL.createObjectURL(thumbResult.data);
+      img.classList.toggle('selected', thumb.selected);
+      
+      img.addEventListener('click', async () => {
+        await markBookThumbnailSelected({
+          client,
+          path: { bookId, thumbnailId: thumb.id },
+        });
+        // Refresh UI
+      });
+      
+      container.appendChild(img);
+    }
+  }
+}
+```
+
+### Upload and select workflow
+
+```typescript
+import { 
+  addUserUploadedBookThumbnail, 
+  markBookThumbnailSelected 
+} from 'komga-sdk';
+
+async function uploadAndSelectThumbnail(bookId: string, file: File) {
+  // Upload
+  const uploadResult = await addUserUploadedBookThumbnail({
+    client,
+    path: { bookId },
+    body: { file },
+  });
+
+  if (!uploadResult.data) {
+    throw new Error('Upload failed');
+  }
+
+  // Select the new thumbnail
+  await markBookThumbnailSelected({
+    client,
+    path: { 
+      bookId, 
+      thumbnailId: uploadResult.data.id 
+    },
+  });
+
+  return uploadResult.data;
+}
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Book Content" icon="images" href="/guides/book-content">
+    Access book pages and reading positions.
+  </Card>
+  
+  <Card title="Books" icon="book" href="/guides/books">
+    Learn about book management operations.
+  </Card>
+</CardGroup>

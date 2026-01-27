@@ -87,9 +87,9 @@ Use `ordered: true` for reading orders where sequence matters. Use `ordered: fal
 Modify the read list name, summary, or book order:
 
 ```typescript
-import { updateReadList } from 'komga-sdk';
+import { updateReadListById } from 'komga-sdk';
 
-const result = await updateReadList({
+const result = await updateReadListById({
   client,
   path: { readListId: 'readlist-123' },
   body: {
@@ -132,6 +132,46 @@ if (result.data) {
   for (const book of result.data.content) {
     console.log(`${book.metadata.title} (${book.metadata.number})`);
   }
+}
+```
+
+## Find read lists containing a book
+
+Identify which read lists include a specific book:
+
+```typescript
+import { getReadListsByBookId } from 'komga-sdk';
+
+const result = await getReadListsByBookId({
+  client,
+  path: { bookId: 'book-123' },
+  query: { page: 0, size: 20 },
+});
+
+if (result.data) {
+  for (const list of result.data.content) {
+    console.log(`${list.name} (${list.bookIds.length} books)`);
+  }
+}
+```
+
+## Import ComicRack lists
+
+Use ComicRack `.cbl` lists to build read lists automatically:
+
+```typescript
+import { matchComicRackList } from 'komga-sdk';
+
+const file = new File([cblBlob], 'reading-order.cbl', { type: 'text/xml' });
+
+const result = await matchComicRackList({
+  client,
+  body: { file },
+});
+
+if (result.data) {
+  // result.data contains matches and recommendations
+  console.log(`Matched ${result.data.matches.length} books`);
 }
 ```
 
@@ -262,6 +302,8 @@ await createCrossoverReadList('Infinite Crisis', crisisBooks);
 ### Create a "Next Up" read list
 
 ```typescript
+import { getBooks, createReadList } from 'komga-sdk';
+
 async function createNextUpReadList(userId: string) {
   // Get books with progress
   const booksResult = await getBooks({

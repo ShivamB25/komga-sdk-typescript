@@ -1,0 +1,99 @@
+---
+title: "Deprecated Endpoints"
+description: "Legacy endpoints and their modern replacements"
+icon: "triangle-exclamation"
+---
+
+These endpoints are deprecated and should be avoided in new integrations. Use the replacements listed below.
+
+<Warning>
+Deprecated endpoints may be removed in future Komga releases.
+</Warning>
+
+## Deprecated endpoints and replacements
+
+| Deprecated | Replacement | Notes |
+|------------|-------------|-------|
+| `getAllBooksDeprecated` | `getBooks` | Use POST `/api/v1/books/list` |
+| `getSeriesDeprecated` | `getSeries` | Use POST `/api/v1/series/list` |
+| `getSeriesAlphabeticalGroupsDeprecated` | `getSeriesAlphabeticalGroups` | Use POST `/api/v1/series/list/alphabetical-groups` |
+| `getAuthorsDeprecated` | `getAuthors` | Use GET `/api/v2/authors` |
+| `updateLibraryByIdDeprecated` | `updateLibraryById` | Use PATCH instead of PUT |
+
+## SDK deprecated function imports
+
+These functions are still exported for backward compatibility but should be avoided:
+
+```typescript
+import {
+  getAllBooksDeprecated,
+  getSeriesDeprecated,
+  getSeriesAlphabeticalGroupsDeprecated,
+  getAuthorsDeprecated,
+} from 'komga-sdk';
+
+// Avoid using these in new integrations.
+```
+
+## Example replacements
+
+### Replace getAllBooksDeprecated
+
+```typescript
+import { getBooks } from 'komga-sdk';
+
+const result = await getBooks({
+  client,
+  body: {},
+  query: { page: 0, size: 20 },
+});
+```
+
+### Replace getSeriesDeprecated
+
+```typescript
+import { getSeries } from 'komga-sdk';
+
+const result = await getSeries({
+  client,
+  body: {},
+  query: { page: 0, size: 20 },
+});
+```
+
+### Replace getAuthorsDeprecated
+
+```typescript
+import { getAuthors } from 'komga-sdk';
+
+const result = await getAuthors({
+  client,
+  query: { page: 0, size: 50 },
+});
+```
+
+### Replace updateLibraryByIdDeprecated
+
+```typescript
+import { updateLibraryById } from 'komga-sdk';
+
+await updateLibraryById({
+  client,
+  path: { libraryId: 'library-123' },
+  body: {
+    name: 'Updated Library Name',
+  },
+});
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Direct API" icon="code" href="/direct-api">
+    Explore low-level API functions.
+  </Card>
+  
+  <Card title="Library Maintenance" icon="screwdriver-wrench" href="/guides/library-maintenance">
+    Update libraries with the modern API.
+  </Card>
+</CardGroup>

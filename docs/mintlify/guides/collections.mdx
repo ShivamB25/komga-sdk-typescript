@@ -74,9 +74,9 @@ Collections can be ordered or unordered. Use `ordered: true` when the sequence o
 Modify collection metadata or change which series are included:
 
 ```typescript
-import { updateCollection } from 'komga-sdk';
+import { updateCollectionById } from 'komga-sdk';
 
-const result = await updateCollection({
+const result = await updateCollectionById({
   client,
   path: { collectionId: 'collection-123' },
   body: {
@@ -174,6 +174,8 @@ await deleteUserUploadedCollectionThumbnail({
 ### Build a "Recently Added" collection
 
 ```typescript
+import { getSeries, createCollection } from 'komga-sdk';
+
 async function createRecentSeriesCollection() {
   // Get recently added series
   const seriesResult = await getSeries({
@@ -205,6 +207,8 @@ async function createRecentSeriesCollection() {
 ### Organize series by genre into collections
 
 ```typescript
+import { getSeries, createCollection } from 'komga-sdk';
+
 async function organizeByGenre() {
   const genres = ['Action', 'Comedy', 'Drama', 'Sci-Fi'];
   
@@ -254,7 +258,7 @@ async function addSeriesToCollection(collectionId: string, newSeriesId: string) 
   const updatedSeriesIds = [...collectionResult.data.seriesIds, newSeriesId];
   
   // Update collection
-  await updateCollection({
+  await updateCollectionById({
     client,
     path: { collectionId },
     body: {

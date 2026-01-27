@@ -1,0 +1,439 @@
+---
+title: "Series Discovery"
+description: "Find new series, view latest additions, and explore your library"
+icon: "compass"
+---
+
+This guide covers discovery features for finding series, including latest additions, release dates, and navigation helpers.
+
+## Browse latest series
+
+Get the most recently added series:
+
+```typescript
+import { getSeriesLatest } from 'komga-sdk';
+
+const result = await getSeriesLatest({
+  client,
+  query: {
+    page: 0,
+    size: 20,
+  },
+});
+
+if (result.data) {
+  for (const series of result.data.content) {
+    console.log(`${series.metadata.title} (added: ${series.created})`);
+  }
+}
+```
+
+## Get new series
+
+Retrieve series added since your last visit:
+
+```typescript
+import { getSeriesNew } from 'komga-sdk';
+
+const result = await getSeriesNew({
+  client,
+  query: {
+    page: 0,
+    size: 20,
+  },
+});
+
+if (result.data) {
+  console.log(`Found ${result.data.totalElements} new series`);
+}
+```
+
+## Get updated series
+
+Find series with recent updates:
+
+```typescript
+import { getSeriesUpdated } from 'komga-sdk';
+
+const result = await getSeriesUpdated({
+  client,
+  query: {
+    page: 0,
+    size: 20,
+  },
+});
+
+if (result.data) {
+  for (const series of result.data.content) {
+    console.log(`${series.metadata.title} (updated: ${series.lastModified})`);
+  }
+}
+```
+
+## Get series release dates
+
+Retrieve upcoming release dates:
+
+```typescript
+import { getSeriesReleaseDates } from 'komga-sdk';
+
+const result = await getSeriesReleaseDates({
+  client,
+  query: {
+    page: 0,
+    size: 50,
+  },
+});
+
+if (result.data) {
+  for (const release of result.data.content) {
+    console.log(`${release.seriesTitle}: ${release.releaseDate}`);
+  }
+}
+```
+
+## Alphabetical groups
+
+Get series grouped by first letter (useful for A-Z navigation):
+
+```typescript
+import { getSeriesAlphabeticalGroups } from 'komga-sdk';
+
+const result = await getSeriesAlphabeticalGroups({
+  client,
+  body: {}, // Optional filters
+});
+
+if (result.data) {
+  for (const group of result.data) {
+    console.log(`${group.group}: ${group.count} series`);
+  }
+}
+```
+
+## Get series by ID
+
+Retrieve detailed information about a specific series:
+
+```typescript
+import { getSeriesById } from 'komga-sdk';
+
+const result = await getSeriesById({
+  client,
+  path: { seriesId: 'series-123' },
+});
+
+if (result.data) {
+  console.log(`Title: ${result.data.metadata.title}`);
+  console.log(`Books: ${result.data.booksCount}`);
+  console.log(`Status: ${result.data.metadata.status}`);
+}
+```
+
+## Get series from collection
+
+Find all series within a collection:
+
+```typescript
+import { getSeriesByCollectionId } from 'komga-sdk';
+
+const result = await getSeriesByCollectionId({
+  client,
+  path: { id: 'collection-123' },
+  query: {
+    page: 0,
+    size: 50,
+  },
+});
+
+if (result.data) {
+  for (const series of result.data.content) {
+    console.log(series.metadata.title);
+  }
+}
+```
+
+## Navigate book siblings
+
+Get the next or previous book in a series:
+
+```typescript
+import { getBookSiblingNext, getBookSiblingPrevious } from 'komga-sdk';
+
+// Get next book
+const nextResult = await getBookSiblingNext({
+  client,
+  path: { bookId: 'book-123' },
+});
+
+if (nextResult.data) {
+  console.log(`Next: ${nextResult.data.metadata.title}`);
+} else {
+  console.log('This is the last book in the series');
+}
+
+// Get previous book
+const prevResult = await getBookSiblingPrevious({
+  client,
+  path: { bookId: 'book-123' },
+});
+
+if (prevResult.data) {
+  console.log(`Previous: ${prevResult.data.metadata.title}`);
+} else {
+  console.log('This is the first book in the series');
+}
+```
+
+## Series metadata operations
+
+### Update series metadata
+
+```typescript
+import { updateSeriesMetadata } from 'komga-sdk';
+
+await updateSeriesMetadata({
+  client,
+  path: { seriesId: 'series-123' },
+  body: {
+    title: 'New Series Title',
+    summary: 'Updated description',
+    status: 'ONGOING',
+    genres: ['Action', 'Adventure'],
+  },
+});
+```
+
+### Refresh metadata
+
+<Warning>
+Requires **ADMIN** role or appropriate permissions.
+</Warning>
+
+Trigger a metadata refresh from external sources:
+
+```typescript
+import { seriesRefreshMetadata } from 'komga-sdk';
+
+await seriesRefreshMetadata({
+  client,
+  path: { seriesId: 'series-123' },
+});
+```
+
+### Analyze series
+
+<Warning>
+Requires **ADMIN** role.
+</Warning>
+
+Re-analyze series books for metadata and page information:
+
+```typescript
+import { seriesAnalyze } from 'komga-sdk';
+
+await seriesAnalyze({
+  client,
+  path: { seriesId: 'series-123' },
+});
+```
+
+## Common workflows
+
+### Build a "New Releases" dashboard
+
+```typescript
+import { getSeriesLatest, getSeriesReleaseDates } from 'komga-sdk';
+
+async function getNewReleasesDashboard() {
+  // Get recently added series
+  const latest = await getSeriesLatest({
+    client,
+    query: { page: 0, size: 10 },
+  });
+
+  // Get upcoming releases
+  const releases = await getSeriesReleaseDates({
+    client,
+    query: { page: 0, size: 10 },
+  });
+
+  return {
+    recentlyAdded: latest.data?.content ?? [],
+    upcoming: releases.data?.content ?? [],
+  };
+}
+```
+
+### A-Z navigation
+
+```typescript
+import { getSeriesAlphabeticalGroups, getSeries } from 'komga-sdk';
+
+async function buildAZNavigator() {
+  // Get group counts
+  const groupsResult = await getSeriesAlphabeticalGroups({
+    client,
+    body: {},
+  });
+
+  if (!groupsResult.data) return [];
+
+  // For each letter, get a sample of series
+  const navigator = [];
+  
+  for (const group of groupsResult.data) {
+    const seriesResult = await getSeries({
+      client,
+      body: {
+        fullTextSearch: group.group,
+      },
+      query: {
+        page: 0,
+        size: 5,
+        sort: ['metadata.title,asc'],
+      },
+    });
+
+    navigator.push({
+      letter: group.group,
+      count: group.count,
+      preview: seriesResult.data?.content ?? [],
+    });
+  }
+
+  return navigator;
+}
+```
+
+### Series browser with pagination
+
+```typescript
+import { getSeries, getSeriesById } from 'komga-sdk';
+
+class SeriesBrowser {
+  private currentPage = 0;
+  private pageSize = 20;
+
+  async loadPage(page: number) {
+    this.currentPage = page;
+    
+    const result = await getSeries({
+      client,
+      body: {},
+      query: {
+        page: this.currentPage,
+        size: this.pageSize,
+        sort: ['metadata.title,asc'],
+      },
+    });
+
+    return result.data;
+  }
+
+  async getSeriesDetails(seriesId: string) {
+    const result = await getSeriesById({
+      client,
+      path: { seriesId },
+    });
+
+    return result.data;
+  }
+
+  async nextPage() {
+    return this.loadPage(this.currentPage + 1);
+  }
+
+  async prevPage() {
+    if (this.currentPage > 0) {
+      return this.loadPage(this.currentPage - 1);
+    }
+  }
+}
+```
+
+### Reading order navigator
+
+```typescript
+import { getBookSiblingNext, getBookSiblingPrevious } from 'komga-sdk';
+
+class ReadingNavigator {
+  private currentBookId: string;
+
+  constructor(initialBookId: string) {
+    this.currentBookId = initialBookId;
+  }
+
+  async next() {
+    const result = await getBookSiblingNext({
+      client,
+      path: { bookId: this.currentBookId },
+    });
+
+    if (result.data) {
+      this.currentBookId = result.data.id;
+      return result.data;
+    }
+    
+    return null; // End of series
+  }
+
+  async previous() {
+    const result = await getBookSiblingPrevious({
+      client,
+      path: { bookId: this.currentBookId },
+    });
+
+    if (result.data) {
+      this.currentBookId = result.data.id;
+      return result.data;
+    }
+    
+    return null; // Beginning of series
+  }
+}
+```
+
+## Error handling
+
+```typescript
+import { getSeriesById } from 'komga-sdk';
+
+const result = await getSeriesById({
+  client,
+  path: { seriesId: 'series-123' },
+});
+
+if (result.error) {
+  switch (result.response?.status) {
+    case 404:
+      console.error('Series not found');
+      break;
+    case 401:
+      console.error('Not authenticated');
+      break;
+    default:
+      console.error('Error fetching series:', result.error);
+  }
+}
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Series" icon="folder" href="/guides/series">
+    Learn about SeriesService for common operations.
+  </Card>
+  
+  <Card title="Books" icon="book" href="/guides/books">
+    Explore book operations and content access.
+  </Card>
+  
+  <Card title="Collections" icon="folder-open" href="/guides/collections">
+    Organize series into collections.
+  </Card>
+  
+  <Card title="Libraries" icon="book-open" href="/guides/libraries">
+    Manage your library structure.
+  </Card>
+</CardGroup>
