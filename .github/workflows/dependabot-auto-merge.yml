@@ -4,6 +4,8 @@ on:
   pull_request_target:
     types: [opened, synchronize, reopened]
   workflow_dispatch:
+  schedule:
+    - cron: "17 */6 * * *"
 
 permissions:
   contents: write
@@ -11,7 +13,7 @@ permissions:
 
 jobs:
   dependabot:
-    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    if: github.event_name == 'pull_request_target' && github.event.pull_request.user.login == 'dependabot[bot]'
     runs-on: ubuntu-latest
     steps:
       - name: Dependabot metadata
@@ -25,4 +27,24 @@ jobs:
         run: gh pr merge --auto --merge "$PR_URL"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  pending-dependabot-prs:
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enable auto-merge for all open Dependabot PRs
+        run: |
+          urls="$(gh pr list --state open --author 'app/dependabot' --json url --jq '.[].url')"
+          if [ -z "$urls" ]; then
+            echo "No open Dependabot PRs."
+            exit 0
+          fi
+
+          while IFS= read -r pr_url; do
+            [ -z "$pr_url" ] && continue
+            echo "Enabling auto-merge for $pr_url"
+            gh pr merge --auto --merge "$pr_url" || true
+          done <<< "$urls"
+        env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
