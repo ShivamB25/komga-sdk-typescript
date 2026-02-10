@@ -19,6 +19,17 @@ export type AuthConfig =
 /**
  * Retry configuration for automatic request retries with exponential backoff
  */
+export type RetryHttpMethod =
+  | 'connect'
+  | 'delete'
+  | 'get'
+  | 'head'
+  | 'options'
+  | 'patch'
+  | 'post'
+  | 'put'
+  | 'trace';
+
 export interface RetryConfig {
   /**
    * Maximum number of retry attempts
@@ -30,7 +41,7 @@ export interface RetryConfig {
    * HTTP methods to retry on
    * @default ['get', 'put', 'head', 'delete', 'options', 'trace']
    */
-  methods?: string[];
+  methods?: RetryHttpMethod[];
 
   /**
    * HTTP status codes that trigger a retry

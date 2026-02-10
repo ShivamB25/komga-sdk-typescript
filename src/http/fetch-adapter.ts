@@ -4,6 +4,46 @@
 
 import type { KyInstance } from 'ky';
 
+type KyRequestOptions = NonNullable<Parameters<KyInstance>[1]>;
+type KyRequestMethod = NonNullable<KyRequestOptions['method']>;
+
+type KnownHttpMethod =
+  | 'connect'
+  | 'delete'
+  | 'get'
+  | 'head'
+  | 'options'
+  | 'patch'
+  | 'post'
+  | 'put'
+  | 'trace';
+
+function isKnownHttpMethod(method: string): method is KnownHttpMethod {
+  switch (method) {
+    case 'connect':
+    case 'delete':
+    case 'get':
+    case 'head':
+    case 'options':
+    case 'patch':
+    case 'post':
+    case 'put':
+    case 'trace':
+      return true;
+    default:
+      return false;
+  }
+}
+
+function toKyMethod(method: string): KyRequestMethod {
+  const normalizedMethod = method.toLowerCase();
+  if (isKnownHttpMethod(normalizedMethod)) {
+    return normalizedMethod.toUpperCase() as KyRequestMethod;
+  }
+
+  return method as KyRequestMethod;
+}
+
 /**
  * Creates a fetch-compatible adapter from a ky instance
  *
@@ -32,12 +72,12 @@ export function createFetchAdapter(
     const url = input instanceof URL ? input.toString() : String(input);
 
     // Extract method from init or default to GET
-    const method = (init?.method || 'GET').toUpperCase();
+    const method = init?.method ?? 'GET';
 
     // Create request options for ky
-    const kyOptions: Parameters<typeof kyInstance>[1] = {
+    const kyOptions: KyRequestOptions = {
       ...init,
-      method: method.toLowerCase() as any,
+      method: toKyMethod(method),
       throwHttpErrors: false, // Match standard fetch behavior
     };
 

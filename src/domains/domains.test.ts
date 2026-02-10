@@ -60,6 +60,21 @@ describe('BaseService', () => {
     await expect(service.testSafeCall(mockApiCall, schema)).rejects.toThrow('API error');
   });
 
+  it('propagates useful message context from structured API errors', async () => {
+    const mockClient = createMockClient();
+    const service = new TestService(mockClient as any);
+
+    const schema = z.object({ id: z.string() }).strict();
+    const mockApiCall = vi.fn().mockResolvedValue({
+      data: undefined,
+      error: { status: 404, statusText: 'Not Found' },
+    });
+
+    await expect(service.testSafeCall(mockApiCall, schema)).rejects.toThrow(
+      'API error: HTTP 404 Not Found'
+    );
+  });
+
   it('throws ValidationError when response fails schema validation', async () => {
     const mockClient = createMockClient();
     const service = new TestService(mockClient as any);
@@ -275,7 +290,7 @@ describe('BookService', () => {
       const result = await bookService.getPages('book-123');
 
       expect(result).toHaveLength(2);
-      expect(result[0].number).toBe(1);
+      expect(result[0]?.number).toBe(1);
     });
   });
 
@@ -459,7 +474,7 @@ describe('SeriesService', () => {
       const result = await seriesService.getCollections('series-123');
 
       expect(result).toHaveLength(1);
-      expect(result[0].id).toBe('col-1');
+      expect(result[0]?.id).toBe('col-1');
     });
   });
 });
@@ -517,7 +532,7 @@ describe('LibraryService', () => {
 
       expect(getLibraries).toHaveBeenCalledWith({ client: mockClient });
       expect(result).toHaveLength(1);
-      expect(result[0].id).toBe('lib-123');
+      expect(result[0]?.id).toBe('lib-123');
     });
 
     it('throws error when no data returned', async () => {
@@ -546,6 +561,30 @@ describe('LibraryService', () => {
         path: { libraryId: 'lib-123' },
       });
       expect(result.id).toBe('lib-123');
+    });
+
+    it('throws error when library is not returned', async () => {
+      const { getLibraryById } = await import('../sdk.gen');
+      vi.mocked(getLibraryById).mockResolvedValue({
+        data: undefined,
+        error: undefined,
+      } as any);
+
+      await expect(libraryService.getById('lib-123')).rejects.toThrow(
+        'No data returned'
+      );
+    });
+
+    it('throws error when API returns an error', async () => {
+      const { getLibraryById } = await import('../sdk.gen');
+      vi.mocked(getLibraryById).mockResolvedValue({
+        data: undefined,
+        error: 'Library not found',
+      } as any);
+
+      await expect(libraryService.getById('lib-404')).rejects.toThrow(
+        'Library not found'
+      );
     });
   });
 
@@ -587,12 +626,93 @@ describe('LibraryService', () => {
         seriesCover: 'FIRST' as const,
       };
 
-      await libraryService.create(createData);
+      const result = await libraryService.create(createData);
 
       expect(addLibrary).toHaveBeenCalledWith({
         client: mockClient,
         body: createData,
       });
+      expect(result.id).toBe('lib-123');
+    });
+
+    it('throws error when create returns no data', async () => {
+      const { addLibrary } = await import('../sdk.gen');
+      vi.mocked(addLibrary).mockResolvedValue({
+        data: undefined,
+        error: undefined,
+      } as any);
+
+      await expect(
+        libraryService.create({
+          analyzeDimensions: true,
+          convertToCbz: false,
+          emptyTrashAfterScan: false,
+          hashFiles: true,
+          hashKoreader: false,
+          hashPages: false,
+          importBarcodeIsbn: false,
+          importComicInfoBook: true,
+          importComicInfoCollection: true,
+          importComicInfoReadList: true,
+          importComicInfoSeries: true,
+          importComicInfoSeriesAppendVolume: false,
+          importEpubBook: true,
+          importEpubSeries: true,
+          importLocalArtwork: true,
+          importMylarSeries: false,
+          name: 'Missing Data Library',
+          repairExtensions: false,
+          root: '/missing/data',
+          scanCbx: true,
+          scanDirectoryExclusions: [],
+          scanEpub: true,
+          scanForceModifiedTime: false,
+          scanInterval: 'DAILY',
+          scanOnStartup: true,
+          scanPdf: true,
+          seriesCover: 'FIRST',
+        })
+      ).rejects.toThrow('No data returned');
+    });
+
+    it('throws error when create returns an API error', async () => {
+      const { addLibrary } = await import('../sdk.gen');
+      vi.mocked(addLibrary).mockResolvedValue({
+        data: undefined,
+        error: 'Library already exists',
+      } as any);
+
+      await expect(
+        libraryService.create({
+          analyzeDimensions: true,
+          convertToCbz: false,
+          emptyTrashAfterScan: false,
+          hashFiles: true,
+          hashKoreader: false,
+          hashPages: false,
+          importBarcodeIsbn: false,
+          importComicInfoBook: true,
+          importComicInfoCollection: true,
+          importComicInfoReadList: true,
+          importComicInfoSeries: true,
+          importComicInfoSeriesAppendVolume: false,
+          importEpubBook: true,
+          importEpubSeries: true,
+          importLocalArtwork: true,
+          importMylarSeries: false,
+          name: 'Duplicate Library',
+          repairExtensions: false,
+          root: '/duplicate',
+          scanCbx: true,
+          scanDirectoryExclusions: [],
+          scanEpub: true,
+          scanForceModifiedTime: false,
+          scanInterval: 'DAILY',
+          scanOnStartup: true,
+          scanPdf: true,
+          seriesCover: 'FIRST',
+        })
+      ).rejects.toThrow('Library already exists');
     });
   });
 
@@ -612,6 +732,18 @@ describe('LibraryService', () => {
         body: { name: 'Updated Name' },
       });
     });
+
+    it('throws error when update returns an API error', async () => {
+      const { updateLibraryById } = await import('../sdk.gen');
+      vi.mocked(updateLibraryById).mockResolvedValue({
+        data: undefined,
+        error: 'Cannot update library',
+      } as any);
+
+      await expect(
+        libraryService.update('lib-123', { name: 'Updated Name' })
+      ).rejects.toThrow('Cannot update library');
+    });
   });
 
   describe('delete', () => {
@@ -629,6 +761,18 @@ describe('LibraryService', () => {
         path: { libraryId: 'lib-123' },
       });
     });
+
+    it('throws error when delete returns an API error', async () => {
+      const { deleteLibraryById } = await import('../sdk.gen');
+      vi.mocked(deleteLibraryById).mockResolvedValue({
+        data: undefined,
+        error: 'Cannot delete library',
+      } as any);
+
+      await expect(libraryService.delete('lib-123')).rejects.toThrow(
+        'Cannot delete library'
+      );
+    });
   });
 
   describe('scan', () => {
@@ -645,6 +789,16 @@ describe('LibraryService', () => {
         client: mockClient,
         path: { libraryId: 'lib-123' },
       });
+    });
+
+    it('throws error when scan returns an API error', async () => {
+      const { libraryScan } = await import('../sdk.gen');
+      vi.mocked(libraryScan).mockResolvedValue({
+        data: undefined,
+        error: 'Scan failed',
+      } as any);
+
+      await expect(libraryService.scan('lib-123')).rejects.toThrow('Scan failed');
     });
   });
 });

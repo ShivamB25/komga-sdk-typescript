@@ -74,16 +74,16 @@ export interface StreamEvent<TData = unknown> {
   retry?: number;
 }
 
+type StreamYield<TData> = TData extends Record<string, unknown>
+  ? TData[keyof TData]
+  : TData;
+
 export type ServerSentEventsResult<
   TData = unknown,
   TReturn = void,
   TNext = unknown,
 > = {
-  stream: AsyncGenerator<
-    TData extends Record<string, unknown> ? TData[keyof TData] : TData,
-    TReturn,
-    TNext
-  >;
+  stream: AsyncGenerator<StreamYield<TData>, TReturn, TNext>;
 };
 
 export const createSseClient = <TData = unknown>({
@@ -229,7 +229,7 @@ export const createSseClient = <TData = unknown>({
               });
 
               if (dataLines.length) {
-                yield data as any;
+                yield data as StreamYield<TData>;
               }
             }
           }

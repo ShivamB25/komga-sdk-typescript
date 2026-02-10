@@ -1,5 +1,12 @@
 import type { ResolvedRequestOptions } from '../client/types.gen';
 
+const REDACTED_HEADERS = new Set(['authorization', 'x-api-key', 'cookie', 'set-cookie']);
+
+function formatHeaderEntry(key: string, value: string): string {
+  const headerValue = REDACTED_HEADERS.has(key.toLowerCase()) ? '[REDACTED]' : value;
+  return `${key}: ${headerValue}`;
+}
+
 /**
  * Options for the logging interceptor
  */
@@ -48,7 +55,7 @@ export function createLoggingInterceptor(options: LoggingInterceptorOptions = {}
    */
   const request = async (
     req: Request,
-    opts: ResolvedRequestOptions,
+    _opts: ResolvedRequestOptions,
   ): Promise<Request> => {
     const method = req.method;
     const url = req.url;
@@ -56,10 +63,9 @@ export function createLoggingInterceptor(options: LoggingInterceptorOptions = {}
     let logMessage = `[Request] ${method} ${url}`;
 
     if (logHeaders && req.headers) {
-      const headerEntries: string[] = [];
-      req.headers.forEach((value, key) => {
-        headerEntries.push(`${key}: ${value}`);
-      });
+      const headerEntries = Array.from(req.headers.entries()).map(
+        ([key, value]) => formatHeaderEntry(key, value)
+      );
       if (headerEntries.length > 0) {
         logMessage += `\nHeaders:\n  ${headerEntries.join('\n  ')}`;
       }
@@ -83,8 +89,8 @@ export function createLoggingInterceptor(options: LoggingInterceptorOptions = {}
    */
   const response = async (
     res: Response,
-    req: Request,
-    opts: ResolvedRequestOptions,
+    _req: Request,
+    _opts: ResolvedRequestOptions,
   ): Promise<Response> => {
     const status = res.status;
     const statusText = res.statusText;
@@ -93,10 +99,9 @@ export function createLoggingInterceptor(options: LoggingInterceptorOptions = {}
     let logMessage = `[Response] ${status} ${statusText} ${url}`;
 
     if (logHeaders && res.headers) {
-      const headerEntries: string[] = [];
-      res.headers.forEach((value, key) => {
-        headerEntries.push(`${key}: ${value}`);
-      });
+      const headerEntries = Array.from(res.headers.entries()).map(
+        ([key, value]) => formatHeaderEntry(key, value)
+      );
       if (headerEntries.length > 0) {
         logMessage += `\nHeaders:\n  ${headerEntries.join('\n  ')}`;
       }

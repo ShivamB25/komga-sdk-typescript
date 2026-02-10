@@ -4,7 +4,7 @@ This guide covers prerequisites, basic setup, and the recommended client configu
 
 ## Requirements
 
-- Komga API version: 1.23.6
+- Komga API version: 1.24.1
 - Runtime with Fetch and Web Crypto (e.g. Node 18+ or modern browsers)
 
 ## Installation

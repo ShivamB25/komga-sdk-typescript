@@ -1,5 +1,7 @@
 import { KomgaError } from './base';
 
+const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
+
 /**
  * Error thrown when the Komga API returns an HTTP error response (4xx, 5xx).
  * Contains detailed information about the HTTP error for debugging and error handling.
@@ -53,7 +55,7 @@ export class ApiError extends KomgaError {
   }
 
   private determineRetryability(status: number): boolean {
-    return status === 429 || status === 500 || status === 502 || status === 503 || status === 504;
+    return RETRYABLE_STATUSES.has(status);
   }
 
   /**

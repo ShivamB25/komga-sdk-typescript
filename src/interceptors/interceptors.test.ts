@@ -47,10 +47,20 @@ describe('createLoggingInterceptor', () => {
 
       const req = createMockRequest('http://localhost:25600/api/books');
       req.headers.set('Authorization', 'Bearer token');
+      req.headers.set('X-API-Key', 'my-secret-key');
+      req.headers.set('Cookie', 'session=abc123');
       await request(req, mockResolvedRequestOptions);
 
-      expect(logger).toHaveBeenCalledWith(expect.stringContaining('Headers:'));
-      expect(logger).toHaveBeenCalledWith(expect.stringContaining('authorization'));
+      const [firstCall] = logger.mock.calls;
+      expect(firstCall).toBeDefined();
+      const logMessage = firstCall?.[0] ?? '';
+      expect(logMessage).toContain('Headers:');
+      expect(logMessage).toContain('authorization: [REDACTED]');
+      expect(logMessage).toContain('x-api-key: [REDACTED]');
+      expect(logMessage).toContain('cookie: [REDACTED]');
+      expect(logMessage).not.toContain('Bearer token');
+      expect(logMessage).not.toContain('my-secret-key');
+      expect(logMessage).not.toContain('session=abc123');
     });
 
     it('uses console.log by default', async () => {
@@ -83,10 +93,18 @@ describe('createLoggingInterceptor', () => {
       const { response } = createLoggingInterceptor({ logger, logHeaders: true });
 
       const req = createMockRequest('http://localhost:25600/api/books');
-      const res = createMockResponse(200, { data: 'test' }, { 'x-custom-header': 'value' });
+      const res = createMockResponse(200, { data: 'test' }, {
+        'x-custom-header': 'value',
+        authorization: 'Basic abc123',
+      });
       await response(res, req, mockResolvedRequestOptions);
 
-      expect(logger).toHaveBeenCalledWith(expect.stringContaining('Headers:'));
+      const [firstCall] = logger.mock.calls;
+      expect(firstCall).toBeDefined();
+      const logMessage = firstCall?.[0] ?? '';
+      expect(logMessage).toContain('Headers:');
+      expect(logMessage).toContain('authorization: [REDACTED]');
+      expect(logMessage).not.toContain('Basic abc123');
     });
 
     it('logs body when logBody is true for JSON responses', async () => {

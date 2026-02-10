@@ -68,7 +68,7 @@ export function createHttpClient(
     timeout,
     retry: {
       limit: retryConfig.limit,
-      methods: retryConfig.methods as any,
+      methods: retryConfig.methods,
       statusCodes: retryConfig.statusCodes,
       delay: (attemptCount) =>
         calculateDelay(attemptCount, retryConfig.backoffLimit),

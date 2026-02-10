@@ -3,7 +3,7 @@
 **Generated:** 2026-01-27T01:56:00Z
 **Commit:** c9b98f2
 **Branch:** main
-**Komga API Version:** 1.23.6
+**Komga API Version:** 1.24.1
 **Last Verified:** 2026-01-27
 
 ## OVERVIEW
@@ -13,7 +13,7 @@ Manual TypeScript SDK for the Komga API. Source lives in `src/` and ships a ky-b
 | Metric | Value |
 |--------|-------|
 | OpenAPI Version | 3.1.0 |
-| Komga API Version | 1.23.6 |
+| Komga API Version | 1.24.1 |
 | Endpoint Paths | 130 |
 | Total Operations | 165 |
 | Deprecated Endpoints | 6 (properly marked) |

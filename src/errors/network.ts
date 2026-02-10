@@ -10,7 +10,7 @@ export class NetworkError extends KomgaError {
   /**
    * The underlying error that caused the network failure
    */
-  readonly cause: Error | undefined;
+  override readonly cause: Error | undefined;
 
   constructor(message: string, cause?: Error) {
     super(message);

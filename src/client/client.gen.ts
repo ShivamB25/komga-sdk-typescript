@@ -107,7 +107,7 @@ export const createClient = (config: Config = {}): Client => {
         if (fn) {
           finalError = (await fn(
             error,
-            undefined as any,
+            undefined as unknown as Response,
             request,
             opts,
           )) as unknown;
@@ -126,7 +126,7 @@ export const createClient = (config: Config = {}): Client => {
         : {
             error: finalError,
             request,
-            response: undefined as any,
+            response: undefined as unknown as Response,
           };
     }
 

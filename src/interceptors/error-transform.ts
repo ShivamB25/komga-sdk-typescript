@@ -43,7 +43,7 @@ export function createErrorTransformInterceptor() {
         }
 
         return new ApiError(res.status, res.statusText, body, req, res);
-      } catch (parseError) {
+      } catch {
         // If we can't parse the response, still create ApiError with raw response
         return new ApiError(res.status, res.statusText, undefined, req, res);
       }
@@ -52,16 +52,16 @@ export function createErrorTransformInterceptor() {
     // Handle network/fetch errors
     if (err instanceof Error) {
       // Check for timeout errors
-      if (
+      const isTimeout =
         err.name === 'AbortError' ||
-        err.message.includes('timeout') ||
-        err.message.includes('Timeout')
-      ) {
+        err.message.toLowerCase().includes('timeout');
+
+      if (isTimeout) {
         return new TimeoutError('Request timeout', err);
       }
 
       // Generic network error
-      return new NetworkError(err.message || 'Network request failed', err);
+      return new NetworkError(err.message ?? 'Network request failed', err);
     }
 
     // Handle string errors

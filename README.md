@@ -88,7 +88,7 @@ console.log(book.metadata.title);
 
 ## Requirements
 
-- Komga API version: 1.23.6
+- Komga API version: 1.24.1
 - Runtime with Fetch and Web Crypto (e.g. Node 18+ or modern browsers)
 
 ## Authentication
@@ -266,7 +266,7 @@ More details: `docs/configuration.md`.
 
 ## API Coverage
 
-This SDK covers Komga API v1.23.6 with 130 unique endpoint paths across 165 operations.
+This SDK covers Komga API v1.24.1 with 130 unique endpoint paths across 165 operations.
 
 ### Endpoint Categories
 
