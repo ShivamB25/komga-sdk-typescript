@@ -8,6 +8,7 @@ import {
   libraryScan,
 } from '../sdk.gen';
 import {
+  LibraryDtoSchema,
   type LibraryDto,
   type LibraryCreationDto,
   type LibraryUpdateDto,
@@ -21,63 +22,69 @@ export class LibraryService extends BaseService {
   /**
    * Get all libraries
    * @returns Array of library DTOs
+   * @throws ValidationError if response validation fails
+   * @throws ApiError if API error occurs
    */
   async getAll(): Promise<LibraryDto[]> {
-    const result = await getLibraries({ client: this.client });
-    if (result.error !== undefined) throw new Error(String(result.error));
-    if (!result.data) throw new Error('No data returned');
-    return result.data;
+    return this.safeCall(
+      () => getLibraries({ client: this.client }),
+      LibraryDtoSchema.array()
+    );
   }
 
   /**
    * Get a library by ID
    * @param libraryId - The library ID
    * @returns Library DTO
+   * @throws ValidationError if response validation fails
+   * @throws ApiError if the library is not found or API error occurs
    */
   async getById(libraryId: string): Promise<LibraryDto> {
-    const result = await getLibraryById({ client: this.client, path: { libraryId } });
-    if (result.error !== undefined) throw new Error(String(result.error));
-    if (!result.data) throw new Error('No data returned');
-    return result.data;
+    return this.safeCall(
+      () => getLibraryById({ client: this.client, path: { libraryId } }),
+      LibraryDtoSchema
+    );
   }
 
   /**
    * Create a new library
    * @param data - Library creation data
    * @returns Created library DTO
+   * @throws ValidationError if response validation fails
+   * @throws ApiError if API error occurs
    */
   async create(data: LibraryCreationDto): Promise<LibraryDto> {
-    const result = await addLibrary({ client: this.client, body: data });
-    if (result.error !== undefined) throw new Error(String(result.error));
-    if (!result.data) throw new Error('No data returned');
-    return result.data;
+    return this.safeCall(
+      () => addLibrary({ client: this.client, body: data }),
+      LibraryDtoSchema
+    );
   }
 
   /**
    * Update a library
    * @param libraryId - The library ID
    * @param data - Library update data
+   * @throws ApiError if the library is not found or API error occurs
    */
   async update(libraryId: string, data: LibraryUpdateDto): Promise<void> {
-    const result = await updateLibraryById({ client: this.client, path: { libraryId }, body: data });
-    if (result.error !== undefined) throw new Error(String(result.error));
+    await updateLibraryById({ client: this.client, path: { libraryId }, body: data });
   }
 
   /**
    * Delete a library
    * @param libraryId - The library ID
+   * @throws ApiError if the library is not found or API error occurs
    */
   async delete(libraryId: string): Promise<void> {
-    const result = await deleteLibraryById({ client: this.client, path: { libraryId } });
-    if (result.error !== undefined) throw new Error(String(result.error));
+    await deleteLibraryById({ client: this.client, path: { libraryId } });
   }
 
   /**
    * Scan a library for new or updated files
    * @param libraryId - The library ID
+   * @throws ApiError if the library is not found or API error occurs
    */
   async scan(libraryId: string): Promise<void> {
-    const result = await libraryScan({ client: this.client, path: { libraryId } });
-    if (result.error !== undefined) throw new Error(String(result.error));
+    await libraryScan({ client: this.client, path: { libraryId } });
   }
 }
