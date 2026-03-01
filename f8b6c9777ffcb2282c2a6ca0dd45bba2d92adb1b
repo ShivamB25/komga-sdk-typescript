@@ -1,0 +1,36 @@
+src/domains/libraries.ts
+  b4f1d0642d2b3c27 11,25-26,29-32,39-40,43-46,53-54,57-60,67,70,76,79,85,88
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.6",
+  "base_commit_sha": "f8b6c9777ffcb2282c2a6ca0dd45bba2d92adb1b",
+  "prompts": {
+    "b18b3baa45490bfb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "opencode-transcript-ses_3568875f9ffewf8sO0xGtWvT5s-76227885-24a1-47a2-8cf9-d4ecf0a0f93d",
+        "model": "unknown"
+      },
+      "human_author": "shivam bansal <shivamban30@gmail.com>",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    },
+    "b4f1d0642d2b3c27": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "opencode-transcript-ses_3568875f9ffewf8sO0xGtWvT5s-31b9fde1-52c9-4dbf-8c90-a4854bcaeb88",
+        "model": "unknown"
+      },
+      "human_author": "shivam bansal <shivamban30@gmail.com>",
+      "messages": [],
+      "total_additions": 25,
+      "total_deletions": 18,
+      "accepted_lines": 25,
+      "overriden_lines": 0
+    }
+  }
+}
