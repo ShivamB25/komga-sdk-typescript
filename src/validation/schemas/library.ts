@@ -42,7 +42,7 @@ export const LibraryCreationDtoSchema = z.object({
   scanOnStartup: z.boolean(),
   scanPdf: z.boolean(),
   seriesCover: SeriesCoverEnum,
-});
+}).strict();
 
 export type LibraryCreationDto = z.infer<typeof LibraryCreationDtoSchema>;
 
@@ -80,7 +80,7 @@ export const LibraryDtoSchema = z.object({
   scanPdf: z.boolean(),
   seriesCover: SeriesCoverEnum,
   unavailable: z.boolean(),
-});
+}).strict();
 
 export type LibraryDto = z.infer<typeof LibraryDtoSchema>;
 
@@ -116,6 +116,6 @@ export const LibraryUpdateDtoSchema = z.object({
   scanOnStartup: z.boolean().optional(),
   scanPdf: z.boolean().optional(),
   seriesCover: SeriesCoverEnum.optional(),
-});
+}).strict();
 
 export type LibraryUpdateDto = z.infer<typeof LibraryUpdateDtoSchema>;

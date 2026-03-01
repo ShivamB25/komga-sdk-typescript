@@ -6,7 +6,7 @@ import { z } from 'zod';
 export const AgeRestrictionDtoSchema = z.object({
   age: z.number().int().nonnegative(),
   restriction: z.enum(['ALLOW_ONLY', 'EXCLUDE']),
-});
+}).strict();
 
 export type AgeRestrictionDto = z.infer<typeof AgeRestrictionDtoSchema>;
 
@@ -16,7 +16,7 @@ export type AgeRestrictionDto = z.infer<typeof AgeRestrictionDtoSchema>;
 export const AgeRestrictionUpdateDtoSchema = z.object({
   age: z.number().int().nonnegative(),
   restriction: z.enum(['ALLOW_ONLY', 'EXCLUDE', 'NONE']),
-});
+}).strict();
 
 export type AgeRestrictionUpdateDto = z.infer<typeof AgeRestrictionUpdateDtoSchema>;
 
@@ -26,7 +26,7 @@ export type AgeRestrictionUpdateDto = z.infer<typeof AgeRestrictionUpdateDtoSche
 export const SharedLibrariesUpdateDtoSchema = z.object({
   all: z.boolean(),
   libraryIds: z.array(z.string()),
-});
+}).strict();
 
 export type SharedLibrariesUpdateDto = z.infer<typeof SharedLibrariesUpdateDtoSchema>;
 
@@ -42,7 +42,7 @@ export const UserDtoSchema = z.object({
   labelsAllow: z.array(z.string()),
   labelsExclude: z.array(z.string()),
   ageRestriction: AgeRestrictionDtoSchema.optional(),
-});
+}).strict();
 
 export type UserDto = z.infer<typeof UserDtoSchema>;
 
@@ -57,7 +57,7 @@ export const UserCreationDtoSchema = z.object({
   labelsExclude: z.array(z.string()).optional(),
   sharedLibraries: SharedLibrariesUpdateDtoSchema.optional(),
   ageRestriction: AgeRestrictionUpdateDtoSchema.optional(),
-});
+}).strict();
 
 export type UserCreationDto = z.infer<typeof UserCreationDtoSchema>;
 
@@ -70,7 +70,7 @@ export const UserUpdateDtoSchema = z.object({
   labelsExclude: z.array(z.string()).optional(),
   sharedLibraries: SharedLibrariesUpdateDtoSchema.optional(),
   ageRestriction: AgeRestrictionUpdateDtoSchema.optional(),
-});
+}).strict();
 
 export type UserUpdateDto = z.infer<typeof UserUpdateDtoSchema>;
 
@@ -84,7 +84,7 @@ export const ApiKeyDtoSchema = z.object({
   comment: z.string(),
   createdDate: z.string().datetime(),
   lastModifiedDate: z.string().datetime(),
-});
+}).strict();
 
 export type ApiKeyDto = z.infer<typeof ApiKeyDtoSchema>;
 
@@ -93,6 +93,6 @@ export type ApiKeyDto = z.infer<typeof ApiKeyDtoSchema>;
  */
 export const ApiKeyRequestDtoSchema = z.object({
   comment: z.string(),
-});
+}).strict();
 
 export type ApiKeyRequestDto = z.infer<typeof ApiKeyRequestDtoSchema>;
