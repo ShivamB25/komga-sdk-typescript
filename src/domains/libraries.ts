@@ -67,7 +67,7 @@ export class LibraryService extends BaseService {
    * @throws ApiError if the library is not found or API error occurs
    */
   async update(libraryId: string, data: LibraryUpdateDto): Promise<void> {
-    await updateLibraryById({ client: this.client, path: { libraryId }, body: data });
+    await this.safeVoidCall(() => updateLibraryById({ client: this.client, path: { libraryId }, body: data }));
   }
 
   /**
@@ -76,7 +76,7 @@ export class LibraryService extends BaseService {
    * @throws ApiError if the library is not found or API error occurs
    */
   async delete(libraryId: string): Promise<void> {
-    await deleteLibraryById({ client: this.client, path: { libraryId } });
+    await this.safeVoidCall(() => deleteLibraryById({ client: this.client, path: { libraryId } }));
   }
 
   /**
@@ -85,6 +85,6 @@ export class LibraryService extends BaseService {
    * @throws ApiError if the library is not found or API error occurs
    */
   async scan(libraryId: string): Promise<void> {
-    await libraryScan({ client: this.client, path: { libraryId } });
+    await this.safeVoidCall(() => libraryScan({ client: this.client, path: { libraryId } }));
   }
 }

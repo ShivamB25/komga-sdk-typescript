@@ -81,4 +81,26 @@ export abstract class BaseService {
 
     return validated.data as T;
   }
+
+  /**
+   * Safely calls an API function that returns void (e.g. update, delete, scan).
+   * Checks for API errors without schema validation.
+   *
+   * @param apiCall - The API function to call
+   * @throws Error if the API call returns an error
+   *
+   * @example
+   * await this.safeVoidCall(
+   *   () => updateLibraryById({ client: this.client, path: { libraryId }, body: data })
+   * );
+   */
+  protected async safeVoidCall(
+    apiCall: () => Promise<{ data: unknown; error: unknown }>
+  ): Promise<void> {
+    const result = await apiCall();
+
+    if (result.error !== undefined) {
+      throw new Error(`API error: ${this.formatApiErrorMessage(result.error)}`);
+    }
+  }
 }

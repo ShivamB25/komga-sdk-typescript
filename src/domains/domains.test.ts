@@ -535,14 +535,14 @@ describe('LibraryService', () => {
       expect(result[0]?.id).toBe('lib-123');
     });
 
-    it('throws error when no data returned', async () => {
+    it('throws ValidationError when no data returned', async () => {
       const { getLibraries } = await import('../sdk.gen');
       vi.mocked(getLibraries).mockResolvedValue({
         data: undefined,
         error: undefined,
       } as any);
 
-      await expect(libraryService.getAll()).rejects.toThrow('No data returned');
+      await expect(libraryService.getAll()).rejects.toThrow('Validation Error');
     });
   });
 
@@ -563,7 +563,7 @@ describe('LibraryService', () => {
       expect(result.id).toBe('lib-123');
     });
 
-    it('throws error when library is not returned', async () => {
+    it('throws ValidationError when library is not returned', async () => {
       const { getLibraryById } = await import('../sdk.gen');
       vi.mocked(getLibraryById).mockResolvedValue({
         data: undefined,
@@ -571,7 +571,7 @@ describe('LibraryService', () => {
       } as any);
 
       await expect(libraryService.getById('lib-123')).rejects.toThrow(
-        'No data returned'
+        'Validation Error'
       );
     });
 
@@ -635,7 +635,7 @@ describe('LibraryService', () => {
       expect(result.id).toBe('lib-123');
     });
 
-    it('throws error when create returns no data', async () => {
+    it('throws ValidationError when create returns no data', async () => {
       const { addLibrary } = await import('../sdk.gen');
       vi.mocked(addLibrary).mockResolvedValue({
         data: undefined,
@@ -672,7 +672,7 @@ describe('LibraryService', () => {
           scanPdf: true,
           seriesCover: 'FIRST',
         })
-      ).rejects.toThrow('No data returned');
+      ).rejects.toThrow('Validation Error');
     });
 
     it('throws error when create returns an API error', async () => {
