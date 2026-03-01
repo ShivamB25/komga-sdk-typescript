@@ -41,5 +41,17 @@
     "typescript",
     "media-server"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "author": "ShivamB25",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ShivamB25/komga-sdk-typescript.git"
+  },
+  "homepage": "https://github.com/ShivamB25/komga-sdk-typescript#readme",
+  "bugs": {
+    "url": "https://github.com/ShivamB25/komga-sdk-typescript/issues"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
 }
