@@ -1,0 +1,52 @@
+package.json
+  dbd3f15cf3794779 48
+.github/workflows/publish.yml
+  ff42b5ec8aafa2a0 33
+  3b13eebf1726e9e2 36,38
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.6",
+  "base_commit_sha": "bcbe32a78b88b08a1bf2908c8d3a396928d6a176",
+  "prompts": {
+    "3b13eebf1726e9e2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "opencode-transcript-ses_3568875f9ffewf8sO0xGtWvT5s-0f69ef2d-27f6-4c1b-b356-67c445093175",
+        "model": "unknown"
+      },
+      "human_author": "shivam bansal <shivamban30@gmail.com>",
+      "messages": [],
+      "total_additions": 5,
+      "total_deletions": 6,
+      "accepted_lines": 5,
+      "overriden_lines": 0
+    },
+    "dbd3f15cf3794779": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "opencode-transcript-ses_3568875f9ffewf8sO0xGtWvT5s-c93ac94b-cba3-4869-ad8a-8d3a1ca292ed",
+        "model": "unknown"
+      },
+      "human_author": "shivam bansal <shivamban30@gmail.com>",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 1,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    },
+    "ff42b5ec8aafa2a0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "opencode-transcript-ses_3568875f9ffewf8sO0xGtWvT5s-cbf55a10-b427-4b9d-aaa7-0d7b7da5d0b8",
+        "model": "unknown"
+      },
+      "human_author": "shivam bansal <shivamban30@gmail.com>",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 6,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    }
+  }
+}
