@@ -1,0 +1,23 @@
+.github/workflows/publish.yml
+  0e70689b48fd849d 31-32
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.6",
+  "base_commit_sha": "8f7c5a976aa5f667cb2cf433ff074d4e9e44c2ca",
+  "prompts": {
+    "0e70689b48fd849d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "opencode-transcript-ses_3568875f9ffewf8sO0xGtWvT5s-abbcb862-5882-44b4-9cc5-d94f7620b1f3",
+        "model": "unknown"
+      },
+      "human_author": "shivam bansal <shivamban30@gmail.com>",
+      "messages": [],
+      "total_additions": 2,
+      "total_deletions": 0,
+      "accepted_lines": 2,
+      "overriden_lines": 0
+    }
+  }
+}
