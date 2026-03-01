@@ -45,7 +45,7 @@
   "author": "ShivamB25",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ShivamB25/komga-sdk-typescript.git"
+    "url": "git+https://github.com/ShivamB25/komga-sdk-typescript.git"
   },
   "homepage": "https://github.com/ShivamB25/komga-sdk-typescript#readme",
   "bugs": {

@@ -16,12 +16,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          registry-url: "https://registry.npmjs.org"
-
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
@@ -36,9 +30,9 @@ jobs:
       - name: Verify tag matches package version
         if: github.ref_type == 'tag'
         run: |
-          node -e "const pkg=require('./package.json'); const tag=process.env.GITHUB_REF_NAME?.replace(/^v/, ''); if (pkg.version !== tag) { console.error('Tag v' + tag + ' does not match package.json version ' + pkg.version); process.exit(1);}"
+          bun -e "import pkg from './package.json'; const tag = process.env.GITHUB_REF_NAME?.replace(/^v/, ''); if (pkg.version !== tag) { console.error('Tag v' + tag + ' does not match package.json version ' + pkg.version); process.exit(1); }"
 
       - name: Publish to npm
-        run: npm publish
+        run: bun publish --access public
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}
