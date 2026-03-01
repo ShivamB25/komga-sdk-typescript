@@ -17,9 +17,6 @@ Komga SDK supports multiple authentication methods. Choose the one that fits you
     Long-lived tokens for server-to-server communication. Recommended for production.
   </Card>
   
-  <Card title="Bearer Token" icon="shield-check">
-    JWT tokens for session-based authentication. Use with OAuth/SSO flows.
-  </Card>
 </CardGroup>
 
 ## Basic Auth
@@ -105,28 +102,6 @@ const client = createKomgaClient({
 - Audit trail in Komga
 - No password exposure
 
-## Bearer Token Auth
-
-For session-based authentication using JWT tokens.
-
-```typescript
-import { createKomgaClient } from 'komga-sdk';
-
-const client = createKomgaClient({
-  baseUrl: 'http://localhost:25600',
-  auth: {
-    type: 'bearer',
-    token: 'your-jwt-token',
-  },
-});
-```
-
-### When to use
-
-- OAuth/OpenID Connect flows
-- Session-based web applications
-- Temporary access tokens
-
 ## OAuth providers
 
 Discover configured OAuth/OpenID Connect providers:
@@ -211,23 +186,15 @@ const client = createKomgaClient({
     Consider using a secrets manager that supports automatic rotation.
   </Accordion>
   
-  <Accordion title="Handling expired tokens">
-    For Bearer tokens, implement refresh logic:
+  <Accordion title="Handling expired API keys">
+    If your API key is revoked or expired, generate a new one in the Komga UI and update your application:
     
     ```typescript
-    async function getClient() {
-      let token = await getStoredToken();
-      
-      if (isTokenExpired(token)) {
-        token = await refreshToken();
-        await storeToken(token);
-      }
-      
-      return createKomgaClient({
-        baseUrl: process.env.KOMGA_URL!,
-        auth: { type: 'bearer', token },
-      });
-    }
+    // Store API key in environment variables for easy rotation
+    const client = createKomgaClient({
+      baseUrl: process.env.KOMGA_URL!,
+      auth: { type: 'apiKey', key: process.env.KOMGA_API_KEY! },
+    });
     ```
   </Accordion>
 </AccordionGroup>
@@ -270,7 +237,6 @@ const client = createKomgaClient({
 |--------|----------|-------------|----------|
 | Basic Auth | Medium | Easy | Development, scripts |
 | API Key | High | Medium | Production, automation |
-| Bearer Token | High | Complex | OAuth/SSO, sessions |
 
 ## Troubleshooting
 
@@ -279,12 +245,10 @@ const client = createKomgaClient({
     **Causes:**
     - Incorrect username/password
     - Invalid or expired API key
-    - Expired bearer token
     
     **Solutions:**
     - Verify credentials are correct
     - Check API key hasn't been revoked
-    - Refresh bearer token if expired
     - Ensure user has required permissions
   </Accordion>
   

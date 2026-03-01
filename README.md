@@ -118,17 +118,6 @@ const client = createKomgaClient({
 });
 ```
 
-Bearer token authentication:
-
-```typescript
-const client = createKomgaClient({
-  baseUrl: 'http://localhost:25600',
-  auth: {
-    type: 'bearer',
-    token: 'your-jwt-token',
-  },
-});
-```
 
 ## Domain Services
 
