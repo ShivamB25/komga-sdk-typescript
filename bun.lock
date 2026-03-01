@@ -1,17 +1,16 @@
 {
   "lockfileVersion": 1,
-  "configVersion": 0,
   "workspaces": {
     "": {
       "dependencies": {
-        "ky": "^1.14.3",
-        "zod": "^4.3.6",
+        "ky": "latest",
+        "zod": "latest",
       },
       "devDependencies": {
-        "@vitest/coverage-v8": "^4.0.18",
-        "typedoc": "^0.28.16",
-        "typescript": "^5.9.3",
-        "vitest": "^4.0.18",
+        "@vitest/coverage-v8": "latest",
+        "typedoc": "latest",
+        "typescript": "latest",
+        "vitest": "latest",
       },
     },
   },
