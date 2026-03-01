@@ -44,3 +44,6 @@ jobs:
 
       - name: Publish to npm
         run: npm publish --access public
+        env:
+          # Explicitly empty to force OIDC authentication
+          NODE_AUTH_TOKEN: ''
