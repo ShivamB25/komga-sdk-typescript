@@ -124,9 +124,23 @@ const client = createKomgaClient({
 Use domain services for validated, high-level operations:
 
 ```typescript
-import { BookService, SeriesService, LibraryService } from 'komga-sdk';
+import { BookService, SeriesService, LibraryService, CollectionService, ReadListService, UserService, SettingsService } from 'komga-sdk';
 
 const bookService = new BookService(client);
+const seriesService = new SeriesService(client);
+const libraryService = new LibraryService(client);
+const collectionService = new CollectionService(client);
+const readListService = new ReadListService(client);
+const userService = new UserService(client);
+const settingsService = new SettingsService(client);
+
+const books = await bookService.list({ page: 0, size: 20 });
+const series = await seriesService.getById('series-123');
+const libraries = await libraryService.getAll();
+const collections = await collectionService.getAll();
+const readLists = await readListService.getAll();
+const users = await userService.getAll();
+const settings = await settingsService.get();
 const seriesService = new SeriesService(client);
 const libraryService = new LibraryService(client);
 
