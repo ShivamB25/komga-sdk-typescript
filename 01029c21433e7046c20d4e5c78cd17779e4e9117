@@ -1,0 +1,53 @@
+docs/mintlify/introduction.mdx
+  d739ab39be06ae95 31-32,217-218
+docs/mintlify/faq.mdx
+  03678e02d277eaca 32-35
+docs/mintlify/quickstart.mdx
+  fdd9234decd9b630 174-175
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.6",
+  "base_commit_sha": "01029c21433e7046c20d4e5c78cd17779e4e9117",
+  "prompts": {
+    "03678e02d277eaca": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "opencode-transcript-ses_3568875f9ffewf8sO0xGtWvT5s-b45be4fd-fb40-4b00-a9f8-e4e365b6f814",
+        "model": "unknown"
+      },
+      "human_author": "shivam bansal <shivamban30@gmail.com>",
+      "messages": [],
+      "total_additions": 4,
+      "total_deletions": 1,
+      "accepted_lines": 4,
+      "overriden_lines": 0
+    },
+    "d739ab39be06ae95": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "opencode-transcript-ses_3568875f9ffewf8sO0xGtWvT5s-ba450825-9e60-4d35-bbc1-3c81c73f893b",
+        "model": "unknown"
+      },
+      "human_author": "shivam bansal <shivamban30@gmail.com>",
+      "messages": [],
+      "total_additions": 4,
+      "total_deletions": 0,
+      "accepted_lines": 4,
+      "overriden_lines": 0
+    },
+    "fdd9234decd9b630": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "opencode-transcript-ses_3568875f9ffewf8sO0xGtWvT5s-0a768cde-8585-4e37-84ee-e6b227ed3609",
+        "model": "unknown"
+      },
+      "human_author": "shivam bansal <shivamban30@gmail.com>",
+      "messages": [],
+      "total_additions": 2,
+      "total_deletions": 0,
+      "accepted_lines": 2,
+      "overriden_lines": 0
+    }
+  }
+}
