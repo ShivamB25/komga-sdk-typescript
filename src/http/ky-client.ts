@@ -30,6 +30,37 @@ function calculateDelay(attemptCount: number, backoffLimit: number): number {
   return exponentialDelay;
 }
 
+const BASE64_ALPHABET =
+  'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+
+function encodeUtf8Base64(value: string): string {
+  const bytes = new TextEncoder().encode(value);
+  let binary = '';
+
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+
+  if (typeof btoa === 'function') {
+    return btoa(binary);
+  }
+
+  let encoded = '';
+  for (let index = 0; index < bytes.length; index += 3) {
+    const first = bytes[index] ?? 0;
+    const second = bytes[index + 1];
+    const third = bytes[index + 2];
+    const chunk = (first << 16) | ((second ?? 0) << 8) | (third ?? 0);
+
+    encoded += BASE64_ALPHABET[(chunk >> 18) & 63];
+    encoded += BASE64_ALPHABET[(chunk >> 12) & 63];
+    encoded += second === undefined ? '=' : BASE64_ALPHABET[(chunk >> 6) & 63];
+    encoded += third === undefined ? '=' : BASE64_ALPHABET[chunk & 63];
+  }
+
+  return encoded;
+}
+
 /**
  * Creates a ky HTTP client instance with configured retry, auth, and debug options
  *
@@ -56,6 +87,7 @@ export function createHttpClient(
     timeout = 30000,
     retry: retryOptions,
     debug = false,
+    fetch: fetchImplementation,
   } = options;
 
   const retryConfig = {
@@ -64,8 +96,9 @@ export function createHttpClient(
   };
 
   return ky.create({
-    prefixUrl: baseUrl,
+    baseUrl,
     timeout,
+    fetch: fetchImplementation,
     retry: {
       limit: retryConfig.limit,
       methods: retryConfig.methods,
@@ -76,11 +109,13 @@ export function createHttpClient(
     },
     hooks: {
       beforeRequest: [
-        (request) => {
+        ({ request }) => {
           // Add authentication header
           if (auth) {
             if (auth.type === 'basic') {
-              const credentials = btoa(`${auth.username}:${auth.password}`);
+              const credentials = encodeUtf8Base64(
+                `${auth.username}:${auth.password}`
+              );
               request.headers.set('Authorization', `Basic ${credentials}`);
             } else if (auth.type === 'apiKey') {
               request.headers.set('X-API-Key', auth.key);
@@ -99,7 +134,7 @@ export function createHttpClient(
         },
       ],
       afterResponse: [
-        (request, _options, response) => {
+        ({ request, response }) => {
           if (debug) {
             const requestId = request.headers.get('X-Request-ID') || 'unknown';
             console.log(

@@ -71,9 +71,10 @@ export function createKomgaClient(
   // Create fetch adapter from ky instance
   const fetchAdapter = createFetchAdapter(kyInstance);
 
-  // Create and return hey-api client with the fetch adapter
   return createClient({
     baseUrl: options.baseUrl,
+    headers: options.headers,
+    credentials: options.credentials,
     fetch: fetchAdapter,
   });
 }

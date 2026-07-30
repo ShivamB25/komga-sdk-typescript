@@ -64,22 +64,23 @@ export abstract class BaseService {
    * );
    */
   protected async safeCall<T>(
-    apiCall: () => Promise<{ data: T; error: undefined } | { data: undefined; error: unknown }>,
-    schema: ZodType
+    apiCall: () => Promise<{ data?: unknown; error?: unknown } | undefined>,
+    schema: ZodType<T>
   ): Promise<T> {
     const result = await apiCall();
-    
-    if (result.error !== undefined) {
+
+    if (result?.error !== undefined) {
       throw new Error(`API error: ${this.formatApiErrorMessage(result.error)}`);
     }
 
-    const validated = schema.safeParse(result.data);
+    const data = result?.data;
+    const validated = schema.safeParse(data);
 
     if (!validated.success) {
-      throw new ValidationError(validated.error.issues, result.data);
+      throw new ValidationError(validated.error.issues, data);
     }
 
-    return validated.data as T;
+    return validated.data;
   }
 
   /**
@@ -95,11 +96,11 @@ export abstract class BaseService {
    * );
    */
   protected async safeVoidCall(
-    apiCall: () => Promise<{ data: unknown; error: unknown }>
+    apiCall: () => Promise<{ data?: unknown; error?: unknown } | undefined>
   ): Promise<void> {
     const result = await apiCall();
 
-    if (result.error !== undefined) {
+    if (result?.error !== undefined) {
       throw new Error(`API error: ${this.formatApiErrorMessage(result.error)}`);
     }
   }

@@ -20,6 +20,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "generate": "openapi-ts -f openapi-ts.config.ts && bun scripts/normalize-generated.ts && cp .tmp/generated/sdk.gen.ts src/sdk.gen.ts && cp .tmp/generated/types.gen.ts src/types.gen.ts && cp .tmp/generated/client.gen.ts src/client.gen.ts && cp .tmp/generated/client/*.ts src/client/ && cp .tmp/generated/core/*.ts src/core/",
     "docs": "typedoc",
     "docs:watch": "typedoc --watch",
     "docs:serve": "typedoc && npx serve docs/api"
@@ -29,9 +30,11 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@hey-api/client-fetch": "0.13.1",
+    "@hey-api/openapi-ts": "0.99.0",
     "@vitest/coverage-v8": "^4.0.18",
     "typedoc": "^0.28.17",
-    "typescript": "^7.0.2",
+    "typescript": "5.9.3",
     "vitest": "^4.0.18"
   },
   "keywords": [

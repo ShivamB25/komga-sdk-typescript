@@ -20,7 +20,17 @@ import type {
   PageBookDto,
   CollectionDto,
 } from '../validation/schemas';
-import type { SeriesSearch } from '../types.gen';
+import type {
+  GetBooksBySeriesIdData,
+  GetSeriesData,
+  SeriesSearch,
+} from '../types.gen';
+
+type SeriesListOptions = NonNullable<GetSeriesData['query']> & {
+  search?: SeriesSearch;
+};
+
+type SeriesBooksOptions = NonNullable<GetBooksBySeriesIdData['query']>;
 
 /**
  * SeriesService - Domain service for series-related operations.
@@ -60,13 +70,7 @@ export class SeriesService extends BaseService {
    * const series = await seriesService.list({ page: 0, size: 20 });
    * console.log(`Found ${series.totalElements} series`);
    */
-  async list(options?: {
-    search?: SeriesSearch;
-    page?: number;
-    size?: number;
-    sort?: Array<string>;
-    unpaged?: boolean;
-  }): Promise<PageSeriesDto> {
+  async list(options?: SeriesListOptions): Promise<PageSeriesDto> {
     return this.safeCall(
       () =>
         getSeries({
@@ -109,11 +113,14 @@ export class SeriesService extends BaseService {
       throw new Error(`Invalid metadata: ${validated.error.message}`);
     }
 
-    await updateSeriesMetadata({
-      client: this.client,
-      path: { seriesId },
-      body: validated.data,
-    });
+    await this.safeVoidCall(() =>
+      updateSeriesMetadata({
+        client: this.client,
+        path: { seriesId },
+        body: validated.data,
+      })
+    );
+
   }
 
   /**
@@ -133,11 +140,7 @@ export class SeriesService extends BaseService {
    */
   async getBooks(
     seriesId: string,
-    options?: {
-      page?: number;
-      size?: number;
-      [key: string]: unknown;
-    }
+    options?: SeriesBooksOptions
   ): Promise<PageBookDto> {
     return this.safeCall(
       () =>

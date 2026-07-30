@@ -70,6 +70,21 @@ export interface KomgaClientOptions {
    * Authentication configuration (basic or API key)
    */
   auth?: AuthConfig;
+  /**
+   * Headers applied to every request made by the client.
+   */
+  headers?: HeadersInit;
+
+  /**
+   * Fetch credentials mode used by the generated client.
+   * @default 'same-origin'
+   */
+  credentials?: RequestCredentials;
+
+  /**
+   * Fetch implementation used by ky.
+   */
+  fetch?: typeof fetch;
 
   /**
    * Request timeout in milliseconds

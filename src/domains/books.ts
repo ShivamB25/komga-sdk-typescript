@@ -18,7 +18,11 @@ import type {
   BookMetadataUpdateDto,
   PageDto,
 } from '../validation/schemas';
-import type { BookSearch } from '../types.gen';
+import type { BookSearch, GetBooksData } from '../types.gen';
+
+type BookListOptions = NonNullable<GetBooksData['query']> & {
+  search?: BookSearch;
+};
 
 /**
  * BookService - Domain service for book-related operations.
@@ -58,13 +62,7 @@ export class BookService extends BaseService {
    * const books = await bookService.list({ page: 0, size: 20 });
    * console.log(`Found ${books.totalElements} books`);
    */
-  async list(options?: {
-    search?: BookSearch;
-    page?: number;
-    size?: number;
-    sort?: Array<string>;
-    unpaged?: boolean;
-  }): Promise<PageBookDto> {
+  async list(options?: BookListOptions): Promise<PageBookDto> {
     return this.safeCall(
       () =>
         getBooks({
@@ -107,11 +105,14 @@ export class BookService extends BaseService {
       throw new Error(`Invalid metadata: ${validated.error.message}`);
     }
 
-    await updateBookMetadata({
-      client: this.client,
-      path: { bookId },
-      body: validated.data,
-    });
+    await this.safeVoidCall(() =>
+      updateBookMetadata({
+        client: this.client,
+        path: { bookId },
+        body: validated.data,
+      })
+    );
+
   }
 
   /**
@@ -124,10 +125,13 @@ export class BookService extends BaseService {
    * await bookService.deleteReadProgress('book-123');
    */
   async deleteReadProgress(bookId: string): Promise<void> {
-    await deleteBookReadProgress({
-      client: this.client,
-      path: { bookId },
-    });
+    await this.safeVoidCall(() =>
+      deleteBookReadProgress({
+        client: this.client,
+        path: { bookId },
+      })
+    );
+
   }
 
   /**

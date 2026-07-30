@@ -68,23 +68,24 @@ export function createFetchAdapter(
     input: RequestInfo | URL,
     init?: RequestInit
   ): Promise<Response> => {
-    // Convert input to URL string if needed
-    const url = input instanceof URL ? input.toString() : String(input);
+    // Keep Request inputs intact so their absolute URL, headers, body, and
+    // credentials are preserved by ky rather than stringifying to "[object Request]".
+    const kyInput = input instanceof URL ? input.toString() : input;
 
-    // Extract method from init or default to GET
-    const method = init?.method ?? 'GET';
+    // A Request may already carry a method when no override is supplied.
+    const method =
+      init?.method ??
+      (typeof input === 'string' || input instanceof URL ? 'GET' : input.method);
 
-    // Create request options for ky
     const kyOptions: KyRequestOptions = {
       ...init,
       method: toKyMethod(method),
-      throwHttpErrors: false, // Match standard fetch behavior
+      throwHttpErrors: false,
     };
 
-    // Make the request using ky
-    const response = await kyInstance(url, kyOptions);
-
-    return response;
+    // ky 2 resolves relative strings with its baseUrl and leaves absolute
+    // Request/URL inputs untouched, avoiding duplicate base URL prefixes.
+    return kyInstance(kyInput, kyOptions);
   };
 }
 

@@ -361,6 +361,13 @@ describe('Series Schemas', () => {
       };
       expect(() => SeriesMetadataUpdateDtoSchema.parse(update)).not.toThrow();
     });
+    it('allows update links without an optional URL', () => {
+      const update = {
+        links: [{ label: 'Official site' }],
+      };
+
+      expect(() => SeriesMetadataUpdateDtoSchema.parse(update)).not.toThrow();
+    });
   });
 });
 

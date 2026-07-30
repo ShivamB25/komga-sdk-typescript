@@ -25,8 +25,8 @@ const createMockClient = (): MockClient => ({
 describe('BaseService', () => {
   class TestService extends BaseService {
     async testSafeCall<T>(
-      apiCall: () => Promise<{ data: T; error: undefined } | { data: undefined; error: unknown }>,
-      schema: z.ZodSchema
+      apiCall: () => Promise<{ data?: unknown; error?: unknown } | undefined>,
+      schema: z.ZodType<T>
     ): Promise<T> {
       return this.safeCall(apiCall, schema);
     }
@@ -82,6 +82,18 @@ describe('BaseService', () => {
     const schema = z.object({ id: z.string() }).strict();
     const mockApiCall = vi.fn().mockResolvedValue({
       data: { id: 123 },
+      error: undefined,
+    });
+
+    await expect(service.testSafeCall(mockApiCall, schema)).rejects.toThrow(ValidationError);
+  });
+
+  it('throws ValidationError when response data is missing', async () => {
+    const mockClient = createMockClient();
+    const service = new TestService(mockClient as any);
+
+    const schema = z.object({ id: z.string() }).strict();
+    const mockApiCall = vi.fn().mockResolvedValue({
       error: undefined,
     });
 
@@ -250,6 +262,20 @@ describe('BookService', () => {
         path: { bookId: 'book-123' },
         body: { title: 'New Title' },
       });
+    });
+
+    it('propagates API errors when metadata update fails', async () => {
+      const { updateBookMetadata } = await import('../sdk.gen');
+      // The generated function's generic return includes throw-on-error variants.
+      const errorResponse = {
+        data: undefined,
+        error: { violations: [] },
+      } as unknown as Awaited<ReturnType<typeof updateBookMetadata>>;
+      vi.mocked(updateBookMetadata).mockResolvedValue(errorResponse);
+
+      await expect(
+        bookService.updateMetadata('book-123', { title: 'New Title' })
+      ).rejects.toThrow('API error');
     });
 
     it('throws error for invalid metadata', async () => {

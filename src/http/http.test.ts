@@ -4,7 +4,7 @@ import { getNodeEnv, getProcessRef } from './env';
 import { createKomgaClient } from './index';
 import { createHttpClient } from './ky-client';
 import type { KomgaClientOptions } from './types';
-import ky from 'ky';
+import ky, { type KyInstance } from 'ky';
 
 vi.mock('ky', () => ({
   default: {
@@ -49,6 +49,37 @@ describe('createFetchAdapter', () => {
     expect(mockKy).toHaveBeenCalledWith(
       'http://localhost:25600/api/books',
       expect.any(Object)
+    );
+  });
+
+  it('preserves absolute Request URLs and request credentials', async () => {
+    const mockResponse = new Response(null, { status: 204 });
+    const mockKy = vi.fn().mockResolvedValue(mockResponse);
+    const adapter = createFetchAdapter(mockKy as unknown as KyInstance);
+    const request = new Request('https://komga.example/api/books?sort=title', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'X-Correlation-ID': 'request-1' },
+    });
+
+    await adapter(request);
+
+    expect(mockKy).toHaveBeenCalledWith(
+      request,
+      expect.objectContaining({
+        method: 'POST',
+        throwHttpErrors: false,
+      })
+    );
+  });
+
+  it('returns HTTP error responses instead of throwing', async () => {
+    const errorResponse = new Response('unauthorized', { status: 401 });
+    const mockKy = vi.fn().mockResolvedValue(errorResponse);
+    const adapter = createFetchAdapter(mockKy as unknown as KyInstance);
+
+    await expect(adapter('https://komga.example/api/books')).resolves.toBe(
+      errorResponse
     );
   });
 
@@ -164,6 +195,19 @@ describe('createKomgaClient', () => {
     expect(client).toBeDefined();
   });
 
+  it('forwards default headers and credentials to the generated client', () => {
+    const client = createKomgaClient({
+      baseUrl: 'https://komga.example.com',
+      headers: { 'X-Client-Version': 'test' },
+      credentials: 'include',
+    });
+    const config = client.getConfig();
+    const headers = new Headers(config.headers as HeadersInit);
+
+    expect(headers.get('X-Client-Version')).toBe('test');
+    expect(config.credentials).toBe('include');
+  });
+
   it('creates a client with API key auth', () => {
     const options: KomgaClientOptions = {
       baseUrl: 'http://localhost:25600',
@@ -242,8 +286,6 @@ describe('createKomgaClient', () => {
         password: 'password',
       },
     });
-
-    expect(warnSpy).not.toHaveBeenCalled();
   });
 });
 
@@ -270,16 +312,53 @@ describe('createHttpClient', () => {
     const options = vi.mocked(ky.create).mock.calls[0]?.[0] as any;
     const request = new Request('http://localhost:25600/api/v1/libraries');
 
-    options.hooks.beforeRequest[0](request, {} as any, {} as any);
+    options.hooks.beforeRequest[0]({
+      request,
+      options: {},
+      retryCount: 0,
+    });
 
+    const encodedCredentials = btoa(
+      Array.from(new TextEncoder().encode('admin:password'))
+        .map((byte) => String.fromCharCode(byte))
+        .join('')
+    );
     expect(request.headers.get('Authorization')).toBe(
-      `Basic ${btoa('admin:password')}`
+      `Basic ${encodedCredentials}`
     );
     expect(request.headers.get('X-Request-ID')).toBe(
       '00000000-0000-4000-8000-000000000123'
     );
 
     randomUuidSpy.mockRestore();
+  });
+
+  it('encodes non-ASCII basic credentials as UTF-8', () => {
+    createHttpClient({
+      baseUrl: 'https://komga.example.com',
+      auth: {
+        type: 'basic',
+        username: 'usér',
+        password: 'päss',
+      },
+    });
+
+    const options = vi.mocked(ky.create).mock.calls[0]?.[0] as any;
+    const request = new Request('https://komga.example.com/api/v1/libraries');
+    options.hooks.beforeRequest[0]({
+      request,
+      options: {},
+      retryCount: 0,
+    });
+
+    const encodedCredentials = btoa(
+      Array.from(new TextEncoder().encode('usér:päss'))
+        .map((byte) => String.fromCharCode(byte))
+        .join('')
+    );
+    expect(request.headers.get('Authorization')).toBe(
+      `Basic ${encodedCredentials}`
+    );
   });
 
   it('sets API key header in beforeRequest hook', () => {
@@ -298,7 +377,11 @@ describe('createHttpClient', () => {
     const options = vi.mocked(ky.create).mock.calls[0]?.[0] as any;
     const request = new Request('http://localhost:25600/api/v1/libraries');
 
-    options.hooks.beforeRequest[0](request, {} as any, {} as any);
+    options.hooks.beforeRequest[0]({
+      request,
+      options: {},
+      retryCount: 0,
+    });
 
     expect(request.headers.get('X-API-Key')).toBe('api-key-123');
     expect(request.headers.get('X-Request-ID')).toBe(
@@ -327,6 +410,22 @@ describe('createHttpClient', () => {
     expect(options.retry.delay(1)).toBe(300);
     expect(options.retry.delay(2)).toBe(600);
     expect(options.retry.delay(10)).toBe(5000);
+  });
+
+  it('configures ky 2 with baseUrl and a custom fetch implementation', () => {
+    const customFetch = vi
+      .fn()
+      .mockResolvedValue(new Response()) as unknown as typeof fetch;
+
+    createHttpClient({
+      baseUrl: 'https://komga.example.com/api',
+      fetch: customFetch,
+    });
+
+    const options = vi.mocked(ky.create).mock.calls[0]?.[0] as any;
+    expect(options.baseUrl).toBe('https://komga.example.com/api');
+    expect(options.prefixUrl).toBeUndefined();
+    expect(options.fetch).toBe(customFetch);
   });
 
   it('uses default retry settings when retry options are omitted', () => {

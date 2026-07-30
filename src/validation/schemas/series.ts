@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { AuthorDtoSchema, WebLinkDtoSchema, createPageSchema } from './common';
+import { AuthorDtoSchema, WebLinkDtoSchema, WebLinkUpdateDtoSchema, createPageSchema } from './common';
 
 /**
  * AlternateTitleDto schema - represents an alternate title for a series
@@ -116,10 +116,7 @@ export const SeriesMetadataUpdateDtoSchema = z.object({
   genresLock: z.boolean().optional(),
   language: z.string().optional(),
   languageLock: z.boolean().optional(),
-  links: z.object({
-    label: z.string(),
-    url: z.string(),
-  }).strict().array().optional(),
+  links: WebLinkUpdateDtoSchema.array().optional(),
   linksLock: z.boolean().optional(),
   publisher: z.string().optional(),
   publisherLock: z.boolean().optional(),

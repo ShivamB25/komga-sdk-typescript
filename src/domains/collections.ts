@@ -14,6 +14,9 @@ import {
   type CollectionCreationDto,
   type CollectionUpdateDto,
 } from '../validation/schemas';
+import type { GetCollectionsData } from '../types.gen';
+
+type CollectionListOptions = NonNullable<GetCollectionsData['query']>;
 
 /**
  * Service for managing collections in Komga.
@@ -26,12 +29,7 @@ export class CollectionService extends BaseService {
    * @throws ValidationError if response validation fails
    * @throws ApiError if API error occurs
    */
-  async getAll(options?: {
-    page?: number;
-    size?: number;
-    sort?: Array<string>;
-    unpaged?: boolean;
-  }): Promise<PageCollectionDto> {
+  async getAll(options?: CollectionListOptions): Promise<PageCollectionDto> {
     return this.safeCall(
       () => getCollections({ client: this.client, query: options }),
       PageCollectionDtoSchema
@@ -73,7 +71,13 @@ export class CollectionService extends BaseService {
    * @throws ApiError if the collection is not found or API error occurs
    */
   async update(collectionId: string, data: CollectionUpdateDto): Promise<void> {
-    await updateCollectionById({ client: this.client, path: { id: collectionId }, body: data });
+    await this.safeVoidCall(() =>
+      updateCollectionById({
+        client: this.client,
+        path: { id: collectionId },
+        body: data,
+      })
+    );
   }
 
   /**
@@ -82,6 +86,8 @@ export class CollectionService extends BaseService {
    * @throws ApiError if the collection is not found or API error occurs
    */
   async delete(collectionId: string): Promise<void> {
-    await deleteCollectionById({ client: this.client, path: { id: collectionId } });
+    await this.safeVoidCall(() =>
+      deleteCollectionById({ client: this.client, path: { id: collectionId } })
+    );
   }
 }

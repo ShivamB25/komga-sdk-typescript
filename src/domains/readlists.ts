@@ -14,6 +14,9 @@ import {
   type ReadListCreationDto,
   type ReadListUpdateDto,
 } from '../validation/schemas';
+import type { GetReadListsData } from '../types.gen';
+
+type ReadListOptions = NonNullable<GetReadListsData['query']>;
 
 /**
  * Service for managing read lists in Komga.
@@ -26,12 +29,7 @@ export class ReadListService extends BaseService {
    * @throws ValidationError if response validation fails
    * @throws ApiError if API error occurs
    */
-  async getAll(options?: {
-    page?: number;
-    size?: number;
-    sort?: Array<string>;
-    unpaged?: boolean;
-  }): Promise<PageReadListDto> {
+  async getAll(options?: ReadListOptions): Promise<PageReadListDto> {
     return this.safeCall(
       () => getReadLists({ client: this.client, query: options }),
       PageReadListDtoSchema
@@ -73,7 +71,13 @@ export class ReadListService extends BaseService {
    * @throws ApiError if the read list is not found or API error occurs
    */
   async update(readListId: string, data: ReadListUpdateDto): Promise<void> {
-    await updateReadListById({ client: this.client, path: { id: readListId }, body: data });
+    await this.safeVoidCall(() =>
+      updateReadListById({
+        client: this.client,
+        path: { id: readListId },
+        body: data,
+      })
+    );
   }
 
   /**
@@ -82,6 +86,8 @@ export class ReadListService extends BaseService {
    * @throws ApiError if the read list is not found or API error occurs
    */
   async delete(readListId: string): Promise<void> {
-    await deleteReadListById({ client: this.client, path: { id: readListId } });
+    await this.safeVoidCall(() =>
+      deleteReadListById({ client: this.client, path: { id: readListId } })
+    );
   }
 }

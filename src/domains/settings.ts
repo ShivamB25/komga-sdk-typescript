@@ -33,6 +33,8 @@ export class SettingsService extends BaseService {
    * @throws ApiError if API error occurs
    */
   async update(data: SettingsUpdateDto): Promise<void> {
-    await updateServerSettings({ client: this.client, body: data });
+    await this.safeVoidCall(() =>
+      updateServerSettings({ client: this.client, body: data })
+    );
   }
 }
