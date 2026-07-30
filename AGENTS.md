@@ -259,6 +259,60 @@ For TanStack Query integrations:
 - the application owns `QueryClient`, retries, invalidation, SSR hydration, and cache lifetime
 - do not combine transport retries with query retries
 
+## MINTLIFY DOCUMENTATION
+
+The maintained documentation site lives in `docs/mintlify/`. Its dependencies and lockfile are isolated from the SDK package. The local CLI is pinned in `docs/mintlify/package.json`; update it deliberately and run the full docs gate after every upgrade.
+
+### Updating docs for an SDK or Komga release
+
+1. Audit every live example against current generated symbols with CodeGraph. Never migrate calls by guessing parameter names.
+2. Use the flat operation shape: `operation(parameters?, { client })`. Parameterless operations receive `{ client }` as their only argument.
+3. Remove documentation for deleted services, grouped `{ path, query, body }` calls, Ky settings, handwritten SDK Zod schemas, legacy errors/interceptors, and Bearer auth.
+4. Preserve substantive depth. Restore workflows, permissions, parameter semantics, state transitions, binary/void behavior, failure modes, and troubleshooting; remove only stale or repeated boilerplate.
+5. Keep all maintained pages in `docs/mintlify/docs.json` navigation. Every MDX page needs `title` and `description` frontmatter.
+6. Pin the API Reference OpenAPI URL to the same immutable Komga release as the SDK. Never use `master`.
+7. Keep internal links root-relative without `.mdx` extensions and verify every code fence has a language tag.
+8. Treat Mintlify accessibility warnings as release work: all media needs alt text and the primary color must meet WCAG AA.
+
+### Docs dependency updates
+
+From `docs/mintlify/`:
+
+```bash
+bun outdated
+bun update --latest mint
+bun install
+```
+
+Do not update the root SDK to an incompatible compiler merely because a prerelease is reported as latest. TypeScript remains pinned to 5.9.3 until the Hey API generation stack passes with TypeScript 7.
+
+### Docs verification and preview
+
+```bash
+cd docs/mintlify
+bun install
+bun run --bun mint validate
+bun run --bun mint broken-links
+bun run --bun mint a11y
+bun run --bun mint dev
+```
+
+The explicit `--bun` keeps the CLI usable on workstations whose globally selected Node version is newer than Mintlify supports. Prefer an active Node LTS release in CI.
+
+`mint dev` is a local preview only; it does not publish. Before delivery, open the local site in Chromium and sample the introduction, quickstart, configuration, migration, a deep guide, and at least one generated API endpoint page.
+
+Production docs deploy automatically after changes reach the connected repository branch only when the Mintlify GitHub App is configured. If no Mintlify check or preview appears on the PR, do not claim deployment succeeded; verify the integration or trigger deployment from the Mintlify dashboard after merge.
+
+### Docs content boundaries
+
+- The Mintlify site documents the published package, not generator internals unless the page is explicitly about maintenance.
+- Optional TanStack Query, Zod, or custom transports may be shown as application-owned integrations, never as current root exports.
+- `responseStyle` and `throwOnError` are per-operation options, not `createKomgaClient` defaults.
+- Binary endpoints must document the generated runtime type actually returned (`Blob`, `string`, stream, or unknown), not assume every file-like response is a `Blob`.
+- Successful `202` responses may carry unknown task data; successful `204` responses return `undefined`.
+- A migration page may show old syntax in a clearly labeled “before” example. Live examples must use SDK 1.0.
+
+
 ## COMMANDS
 
 ```bash
@@ -268,7 +322,10 @@ bun run test           # focused unit/integration tests
 bun run test:coverage  # coverage
 bun run build          # dist output
 npm pack --dry-run     # package-content verification
-bun run docs           # TypeDoc
+cd docs/mintlify && bun run --bun mint validate       # Mintlify build validation
+cd docs/mintlify && bun run --bun mint broken-links   # internal link validation
+cd docs/mintlify && bun run --bun mint a11y           # content/color accessibility
+cd docs/mintlify && bun run --bun mint dev            # local preview only
 ```
 
 ## PUBLISHING
@@ -293,3 +350,8 @@ OIDC trusted publishing requirements:
 - Returning a different runtime shape than generated TypeScript declares
 - Publishing extensionless ESM imports that fail in native Node
 - Keeping deprecated aliases after a breaking API cutover
+- Compressing docs by deleting unique workflows, permissions, edge cases, or troubleshooting
+- Leaving maintained MDX pages hidden from `docs.json` navigation
+- Treating `mint dev` as a production deployment
+- Claiming Mintlify deployment without a GitHub App check or dashboard confirmation
+- Updating Mintlify or root TypeScript without rerunning their separate validation gates
