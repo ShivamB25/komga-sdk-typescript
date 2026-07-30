@@ -1,6 +1,6 @@
 {
   "name": "komga-sdk",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "description": "TypeScript SDK for the Komga media server API",
   "type": "module",
   "main": "dist/index.js",
@@ -9,8 +9,17 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "import": "./dist/client.js"
+    },
+    "./types": {
+      "types": "./dist/generated/types.gen.d.ts",
+      "import": "./dist/generated/types.gen.js"
     }
   },
+  "sideEffects": false,
   "files": [
     "dist"
   ],
@@ -20,14 +29,10 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "generate": "openapi-ts -f openapi-ts.config.ts && bun scripts/normalize-generated.ts && cp .tmp/generated/sdk.gen.ts src/sdk.gen.ts && cp .tmp/generated/types.gen.ts src/types.gen.ts && cp .tmp/generated/client.gen.ts src/client.gen.ts && cp .tmp/generated/client/*.ts src/client/ && cp .tmp/generated/core/*.ts src/core/",
+    "generate": "bun scripts/generate.ts",
     "docs": "typedoc",
     "docs:watch": "typedoc --watch",
     "docs:serve": "typedoc && npx serve docs/api"
-  },
-  "dependencies": {
-    "ky": "^2.0.0",
-    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@hey-api/client-fetch": "0.13.1",
