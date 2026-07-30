@@ -1,9 +1,23 @@
 export default {
-  input: 'https://raw.githubusercontent.com/gotson/komga/master/komga/docs/openapi.json',
+  input: 'https://raw.githubusercontent.com/gotson/komga/1.25.0/komga/docs/openapi.json',
   output: {
-    clean: false,
+    clean: true,
     entryFile: false,
+    importFileExtension: '.js',
     path: './.tmp/generated',
   },
-  plugins: ['@hey-api/client-fetch'],
+  plugins: [
+    {
+      name: '@hey-api/client-fetch',
+      throwOnError: false,
+    },
+    '@hey-api/typescript',
+    {
+      name: '@hey-api/sdk',
+      client: '@hey-api/client-fetch',
+      operations: 'flat',
+      paramsStructure: 'flat',
+      responseStyle: 'fields',
+    },
+  ],
 };
