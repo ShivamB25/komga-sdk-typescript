@@ -1,60 +1,139 @@
 ---
-title: "Interceptors"
-description: "Hook into request, response, and error lifecycles"
+title: "Request customization"
+description: "Use the generated client's low-level request, response, and error hooks"
 icon: "filter"
 ---
 
-Interceptors let you add logging, validation, and error transforms without changing call sites.
+Each generated client exposes low-level interceptors for requests, responses, and errors. They run for every generated operation made with that client. The SDK does not export logging, validation, or error-transform interceptor factories.
 
-## Attach interceptors
+Use a custom `fetch` when you need a transport wrapper, retry policy, timeout policy, or tracing around the platform call. Use interceptors when you need access to the constructed `Request`, returned `Response`, or error lifecycle for one client instance.
+
+## Register hooks
+
+`use` returns a numeric identifier. Return the request, response, or error from the hook so the generated pipeline can continue. Hooks may be synchronous or async:
 
 ```typescript
-import {
-  createKomgaClient,
-  createLoggingInterceptor,
-  createErrorTransformInterceptor,
-  createValidationInterceptor,
-  BookDtoSchema,
-} from 'komga-sdk';
+import { createKomgaClient } from 'komga-sdk';
 
 const client = createKomgaClient({
   baseUrl: 'http://localhost:25600',
   auth: { type: 'basic', username: 'admin', password: 'password' },
 });
 
-const { request, response } = createLoggingInterceptor({ logHeaders: true });
-const errorTransform = createErrorTransformInterceptor();
-const validation = createValidationInterceptor({
-  schemas: { '/api/books': BookDtoSchema },
+const requestId = client.interceptors.request.use(async (request, options) => {
+  console.debug('Komga request', request.method, request.url);
+  return request;
 });
 
-client.interceptors.request.use(request);
-client.interceptors.response.use(response);
-client.interceptors.response.use(validation);
-client.interceptors.error.use(errorTransform);
+const responseId = client.interceptors.response.use((response, request, options) => {
+  console.debug('Komga response', response.status, request.url);
+  return response;
+});
+
+const errorId = client.interceptors.error.use((error, response, request, options) => {
+  console.error('Komga transport error', { error, status: response?.status });
+  return error;
+});
 ```
 
-## Logging
+The callback signatures are low-level Fetch hooks:
 
-Use `createLoggingInterceptor` to log requests and responses during development.
+- Request hooks receive `(request, options)` and return a `Request`.
+- Response hooks receive `(response, request, options)` and return a `Response`.
+- Error hooks receive `(error, response, request, options)` and return the error. `response` and `request` can be undefined.
 
-## Error transforms
+The options value is the generated client's resolved request configuration. Keep hooks focused on transport concerns; operation parameters and generated result handling remain at the operation call site.
 
-`createErrorTransformInterceptor` converts HTTP and network errors into typed errors.
+## Add headers safely
 
-## Response validation
+Request hooks can return a new `Request` with application metadata. Do not overwrite auth-owned headers or log their values:
 
 ```typescript
-const validation = createValidationInterceptor({
-  schemas: {
-    '/api/books': BookDtoSchema,
-    '/api/books/.*': BookDtoSchema,
-  },
-  throwOnError: true,
+const requestId = client.interceptors.request.use((request) => {
+  const headers = new Headers(request.headers);
+  headers.set('X-Request-Source', 'batch-job');
+  return new Request(request, { headers });
 });
 ```
 
-## Next steps
+`Authorization`, `X-API-Key`, `Cookie`, and other secrets may be present. Redact values before logging. Prefer client-level `headers` for static metadata and a request hook for dynamic correlation IDs.
 
-- Handle errors: [Errors](/errors)
-- Validate with schemas: [Validation](/validation)
+## Observe responses without consuming them
+
+A response body is a stream. If a response interceptor reads it, clone it first or return a replacement response so the generated parser still receives a body:
+
+```typescript
+const responseId = client.interceptors.response.use(async (response, request) => {
+  if (response.headers.get('content-type')?.includes('application/json')) {
+    const copy = response.clone();
+    console.debug('Komga status', response.status, await copy.text());
+  }
+  return response;
+});
+```
+
+Avoid logging response bodies in production when they may contain private metadata. A response hook can observe status and headers without parsing the body.
+
+## Error hooks
+
+Error hooks run for response errors, Fetch/network failures, request construction failures, and parser failures. Preserve the original error unless your application deliberately maps it:
+
+```typescript
+const errorId = client.interceptors.error.use((error, response, request) => {
+  const status = response?.status;
+  console.warn('Komga request failed', { status, url: request?.url });
+  return error;
+});
+```
+
+Returning a replacement value changes what the generated client places in `result.error` or throws when generated `throwOnError` is enabled. If callers rely on generated error payload types, do not replace them globally.
+
+## Remove or replace hooks
+
+Use the returned identifier with `eject`, or clear a whole interceptor collection:
+
+```typescript
+client.interceptors.request.eject(requestId);
+client.interceptors.response.eject(responseId);
+client.interceptors.error.eject(errorId);
+
+const replacementId = client.interceptors.request.update(
+  requestId,
+  (request, options) => request,
+);
+
+client.interceptors.response.clear();
+if (replacementId !== false) {
+  console.log(client.interceptors.request.exists(replacementId));
+}
+```
+
+`update` returns the identifier when it replaces an existing hook and `false` when the identifier is not active. `clear` removes every hook in that collection. Register hooks once during client setup, not inside a request handler, or a long-lived process can accumulate duplicate logging and mutations.
+
+## Interceptors versus custom Fetch
+
+Use a custom Fetch wrapper for policies that must surround the actual transport call:
+
+```typescript
+const fetchWithTiming: typeof fetch = async (input, init) => {
+  const started = Date.now();
+  try {
+    return await fetch(input, init);
+  } finally {
+    console.log(`Fetch completed in ${Date.now() - started}ms`);
+  }
+};
+
+const tracedClient = createKomgaClient({
+  baseUrl: 'https://komga.example.com',
+  fetch: fetchWithTiming,
+});
+```
+
+Use an interceptor for `Request`/`Response` lifecycle visibility. Neither mechanism supplies Komga schemas, domain services, or a universal retry/cache policy.
+
+<Warning>
+A response interceptor can change the `Response` passed to every generated operation on the client. Scope clients carefully when different features need different transport behavior, and clone bodies before inspecting them.
+</Warning>
+
+For response validation, see [Runtime validation](/validation). For result branches and `KomgaApiError`, see [Result handling](/errors).

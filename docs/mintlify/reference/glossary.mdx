@@ -1,8 +1,44 @@
 ---
 title: "Glossary"
-description: "Komga domain terms used throughout the SDK"
+description: "Komga and generated SDK terms used throughout the documentation"
 icon: "book-bookmark"
 ---
+
+## Generated operation
+
+A TypeScript function generated from the Komga OpenAPI contract, such as `getBookById` or `getBooks`. Operations accept flat endpoint parameters and optional generated client options.
+
+## Flat parameters
+
+The 1.0 operation convention where endpoint inputs are properties of one parameter object. For example, `getBookById({ bookId }, { client })` passes the identifier directly. It replaces the older grouped `{ path, query, body }` call shape.
+
+## Result fields
+
+The default generated response contract: `{ data, error, request, response }`. Successful calls set `data` and leave `error` undefined. Failed calls set `error`; `request` and `response` are optional.
+
+## `unwrap`
+
+The explicit helper that returns `data` or throws `KomgaApiError` for a generated API failure. It is not enabled automatically. A successful `204 No Content` operation unwraps to `undefined`.
+
+## `KomgaApiError`
+
+The typed error raised by `unwrap` for an API result with an error or a non-successful response. It exposes the generated `body`, optional HTTP `status`, and optional Fetch `request` and `response`.
+
+## Runtime validation
+
+A consumer-owned check that inspects response data at runtime. The SDK supplies generated TypeScript types but does not export Zod DTO schemas or validation helpers.
+
+## Client
+
+An isolated generated Fetch client created by `createKomgaClient`. It owns `baseUrl`, authentication, headers, credentials, Fetch implementation, and interceptor collections. Pass it as `{ client }` in an operation's options.
+
+## Interceptor
+
+A low-level hook attached to a client that receives a `Request`, `Response`, or error. Request and response hooks must return the object that continues through the generated pipeline; error hooks may observe or transform the error.
+
+## Page response
+
+A server page envelope containing optional list metadata such as `content`, `number`, `size`, `totalElements`, `totalPages`, `first`, `last`, and `empty`. Use nullish defaults because generated page fields may be absent.
 
 ## Library
 
@@ -30,13 +66,15 @@ Descriptive information about a book or series, such as title, summary, and publ
 
 ## Scan
 
-The process Komga uses to index files in a library and update metadata.
+The process Komga uses to index files in a library and update metadata. A scan operation can schedule server-side work that continues after the request returns.
 
 ## Page
 
-An individual image/page inside a book.
+An individual image/page inside a book, or a generated page response containing list metadata such as `content`, `number`, and `totalPages`. Media page operations may return a blob, text, or another generated representation rather than a JSON DTO.
 
 ## Next steps
 
-- Books guide: [Books](/guides/books)
-- Libraries guide: [Libraries](/guides/libraries)
+- Configure a client: [Fetch configuration](/reference/configuration)
+- Call operations: [Direct API functions](/direct-api)
+- Learn pagination and search: [Pagination](/pagination)
+- Learn Komga domain workflows: [Books](/guides/books)

@@ -4,68 +4,107 @@ description: "Find latest books, on-deck items, and duplicates"
 icon: "magnifying-glass"
 ---
 
-This guide covers endpoints for discovering books: recent additions, on-deck items, and duplicates.
+These discovery operations use the generated Komga API 1.25 client. Query values are flat parameters, followed by `{ client }`; responses are non-throwing.
 
 ## Latest books
-
-Get the most recently added books:
 
 ```typescript
 import { getBooksLatest } from 'komga-sdk';
 
-const result = await getBooksLatest({
-  client,
-  query: { page: 0, size: 20 },
-});
+const result = await getBooksLatest({ page: 0, size: 20 }, { client });
 
-if (result.data) {
-  result.data.content.forEach(book => {
+if (result.error) {
+  console.error('Could not load latest books', result.error);
+} else {
+  for (const book of result.data?.content ?? []) {
     console.log(`${book.metadata.title} (added: ${book.created})`);
-  });
+  }
 }
 ```
 
 ## On-deck books
 
-Fetch books recommended for continuing reading:
-
 ```typescript
 import { getBooksOnDeck } from 'komga-sdk';
 
-const result = await getBooksOnDeck({
-  client,
-  query: { page: 0, size: 20 },
-});
+const result = await getBooksOnDeck({ page: 0, size: 20 }, { client });
 
-if (result.data) {
-  result.data.content.forEach(book => {
-    console.log(`${book.metadata.title} (progress: ${book.readProgress?.page ?? 0})`);
-  });
+if (result.error) {
+  console.error('Could not load on-deck books', result.error);
+} else {
+  for (const book of result.data?.content ?? []) {
+    console.log(`${book.metadata.title} (page: ${book.readProgress?.page ?? 0})`);
+  }
 }
+```
+
+### Scope and page discovery calls
+
+`getBooksLatest` accepts `unpaged`, `page`, and `size`. `getBooksOnDeck` accepts the same pagination keys plus `library_id` (an array) to scope the result to one or more libraries. Both return `PageBookDto`; `content` can be empty even when the request succeeds, so use `totalElements`/`totalPages` for navigation.
+
+```typescript
+const page = await getBooksOnDeck(
+  {
+    library_id: ['library-123'],
+    page: 1,
+    size: 20,
+  },
+  { client },
+);
+if (page.error) throw page.error;
+console.log(`Page ${page.data?.number ?? 0} of ${page.data?.totalPages ?? 0}`);
 ```
 
 ## Duplicate books
 
-List books that Komga flagged as duplicates:
+`getBooksDuplicates` returns a `PageBookDto`. Each item is a normal `BookDto`; duplicates are identified by their shared file hash.
 
 ```typescript
 import { getBooksDuplicates } from 'komga-sdk';
 
-const result = await getBooksDuplicates({
-  client,
-  query: { page: 0, size: 20 },
-});
+const result = await getBooksDuplicates({ page: 0, size: 20 }, { client });
 
-if (result.data) {
-  result.data.content.forEach(duplicate => {
-    console.log(`${duplicate.title} - ${duplicate.count} copies`);
-  });
+if (result.error) {
+  console.error('Could not load duplicate books', result.error);
+} else {
+  for (const book of result.data?.content ?? []) {
+    console.log(`${book.metadata.title} (${book.fileHash})`);
+  }
 }
 ```
 
 <Tip>
-Use the [Admin](/guides/admin) guide to manage duplicate pages and cleanup operations.
+Use the [Admin](/guides/admin) guide for duplicate-page cleanup operations.
 </Tip>
+
+### Review duplicates safely
+
+Duplicate-book listing is an administrative operation (`ADMIN`). Each `BookDto` includes a `fileHash`; group by that value before deciding which file to keep. A duplicate hash does not by itself tell you which metadata or read progress is authoritative, and deleting a file is irreversible.
+
+```typescript
+import { getBooksDuplicates } from 'komga-sdk';
+
+const result = await getBooksDuplicates(
+  { page: 0, size: 100, sort: ['fileLastModified,asc'] },
+  { client },
+);
+if (result.error) throw result.error;
+
+const byHash = new Map<string, string[]>();
+for (const book of result.data?.content ?? []) {
+  const matches = byHash.get(book.fileHash) ?? [];
+  matches.push(book.id);
+  byHash.set(book.fileHash, matches);
+}
+
+for (const [hash, bookIds] of byHash) {
+  if (bookIds.length > 1) {
+    console.log('Review duplicate hash', hash, bookIds);
+  }
+}
+```
+
+Use the page-hash operations in the [Admin](/guides/admin) guide for duplicate **pages**. Those operations are separate from duplicate-book detection and also require administrative access.
 
 ## Common workflows
 
@@ -76,9 +115,12 @@ import { getBooksLatest, getBooksOnDeck } from 'komga-sdk';
 
 async function getDashboardData() {
   const [latest, onDeck] = await Promise.all([
-    getBooksLatest({ client, query: { page: 0, size: 12 } }),
-    getBooksOnDeck({ client, query: { page: 0, size: 12 } }),
+    getBooksLatest({ page: 0, size: 12 }, { client }),
+    getBooksOnDeck({ page: 0, size: 12 }, { client }),
   ]);
+
+  if (latest.error) throw latest.error;
+  if (onDeck.error) throw onDeck.error;
 
   return {
     latest: latest.data?.content ?? [],
@@ -87,44 +129,44 @@ async function getDashboardData() {
 }
 ```
 
-### Find duplicates and notify admin
+### Find duplicates and notify an administrator
 
 ```typescript
 import { getBooksDuplicates } from 'komga-sdk';
 
 async function notifyDuplicates() {
-  const result = await getBooksDuplicates({
-    client,
-    query: { page: 0, size: 50 },
-  });
+  const result = await getBooksDuplicates({ page: 0, size: 50 }, { client });
+  if (result.error) throw result.error;
 
-  if (!result.data || result.data.content.length === 0) return;
+  const duplicates = result.data?.content ?? [];
+  if (duplicates.length === 0) return;
 
-  const report = result.data.content.map(item =>
-    `${item.title} (${item.count} copies)`
+  console.log(
+    'Duplicate books found:',
+    duplicates.map((book) => `${book.metadata.title} (${book.fileHash})`),
   );
-
-  console.log('Duplicates found:', report);
 }
 ```
 
 ## Error handling
 
+The non-throwing result exposes the response when the server returned an HTTP error:
+
 ```typescript
 import { getBooksLatest } from 'komga-sdk';
 
-const result = await getBooksLatest({ client });
+const result = await getBooksLatest({ page: 0, size: 20 }, { client });
 
 if (result.error) {
-  switch (result.response?.status) {
-    case 401:
-      console.error('Not authenticated');
-      break;
-    default:
-      console.error('Error fetching latest books:', result.error);
+  if (result.response?.status === 401) {
+    console.error('Not authenticated');
+  } else {
+    console.error('Error fetching latest books', result.error);
   }
 }
 ```
+
+`403` is expected for duplicate-book requests when the account is not an administrator. A `404` means the requested resource or library is not available to the current user; do not treat that as an empty page.
 
 ## Next steps
 
@@ -132,7 +174,7 @@ if (result.error) {
   <Card title="Book Content" icon="images" href="/guides/book-content">
     Access pages, thumbnails, and manifests.
   </Card>
-  
+
   <Card title="Series Discovery" icon="compass" href="/guides/series-discovery">
     Find new series and release dates.
   </Card>

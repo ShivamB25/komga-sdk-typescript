@@ -1,211 +1,267 @@
 ---
 title: "Administration"
-description: "Server settings, tasks, duplicate detection, and system management"
+description: "Manage Komga server settings, tasks, duplicates, and imports"
 icon: "shield-halved"
 ---
 
-This guide covers administrative operations for managing your Komga server, including server settings, task management, duplicate page detection, and initial server setup.
+Administrative operations require the role documented by the endpoint. The generated functions accept flat parameters and an options object containing the client. They return `{ data, error, request, response }` by default.
 
 <Warning>
-All operations in this guide require **ADMIN** role unless otherwise noted.
+Use an HTTPS base URL when sending Basic credentials. The claim endpoint is the only operation in this guide that is intended to run before authentication.
 </Warning>
 
-## Server claim (initial setup)
+## Claim the server
 
-When Komga is first installed, it needs to be "claimed" by creating the initial admin user.
-
-### Check claim status
+Check whether the initial admin account has been created:
 
 ```typescript
 import { getClaimStatus } from 'komga-sdk';
 
 const result = await getClaimStatus({ client });
-
-if (result.data) {
-  if (result.data.isClaimed) {
-    console.log('Server is already configured');
-  } else {
-    console.log('Server needs initial setup');
-  }
+if (result.error) {
+  console.error(result.response?.status, result.error);
+} else if (result.data?.isClaimed) {
+  console.log('Server is already configured');
+} else {
+  console.log('Server needs initial setup');
 }
 ```
 
-<Note>
-This endpoint does not require authentication - it's designed for initial setup.
-</Note>
-
-### Claim the server
-
-Create the initial admin user:
+Create the initial admin account. The generated operation sends the credentials as the `X-Komga-Email` and `X-Komga-Password` headers:
 
 ```typescript
 import { claimServer } from 'komga-sdk';
 
-const result = await claimServer({
-  client,
-  body: {
-    email: 'admin@example.com',
-    password: 'secure-admin-password',
+const result = await claimServer(
+  {
+    'X-Komga-Email': 'admin@example.com',
+    'X-Komga-Password': 'secure-admin-password',
   },
-});
+  { client },
+);
 
-if (result.data) {
-  console.log('Server claimed successfully');
-  // The response includes the created user
-  console.log(`Admin user ID: ${result.data.id}`);
+if (result.error) {
+  console.error(result.response?.status, result.error);
+} else {
+  console.log(`Created admin user ${result.data?.id}`);
 }
 ```
 
-<Warning>
-The claim endpoint can only be called once. After claiming, you must authenticate with the admin credentials.
-</Warning>
+The claim endpoint can be called only once. After a successful claim, create an authenticated client with `createKomgaClient` before calling admin operations.
 
 ## Server settings
 
-### Get server settings
+Read settings:
 
 ```typescript
 import { getServerSettings } from 'komga-sdk';
 
 const result = await getServerSettings({ client });
-
-if (result.data) {
-  console.log('Server settings:');
-  console.log(`- Delete empty collections: ${result.data.deleteEmptyCollections}`);
-  console.log(`- Delete empty read lists: ${result.data.deleteEmptyReadLists}`);
-  console.log(`- Remember me duration: ${result.data.rememberMeDurationDays} days`);
-  console.log(`- Thumbnail size: ${result.data.thumbnailSize}`);
+if (result.error) {
+  console.error(result.response?.status, result.error);
+} else {
+  console.log(result.data);
 }
 ```
 
-### Update server settings
-
-You can update individual settings without affecting others:
+Update only the fields you need. `updateServerSettings` takes a `settingsUpdateDto` flat parameter; the generated call returns a no-content response on success:
 
 ```typescript
 import { updateServerSettings } from 'komga-sdk';
 
-await updateServerSettings({
-  client,
-  body: {
-    deleteEmptyCollections: true,
-    deleteEmptyReadLists: true,
-    rememberMeDurationDays: 30,
-    thumbnailSize: 'DEFAULT',
-    taskPoolSize: 4,
+const result = await updateServerSettings(
+  {
+    settingsUpdateDto: {
+      deleteEmptyCollections: true,
+      deleteEmptyReadLists: true,
+      rememberMeDurationDays: 30,
+      thumbnailSize: 'LARGE',
+      taskPoolSize: 4,
+    },
   },
-});
-```
+  { client },
+);
 
-### Available settings
-
-| Setting | Type | Description |
-|---------|------|-------------|
-| `deleteEmptyCollections` | boolean | Auto-delete collections when empty |
-| `deleteEmptyReadLists` | boolean | Auto-delete read lists when empty |
-| `rememberMeDurationDays` | number | "Remember me" cookie duration |
-| `thumbnailSize` | string | Thumbnail quality: `DEFAULT`, `MEDIUM`, `LARGE`, `XLARGE` |
-| `taskPoolSize` | number | Number of concurrent background tasks |
-| `serverPort` | number | Server port (requires restart) |
-| `serverContextPath` | string | URL context path |
-
-## Server information
-
-### Get server info
-
-Retrieve version and runtime information:
-
-```typescript
-import { getActuatorInfo } from 'komga-sdk';
-
-const result = await getActuatorInfo({ client });
-
-if (result.data) {
-  console.log('Server information:');
-  // Response contains build and runtime details
-  console.log(JSON.stringify(result.data, null, 2));
+if (result.error) {
+  console.error(result.response?.status, result.error);
+} else {
+  // Success is HTTP 204; there is no response payload.
+  console.log(`Updated settings (${result.response?.status})`);
 }
 ```
 
-## Releases
+Common `SettingsUpdateDto` fields include:
 
-Check available Komga releases:
+| Field | Type | Description |
+| --- | --- | --- |
+| `deleteEmptyCollections` | `boolean` | Delete collections when they become empty |
+| `deleteEmptyReadLists` | `boolean` | Delete read lists when they become empty |
+| `rememberMeDurationDays` | `number` | Remember-me cookie duration |
+| `thumbnailSize` | `"DEFAULT" \| "MEDIUM" \| "LARGE" \| "XLARGE"` | Generated thumbnail size |
+| `taskPoolSize` | `number` | Concurrent background tasks |
+| `serverPort` | `number` | Server port (restart required) |
+| `serverContextPath` | `string` | URL context path |
+`serverPort` and `serverContextPath` affect how the server is reached and may require a restart or a matching reverse-proxy configuration. Settings updates are partial: omit fields you do not intend to change, and treat the `204` response as confirmation rather than expecting updated settings in `result.data`.
+
+## Operational cautions
+
+The task queue is shared by scans, metadata refreshes, imports, and thumbnail generation. `emptyTaskQueue` cancels pending work; it does not undo work that has already completed and it does not return a task list. Use it as a maintenance action, not as a polling mechanism.
+
+Historical events are paginated. `HistoricalEventDto` includes an `id`, `timestamp`, `type`, string-valued `properties`, and optional `bookId` and `seriesId`; keep requesting pages until the page is marked `last` when exporting an audit trail.
+
+The announcements response is a JSON feed. Its `items` contain `id`, `title`, optional `summary`/`content_html`, and a `_komga.read` flag. Mark only the IDs you have displayed; `markAnnouncementsRead` accepts an array in its flat `body` parameter and returns `204` with no payload.
+
+Directory browsing is an admin helper for choosing library roots. Send both `path` and `showFiles` in `directoryRequestDto`; the server can reject paths that are outside its configured filesystem or container mount. Do not treat a listing as permission to read arbitrary files.
+
+<Warning>
+`emptyTaskQueue`, settings updates, imports, duplicate-page actions, directory browsing, and thumbnail management are administrative operations. A `403` means the authenticated account lacks the endpoint's required role; it is not a malformed SDK call.
+</Warning>
+
+## Review known duplicate pages
+
+Known hashes can be filtered by one or more `action` values (`DELETE_AUTO`, `DELETE_MANUAL`, or `IGNORE`) in addition to `page`, `size`, and `sort`. The result is paginated and each entry includes its match count, optional byte size, action, and timestamps:
 
 ```typescript
-import { getReleases } from 'komga-sdk';
+import {
+  getKnownPageHashes,
+  getKnownPageHashThumbnail,
+} from 'komga-sdk';
 
-const result = await getReleases({ client });
+const known = await getKnownPageHashes(
+  {
+    action: ['DELETE_AUTO'],
+    page: 0,
+    size: 50,
+    sort: ['lastModified,desc'],
+  },
+  { client },
+);
 
-if (result.data) {
-  result.data.forEach(release => {
-    console.log(`${release.version} - ${release.releaseDate}`);
-  });
-}
-```
-
-## Announcements
-
-Komga displays announcements for important updates and information.
-
-### Get announcements
-
-```typescript
-import { getAnnouncements } from 'komga-sdk';
-
-const result = await getAnnouncements({ client });
-
-if (result.data) {
-  for (const announcement of result.data) {
-    console.log(`[${announcement.id}] ${announcement.title}`);
-    console.log(`  ${announcement.body}`);
+for (const entry of known.data?.content ?? []) {
+  const preview = await getKnownPageHashThumbnail(
+    { pageHash: entry.hash },
+    { client },
+  );
+  if (!preview.error && preview.data) {
+    const previewUrl = URL.createObjectURL(preview.data);
+    console.log(entry.hash, entry.matchCount, previewUrl);
+    // Revoke previewUrl when the preview leaves the UI.
   }
 }
 ```
 
-### Mark announcements as read
+Use `getPageHashMatches` before deleting when you need to review the affected books. `deleteDuplicatePagesByPageHash` removes all matches; `deleteSingleMatchByPageHash` removes one `PageHashMatchDto` returned by the matches endpoint. Both actions are destructive and should be followed by a fresh query rather than assuming the previous page is still current.
+
+<Note>
+The duplicate thumbnail endpoints accept an optional `resize` query parameter only for unknown hashes. Image results are `Blob | File`; they are not JSON metadata.
+</Note>
+
+## Duplicate-review recipe
+
+For a review UI, list a small page of unknown hashes, load previews sequentially (or with a bounded queue), and classify each hash before deleting:
+
+```typescript
+import {
+  createOrUpdateKnownPageHash,
+  deleteDuplicatePagesByPageHash,
+  getUnknownPageHashThumbnail,
+  getUnknownPageHashes,
+} from 'komga-sdk';
+
+const unknown = await getUnknownPageHashes({ page: 0, size: 10 }, { client });
+
+for (const candidate of unknown.data?.content ?? []) {
+  const preview = await getUnknownPageHashThumbnail(
+    { pageHash: candidate.hash, resize: 320 },
+    { client },
+  );
+  if (preview.error) continue;
+
+  // Decide from the preview and matchCount in your UI.
+  const decision = window.confirm(
+    `Delete ${candidate.matchCount} matches for ${candidate.hash}?`,
+  )
+    ? 'DELETE_AUTO'
+    : 'IGNORE';
+  const marked = await createOrUpdateKnownPageHash(
+    {
+      pageHashCreationDto: {
+        hash: candidate.hash,
+        action: decision,
+        size: candidate.size,
+      },
+    },
+    { client },
+  );
+  if (marked.error) continue;
+
+  if (decision === 'DELETE_AUTO') {
+    await deleteDuplicatePagesByPageHash({ pageHash: candidate.hash }, { client });
+  }
+}
+```
+
+Do not create object URLs for previews without revoking them, and do not run an unbounded parallel delete loop against a large library.
+
+
+## Server information and announcements
+
+These operations take only the client in their options object:
+
+```typescript
+import { getActuatorInfo, getReleases, getAnnouncements } from 'komga-sdk';
+
+const [info, releases, announcements] = await Promise.all([
+  getActuatorInfo({ client }),
+  getReleases({ client }),
+  getAnnouncements({ client }),
+]);
+
+if (info.data) console.log('Runtime:', info.data);
+if (releases.data) console.log(releases.data);
+if (announcements.data) {
+  for (const announcement of announcements.data.items) {
+    console.log(`${announcement.id}: ${announcement.title}`);
+  }
+}
+```
+
+Mark announcements as read by passing the array as the flat `body` parameter. Success is HTTP 204:
 
 ```typescript
 import { markAnnouncementsRead } from 'komga-sdk';
 
-await markAnnouncementsRead({
-  client,
-  body: {
-    ids: ['announcement-1', 'announcement-2'],
-  },
-});
+const result = await markAnnouncementsRead(
+  { body: ['announcement-1', 'announcement-2'] },
+  { client },
+);
+if (result.error) console.error(result.response?.status, result.error);
 ```
 
-## Task management
+## Tasks and historical events
 
-### Clear the task queue
-
-Cancel all pending background tasks:
+Clear pending tasks with `emptyTaskQueue`. It returns HTTP 204 and no payload:
 
 ```typescript
 import { emptyTaskQueue } from 'komga-sdk';
 
-await emptyTaskQueue({ client });
-console.log('Task queue cleared');
+const result = await emptyTaskQueue({ client });
+if (result.error) {
+  console.error(result.response?.status, result.error);
+} else {
+  console.log('Task queue cleared');
+}
 ```
 
-<Warning>
-This cancels all pending tasks including library scans, metadata refreshes, and thumbnail generation. Use with caution.
-</Warning>
-
-## Historical events
-
-View a log of important events on the server:
+List historical events with flat pagination parameters:
 
 ```typescript
 import { getHistoricalEvents } from 'komga-sdk';
 
-const result = await getHistoricalEvents({
-  client,
-  query: {
-    page: 0,
-    size: 50,
-  },
-});
+const result = await getHistoricalEvents(
+  { page: 0, size: 50, sort: ['timestamp,desc'] },
+  { client },
+);
 
 if (result.data) {
   for (const event of result.data.content) {
@@ -216,470 +272,218 @@ if (result.data) {
 
 ## Directory browsing
 
-Browse the server's filesystem (for library setup):
+`getDirectoryListing` maps the `directoryRequestDto` parameter to the request body. The DTO requires both `path` and `showFiles`:
 
 ```typescript
 import { getDirectoryListing } from 'komga-sdk';
 
-const result = await getDirectoryListing({
-  client,
-  body: {
-    path: '/media/comics',
+const result = await getDirectoryListing(
+  {
+    directoryRequestDto: {
+      path: '/media/comics',
+      showFiles: false,
+    },
   },
-});
+  { client },
+);
 
 if (result.data) {
-  console.log(`Parent: ${result.data.parent}`);
-  for (const dir of result.data.directories) {
-    console.log(`📁 ${dir.name}`);
+  console.log(`Parent: ${result.data.parent ?? '/'}`);
+  for (const directory of result.data.directories) {
+    console.log(directory.name);
   }
 }
 ```
-
-<Note>
-This endpoint is typically used in admin UIs when setting up new libraries.
-</Note>
 
 ## Duplicate page detection
 
-Komga can detect duplicate pages across your library (useful for finding credit pages, ads, etc.).
-
-### List unknown duplicates
-
-Get pages that appear multiple times but haven't been categorized:
+List unknown hashes and inspect a thumbnail. Both operations use flat parameters; thumbnail responses are `Blob | File` values:
 
 ```typescript
-import { getUnknownPageHashes } from 'komga-sdk';
+import { getUnknownPageHashes, getUnknownPageHashThumbnail } from 'komga-sdk';
 
-const result = await getUnknownPageHashes({
-  client,
-  query: {
-    page: 0,
-    size: 20,
-  },
-});
-
-if (result.data) {
-  for (const hash of result.data.content) {
-    console.log(`Hash: ${hash.hash}`);
-    console.log(`  Matches: ${hash.matchCount}`);
-    console.log(`  Size: ${hash.size} bytes`);
+const hashes = await getUnknownPageHashes({ page: 0, size: 20 }, { client });
+if (hashes.data) {
+  for (const entry of hashes.data.content) {
+    const thumbnail = await getUnknownPageHashThumbnail(
+      { pageHash: entry.hash },
+      { client },
+    );
+    if (!thumbnail.error && thumbnail.data) {
+      const url = URL.createObjectURL(thumbnail.data);
+      console.log(entry.hash, url);
+    }
   }
 }
 ```
 
-### Get duplicate thumbnail
-
-Preview a duplicate page:
-
-```typescript
-import { getUnknownPageHashThumbnail } from 'komga-sdk';
-
-const result = await getUnknownPageHashThumbnail({
-  client,
-  path: { pageHash: 'abc123def456' },
-});
-
-if (result.data) {
-  // result.data is the image blob
-  const url = URL.createObjectURL(result.data);
-  // Display in UI
-}
-```
-
-### View duplicate matches
-
-See which books contain a specific duplicate page:
-
-```typescript
-import { getPageHashMatches } from 'komga-sdk';
-
-const result = await getPageHashMatches({
-  client,
-  path: { pageHash: 'abc123def456' },
-});
-
-if (result.data) {
-  for (const match of result.data) {
-    console.log(`Book: ${match.bookId}, Page: ${match.pageNumber}`);
-  }
-}
-```
-
-### Mark duplicate as known
-
-Categorize a duplicate page:
-
-```typescript
-import { createOrUpdateKnownPageHash } from 'komga-sdk';
-
-await createOrUpdateKnownPageHash({
-  client,
-  body: {
-    hash: 'abc123def456',
-    action: 'DELETE_AUTO',
-    size: 12345,
-  },
-});
-```
-
-### Duplicate actions
-
-| Action | Description |
-|--------|-------------|
-| `DELETE_AUTO` | Automatically delete this page when found |
-| `DELETE_MANUAL` | Flag for manual review |
-| `IGNORE` | Ignore this duplicate |
-
-### Delete duplicate pages
-
-Remove duplicate pages by hash:
-
-```typescript
-import { deleteDuplicatePagesByPageHash } from 'komga-sdk';
-
-await deleteDuplicatePagesByPageHash({
-  client,
-  path: { pageHash: 'abc123def456' },
-});
-```
-
-### List known duplicates
-
-View pages you've already categorized:
-
-```typescript
-import { getKnownPageHashes } from 'komga-sdk';
-
-const result = await getKnownPageHashes({
-  client,
-  query: {
-    page: 0,
-    size: 50,
-  },
-});
-
-if (result.data) {
-  for (const known of result.data.content) {
-    console.log(`${known.hash}: ${known.action}`);
-  }
-}
-```
-
-### Get known duplicate thumbnail
-
-Preview a known duplicate page:
-
-```typescript
-import { getKnownPageHashThumbnail } from 'komga-sdk';
-
-const result = await getKnownPageHashThumbnail({
-  client,
-  path: { pageHash: 'abc123def456' },
-});
-
-if (result.data) {
-  const url = URL.createObjectURL(result.data);
-}
-```
-
-### Delete a single duplicate match
-
-Remove one specific match instead of all occurrences:
-
-```typescript
-import { deleteSingleMatchByPageHash } from 'komga-sdk';
-
-await deleteSingleMatchByPageHash({
-  client,
-  path: { pageHash: 'abc123def456' },
-  body: {
-    bookId: 'book-123',
-    pageNumber: 5,
-  },
-});
-```
-
-## Transient books (import)
-
-Scan and import books from a folder without adding them to a library.
-
-### Scan a folder
-
-```typescript
-import { scanTransientBooks } from 'komga-sdk';
-
-const result = await scanTransientBooks({
-  client,
-  body: {
-    path: '/downloads/comics',
-  },
-});
-
-if (result.data) {
-  console.log(`Found ${result.data.length} books`);
-  for (const book of result.data) {
-    console.log(`- ${book.name}`);
-  }
-}
-```
-
-### Analyze a transient book
-
-Get details about a book before importing:
-
-```typescript
-import { analyzeTransientBook } from 'komga-sdk';
-
-const result = await analyzeTransientBook({
-  client,
-  path: { transientBookId: 'transient-123' },
-});
-
-if (result.data) {
-  console.log(`Pages: ${result.data.media?.pagesCount}`);
-  console.log(`Format: ${result.data.media?.mediaType}`);
-}
-```
-
-### Preview a transient book page
-
-Retrieve a page image from a transient book:
-
-```typescript
-import { getPageByTransientBookId } from 'komga-sdk';
-
-const result = await getPageByTransientBookId({
-  client,
-  path: { 
-    transientBookId: 'transient-123',
-    pageNumber: 1,
-  },
-});
-
-if (result.data) {
-  const url = URL.createObjectURL(result.data);
-}
-```
-
-### Import books
-
-Import books into a series:
-
-```typescript
-import { importBooks } from 'komga-sdk';
-
-await importBooks({
-  client,
-  body: {
-    books: [
-      {
-        sourceFile: '/downloads/comics/book1.cbz',
-        seriesId: 'series-123',
-        upgradeBookId: null, // or book ID to replace
-        destinationName: 'Chapter 1.cbz',
-      },
-    ],
-    copyMode: 'COPY', // 'COPY', 'MOVE', or 'HARDLINK'
-  },
-});
-```
-
-### Copy modes
-
-| Mode | Description |
-|------|-------------|
-| `COPY` | Copy file to library (original remains) |
-| `MOVE` | Move file to library (original deleted) |
-| `HARDLINK` | Create hard link (saves space, same filesystem only) |
-
-## Client settings
-
-Store application settings for clients (web UI, mobile apps).
-
-### Save global settings
-
-```typescript
-import { saveGlobalSetting } from 'komga-sdk';
-
-await saveGlobalSetting({
-  client,
-  body: {
-    key: 'webui.theme.mode',
-    value: 'dark',
-  },
-});
-```
-
-### Delete global settings
-
-```typescript
-import { deleteGlobalSettings } from 'komga-sdk';
-
-await deleteGlobalSettings({
-  client,
-  body: {
-    keys: ['webui.theme.mode'],
-  },
-});
-```
-
-## Common workflows
-
-### Initial server setup
-
-Complete setup flow for a new Komga installation:
+List matches for a hash and classify it:
 
 ```typescript
 import {
-  getClaimStatus,
-  claimServer,
-  updateServerSettings,
-  addLibrary,
-} from 'komga-sdk';
-
-async function setupServer(
-  adminEmail: string,
-  adminPassword: string,
-  libraryPath: string
-) {
-  // Check if server needs setup
-  const claimStatus = await getClaimStatus({ client });
-  
-  if (claimStatus.data?.isClaimed) {
-    throw new Error('Server is already configured');
-  }
-
-  // Claim the server
-  await claimServer({
-    client,
-    body: {
-      email: adminEmail,
-      password: adminPassword,
-    },
-  });
-
-  // Now authenticate as admin
-  const adminClient = createClient({
-    baseUrl: 'http://localhost:25600',
-    auth: { username: adminEmail, password: adminPassword },
-  });
-
-  // Configure server settings
-  await updateServerSettings({
-    client: adminClient,
-    body: {
-      deleteEmptyCollections: true,
-      deleteEmptyReadLists: true,
-      thumbnailSize: 'LARGE',
-    },
-  });
-
-  // Add initial library
-  await addLibrary({
-    client: adminClient,
-    body: {
-      name: 'Comics',
-      root: libraryPath,
-      scanOnStartup: true,
-      scanInterval: 'EVERY_6H',
-    },
-  });
-
-  return adminClient;
-}
-```
-
-### Duplicate cleanup workflow
-
-Review and clean up duplicate pages:
-
-```typescript
-import {
-  getUnknownPageHashes,
-  getUnknownPageHashThumbnail,
+  getPageHashMatches,
   createOrUpdateKnownPageHash,
   deleteDuplicatePagesByPageHash,
 } from 'komga-sdk';
 
-interface DuplicateReview {
-  hash: string;
-  matchCount: number;
-  thumbnailUrl: string;
-}
+const pageHash = 'abc123def456';
+const matches = await getPageHashMatches(
+  { pageHash, page: 0, size: 20 },
+  { client },
+);
+if (matches.data) console.log(matches.data.content);
 
-async function getDuplicatesForReview(limit = 10): Promise<DuplicateReview[]> {
-  const result = await getUnknownPageHashes({
-    client,
-    query: { page: 0, size: limit },
-  });
+const marked = await createOrUpdateKnownPageHash(
+  {
+    pageHashCreationDto: {
+      hash: pageHash,
+      action: 'DELETE_AUTO',
+      size: 12345,
+    },
+  },
+  { client },
+);
+if (marked.error) console.error(marked.response?.status, marked.error);
 
-  if (!result.data) return [];
+const deleted = await deleteDuplicatePagesByPageHash({ pageHash }, { client });
+if (deleted.error) console.error(deleted.response?.status, deleted.error);
+```
 
-  const reviews: DuplicateReview[] = [];
-  
-  for (const hash of result.data.content) {
-    const thumbnail = await getUnknownPageHashThumbnail({
-      client,
-      path: { pageHash: hash.hash },
-    });
+`getKnownPageHashes` accepts `action`, `page`, `size`, and `sort` directly. `getKnownPageHashThumbnail({ pageHash }, { client })` returns `Blob | File`.
 
-    reviews.push({
-      hash: hash.hash,
-      matchCount: hash.matchCount,
-      thumbnailUrl: thumbnail.data 
-        ? URL.createObjectURL(thumbnail.data) 
-        : '',
-    });
-  }
+Deleting one match uses the generated `pageHashMatchDto` parameter. Pass a match returned by `getPageHashMatches` when you need this narrower operation:
 
-  return reviews;
-}
+```typescript
+import { deleteSingleMatchByPageHash } from 'komga-sdk';
 
-async function handleDuplicateDecision(
-  hash: string,
-  action: 'delete' | 'ignore',
-  size: number
-) {
-  if (action === 'delete') {
-    // Mark for auto-deletion
-    await createOrUpdateKnownPageHash({
-      client,
-      body: { hash, action: 'DELETE_AUTO', size },
-    });
-    
-    // Delete existing matches
-    await deleteDuplicatePagesByPageHash({
-      client,
-      path: { pageHash: hash },
-    });
-  } else {
-    // Ignore this duplicate
-    await createOrUpdateKnownPageHash({
-      client,
-      body: { hash, action: 'IGNORE', size },
-    });
+const result = await deleteSingleMatchByPageHash(
+  {
+    pageHash: 'abc123def456',
+    pageHashMatchDto: {
+      bookId: 'book-123',
+      fileName: 'book.cbz',
+      fileSize: 123456,
+      mediaType: 'image/jpeg',
+      pageNumber: 5,
+      url: '/api/v1/books/book-123/pages/5',
+    },
+  },
+  { client },
+);
+if (result.error) console.error(result.response?.status, result.error);
+```
+
+## Transient books
+
+Scan a folder, analyze a transient book, and fetch its page representation:
+
+```typescript
+import {
+  scanTransientBooks,
+  analyzeTransientBook,
+  getPageByTransientBookId,
+} from 'komga-sdk';
+
+const scanned = await scanTransientBooks(
+  { scanRequestDto: { path: '/downloads/comics' } },
+  { client },
+);
+if (scanned.data?.[0]) {
+  const transientBook = await analyzeTransientBook(
+    { id: scanned.data[0].id },
+    { client },
+  );
+  console.log(transientBook.data);
+
+  const page = await getPageByTransientBookId(
+    { id: scanned.data[0].id, pageNumber: 1 },
+    { client },
+  );
+  if (!page.error && page.data) {
+    // The generated response is a string, not a Blob.
+    console.log(page.data);
   }
 }
 ```
 
-## Error handling
+Import books with the `bookImportBatchDto` parameter. The endpoint returns HTTP 202 with an `unknown` response body, so do not read `result.data` as an imported book list:
 
 ```typescript
-import { getServerSettings } from 'komga-sdk';
+import { importBooks } from 'komga-sdk';
 
-const result = await getServerSettings({ client });
+const result = await importBooks(
+  {
+    bookImportBatchDto: {
+      books: [
+        {
+          sourceFile: '/downloads/comics/book1.cbz',
+          seriesId: 'series-123',
+          destinationName: 'Chapter 1.cbz',
+        },
+      ],
+      copyMode: 'COPY',
+    },
+  },
+  { client },
+);
+if (result.error) console.error(result.response?.status, result.error);
+else console.log(`Import accepted (${result.response?.status})`);
+```
 
-if (result.error) {
-  switch (result.response?.status) {
-    case 401:
-      console.error('Not authenticated');
-      break;
-    case 403:
-      console.error('Admin access required');
-      break;
-    default:
-      console.error('Error:', result.error);
+`copyMode` controls what happens to the source file:
+
+| Mode | Behavior |
+| --- | --- |
+| `COPY` | Copy into the destination and keep the source |
+| `MOVE` | Move into the destination and remove the source |
+| `HARDLINK` | Create a hard link; source and destination must share a filesystem |
+
+Each `BookImportDto` requires `sourceFile` and `seriesId`. Set `destinationName` to control the library filename, or `upgradeBookId` when the import should replace an existing book. The import is accepted asynchronously (`202`), so monitor the library or history rather than expecting imported books in `result.data`.
+
+
+## Client settings
+
+Global settings are sent as a map from setting name to `ClientSettingGlobalUpdateDto`:
+
+```typescript
+import { saveGlobalSetting, deleteGlobalSettings } from 'komga-sdk';
+
+const saved = await saveGlobalSetting(
+  {
+    body: {
+      'webui.theme.mode': {
+        allowUnauthorized: false,
+        value: 'dark',
+      },
+    },
+  },
+  { client },
+);
+if (saved.error) console.error(saved.response?.status, saved.error);
+
+const removed = await deleteGlobalSettings(
+  { body: ['webui.theme.mode'] },
+  { client },
+);
+if (removed.error) console.error(removed.response?.status, removed.error);
+// Successful deletion is HTTP 204 and has no response payload.
+```
+
+## Error handling
+
+Generated calls are non-throwing by default. Check `result.error` and use `result.response?.status` for transport status. To make the throwing boundary explicit, use `unwrap`; it raises a typed `KomgaApiError`:
+
+```typescript
+import { getServerSettings, KomgaApiError, unwrap } from 'komga-sdk';
+
+try {
+  const settings = unwrap(await getServerSettings({ client }));
+  console.log(settings.thumbnailSize);
+} catch (error) {
+  if (error instanceof KomgaApiError) {
+    console.error(`Komga returned ${error.status}`, error.body);
+  } else {
+    throw error;
   }
 }
 ```
@@ -691,12 +495,12 @@ if (result.error) {
     Manage users and their permissions.
   </Card>
   <Card title="Libraries" icon="book-open" href="/guides/libraries">
-    Configure and manage libraries.
+    Configure and scan libraries.
   </Card>
-  <Card title="Configuration" icon="gear" href="/reference/configuration">
-    Client configuration options.
+  <Card title="Authentication" icon="key" href="/authentication">
+    Configure Basic or API-key authentication.
   </Card>
   <Card title="Troubleshooting" icon="wrench" href="/guides/troubleshooting">
-    Common issues and solutions.
+    Diagnose authentication and request failures.
   </Card>
 </CardGroup>

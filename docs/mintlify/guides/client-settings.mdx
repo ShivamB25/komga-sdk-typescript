@@ -4,11 +4,9 @@ description: "Manage global and user-specific client settings"
 icon: "sliders"
 ---
 
-Client settings store preferences for web and mobile readers. Settings can be global (admin-managed) or user-specific.
+Client settings store reader and UI preferences as key-to-setting maps. Global settings provide defaults for every user; user settings override a global value when the same key is present.
 
-<Note>
-Global settings affect all users. User settings override global defaults when present.
-</Note>
+Each generated operation returns `{ data, error, request, response }`. Operations with parameters take a flat parameter object first and `{ client }` second.
 
 ## Global settings
 
@@ -18,48 +16,51 @@ Global settings affect all users. User settings override global defaults when pr
 import { getGlobalSettings } from 'komga-sdk';
 
 const result = await getGlobalSettings({ client });
-
-if (result.data) {
-  result.data.forEach(setting => {
-    console.log(`${setting.key} = ${setting.value}`);
-  });
+for (const [key, setting] of Object.entries(result.data ?? {})) {
+  console.log(`${key} = ${setting.value}`);
 }
 ```
 
-### Save a global setting
+Unauthenticated requests receive only settings whose `allowUnauthorized` value is true. An authenticated response is still a map keyed by setting name, not an array.
 
-<Warning>
-Requires **ADMIN** role.
-</Warning>
+### Save global settings
+
+<Warning>Requires the **ADMIN** role.</Warning>
+
+`saveGlobalSetting` accepts a map. Every global value contains `value` and `allowUnauthorized`; setting the latter to false prevents unauthenticated clients from seeing the key:
 
 ```typescript
 import { saveGlobalSetting } from 'komga-sdk';
 
-await saveGlobalSetting({
-  client,
-  body: {
-    key: 'webui.theme.mode',
-    value: 'dark',
+await saveGlobalSetting(
+  {
+    body: {
+      'webui.theme.mode': { value: 'dark', allowUnauthorized: false },
+      'reader.background': { value: 'BLACK', allowUnauthorized: true },
+    },
   },
-});
+  { client },
+);
 ```
+
+Setting names are namespaced lower-case keys such as `application.domain.key`. The patch returns no content; inspect `result.error` if the save needs confirmation.
 
 ### Delete global settings
 
-<Warning>
-Requires **ADMIN** role.
-</Warning>
+<Warning>Requires the **ADMIN** role.</Warning>
+
+Pass setting keys as the flat `body` parameter:
 
 ```typescript
 import { deleteGlobalSettings } from 'komga-sdk';
 
-await deleteGlobalSettings({
-  client,
-  body: {
-    keys: ['webui.theme.mode', 'reader.background'],
-  },
-});
+await deleteGlobalSettings(
+  { body: ['webui.theme.mode', 'reader.background'] },
+  { client },
+);
 ```
+
+Deleting a global key removes the default; it does not remove a user's override of the same key.
 
 ## User settings
 
@@ -69,44 +70,47 @@ await deleteGlobalSettings({
 import { getUserSettings } from 'komga-sdk';
 
 const result = await getUserSettings({ client });
-
-if (result.data) {
-  result.data.forEach(setting => {
-    console.log(`${setting.key} = ${setting.value}`);
-  });
+for (const [key, setting] of Object.entries(result.data ?? {})) {
+  console.log(`${key} = ${setting.value}`);
 }
 ```
 
-### Save a user setting
+### Save user settings
+
+User setting values use the same map shape without `allowUnauthorized`:
 
 ```typescript
 import { saveUserSetting } from 'komga-sdk';
 
-await saveUserSetting({
-  client,
-  body: {
-    key: 'reader.pageFit',
-    value: 'WIDTH',
+await saveUserSetting(
+  {
+    body: {
+      'reader.pageFit': { value: 'WIDTH' },
+      'reader.background': { value: 'BLACK' },
+    },
   },
-});
+  { client },
+);
 ```
 
 ### Delete user settings
 
+Deleting a key exposes the global default again when one exists:
+
 ```typescript
 import { deleteUserSettings } from 'komga-sdk';
 
-await deleteUserSettings({
-  client,
-  body: {
-    keys: ['reader.pageFit', 'reader.background'],
-  },
-});
+await deleteUserSettings(
+  { body: ['reader.pageFit', 'reader.background'] },
+  { client },
+);
 ```
 
-## Common workflows
+## Workflows
 
 ### Apply global defaults with user overrides
+
+Both responses are maps. Copy global entries first, then overwrite them with user entries:
 
 ```typescript
 import { getGlobalSettings, getUserSettings } from 'komga-sdk';
@@ -118,57 +122,61 @@ async function getEffectiveSettings() {
   ]);
 
   const effective = new Map<string, string>();
-
-  for (const setting of global.data ?? []) {
-    effective.set(setting.key, setting.value);
+  for (const [key, setting] of Object.entries(global.data ?? {})) {
+    effective.set(key, setting.value);
   }
-
-  for (const setting of user.data ?? []) {
-    effective.set(setting.key, setting.value);
+  for (const [key, setting] of Object.entries(user.data ?? {})) {
+    effective.set(key, setting.value);
   }
-
   return effective;
 }
 ```
 
 ### Reset user settings to defaults
 
+Read the user map, collect its keys, then send those keys to the delete operation. An empty map needs no request:
+
 ```typescript
-import { getUserSettings, deleteUserSettings } from 'komga-sdk';
+import { deleteUserSettings, getUserSettings } from 'komga-sdk';
 
 async function resetUserSettings() {
-  const result = await getUserSettings({ client });
-  if (!result.data) return;
+  const current = await getUserSettings({ client });
+  const keys = Object.keys(current.data ?? {});
+  if (keys.length === 0) return;
 
-  await deleteUserSettings({
-    client,
-    body: {
-      keys: result.data.map(s => s.key),
-    },
-  });
+  await deleteUserSettings({ body: keys }, { client });
 }
 ```
 
-## Error handling
+### Update one setting while preserving others
+
+Because save accepts a map, send only the key being changed; other user settings remain untouched:
+
+```typescript
+import { saveUserSetting } from 'komga-sdk';
+
+async function setPageFit(value: string) {
+  return saveUserSetting(
+    { body: { 'reader.pageFit': { value } } },
+    { client },
+  );
+}
+```
+
+## Handle failures
+
+Generated calls do not throw for an HTTP error by default. A 401 indicates missing authentication; a 403 on global writes indicates that the caller is not an admin:
 
 ```typescript
 import { getGlobalSettings } from 'komga-sdk';
 
 const result = await getGlobalSettings({ client });
-
 if (result.error) {
-  switch (result.response?.status) {
-    case 401:
-      console.error('Not authenticated');
-      break;
-    case 403:
-      console.error('Admin access required');
-      break;
-    default:
-      console.error('Error fetching settings:', result.error);
-  }
+  console.error('Settings request failed', result.response?.status, result.error);
 }
 ```
+
+Use `unwrap` when your application wants exceptions; it throws `KomgaApiError` for an unsuccessful result. See [Quickstart](/quickstart) for the pattern.
 
 ## Next steps
 
@@ -176,8 +184,10 @@ if (result.error) {
   <Card title="Users" icon="users" href="/guides/users">
     Manage users and per-user preferences.
   </Card>
-  
   <Card title="Admin" icon="shield-halved" href="/guides/admin">
-    Server settings and administration.
+    Configure server-level administrative settings.
+  </Card>
+  <Card title="Authentication" icon="key" href="/authentication">
+    Configure the client used by these operations.
   </Card>
 </CardGroup>

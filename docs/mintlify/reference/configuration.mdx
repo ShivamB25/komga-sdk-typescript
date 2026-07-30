@@ -1,57 +1,130 @@
 ---
-title: "Configuration"
-description: "Client options, retries, and debug logging"
+title: "Fetch configuration"
+description: "Configure generated Komga clients, authentication, headers, and Fetch"
 icon: "gear"
 ---
 
-`createKomgaClient` accepts options for auth, timeout, retry, and debug logging.
+`createKomgaClient` creates an isolated generated client backed by the platform Fetch API. The required option is `baseUrl`; authentication and transport settings are optional.
 
 ## KomgaClientOptions
 
 ```typescript
-interface KomgaClientOptions {
-  baseUrl: string;
-  auth?: AuthConfig;
-  timeout?: number;
-  retry?: RetryConfig;
-  debug?: boolean;
-}
+import type { KomgaClientOptions } from 'komga-sdk';
+
+const options: KomgaClientOptions = {
+  baseUrl: 'https://komga.example.test',
+  auth: { type: 'apiKey', key: 'your-api-key' },
+  headers: { 'X-Client-Version': '1.0' },
+  credentials: 'same-origin',
+  fetch: globalThis.fetch,
+};
 ```
 
-## AuthConfig
+The public convenience options are:
 
-```typescript
-type AuthConfig =
-  | { type: 'basic'; username: string; password: string }
-  | { type: 'apiKey'; key: string };
-```
+| Option | Type | Purpose |
+| --- | --- | --- |
+| `baseUrl` | `string` | Base URL for generated requests. Required. |
+| `auth` | `AuthConfig` | Optional Basic or API-key authentication. |
+| `headers` | `HeadersInit` | Headers added to every request, except auth-owned headers. |
+| `credentials` | `RequestCredentials` | Fetch credentials mode, such as `include` for browser cookies. |
+| `fetch` | `typeof fetch` | Fetch implementation used by this client instance. |
 
-## RetryConfig
+The client also accepts generated Fetch configuration fields that are not reserved by `createKomgaClient`, including `signal`. Per-operation options can additionally override `parseAs`, `responseStyle`, and `throwOnError`. Keep operation-specific overrides in the second argument to an operation. Standard `RequestInit` fields such as `method`, `body`, and generated path/query slots are controlled by each operation and should not be supplied to `createKomgaClient`.
 
-```typescript
-interface RetryConfig {
-  limit?: number;
-  methods?: string[];
-  statusCodes?: number[];
-  backoffLimit?: number;
-}
-```
+## Authentication
 
-## Example
+`AuthConfig` supports Basic and API-key authentication:
 
 ```typescript
 import { createKomgaClient } from 'komga-sdk';
 
-const client = createKomgaClient({
-  baseUrl: 'http://localhost:25600',
+const basicClient = createKomgaClient({
+  baseUrl: 'https://komga.example.test',
   auth: { type: 'basic', username: 'admin', password: 'password' },
-  timeout: 30000,
-  retry: { limit: 3, backoffLimit: 3000 },
-  debug: false,
+});
+
+const apiKeyClient = createKomgaClient({
+  baseUrl: 'https://komga.example.test',
+  auth: { type: 'apiKey', key: 'your-api-key' },
+});
+
+const anonymousClient = createKomgaClient({
+  baseUrl: 'https://komga.example.test',
 });
 ```
 
+`AuthConfig` is limited to the Basic and API-key variants shown above. If a server-specific header is required, add it with `headers` or an application-owned interceptor. The SDK does not provide Bearer/JWT token configuration.
+
+Auth-owned headers take precedence over entries with the same name in `headers`: Basic auth sets `Authorization`, and API-key auth sets `X-API-Key`. Do not print a client's resolved config because it may contain secrets.
+
+## Headers, credentials, and Fetch
+
+Use custom headers for application metadata or server-specific headers:
+
+```typescript
+const client = createKomgaClient({
+  baseUrl: 'https://komga.example.test',
+  headers: {
+    'X-Request-Source': 'reader-web',
+  },
+  credentials: 'include',
+  fetch: globalThis.fetch,
+});
+```
+
+`credentials: 'include'` asks browser Fetch to include cookies in cross-origin requests; Komga and the browser must also permit the exact origin through CORS. It does not create a session or log a user in.
+
+A custom Fetch wrapper is useful for tracing, proxies, or application-owned retry/cancellation behavior:
+
+```typescript
+const fetchWithTiming: typeof fetch = async (input, init) => {
+  const started = Date.now();
+  try {
+    return await fetch(input, init);
+  } finally {
+    console.log(`Komga request completed in ${Date.now() - started}ms`);
+  }
+};
+
+const client = createKomgaClient({
+  baseUrl: 'https://komga.example.test',
+  fetch: fetchWithTiming,
+});
+```
+
+The SDK core uses native Fetch and has no default retry, cache, timeout, or runtime-validation layer. Supply a custom Fetch implementation or compose policies around operation calls when your application owns those concerns. A client instance keeps its own configuration; create separate clients when environments or policies differ.
+
+<Warning>
+Use HTTPS when sending Basic credentials. In production, the SDK warns when Basic auth is configured with an `http:` base URL; use HTTPS rather than suppressing the warning.
+</Warning>
+
+## Per-operation options
+
+The second argument to a generated operation can override client behavior for one call:
+
+```typescript
+import { getBookPageByNumber, getBookById } from 'komga-sdk';
+
+const book = await getBookById(
+  { bookId: 'book-123' },
+  { client, signal: AbortSignal.timeout(10_000) },
+);
+
+const image = await getBookPageByNumber(
+  { bookId: 'book-123', pageNumber: 1 },
+  { client, parseAs: 'blob' },
+);
+```
+
+Generated operations still own their endpoint URL, method, path, query, and body mapping. Do not replace those slots with the removed grouped call shape.
+
+## Generated client access
+
+For advanced integrations, the package also re-exports the generated `createClient` function and its `GeneratedClientConfig` type. `createKomgaClient` is the convenience entry point that applies Komga authentication and headers before creating that generated client. Most applications should use `createKomgaClient` so the auth precedence and per-instance configuration remain explicit.
+
 ## Next steps
 
-- Interceptors: [Interceptors](/interceptors)
-- Error handling: [Errors](/errors)
+- Call operations with flat parameters: [Direct API functions](/direct-api)
+- Observe the generated Fetch lifecycle: [Request customization](/interceptors)
+- Handle `{ data, error, request, response }`: [Result handling](/errors)

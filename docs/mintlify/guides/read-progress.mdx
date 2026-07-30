@@ -4,348 +4,290 @@ description: "Track reading progress for books and series"
 icon: "bookmark"
 ---
 
-This guide covers read progress tracking, including marking books as read/unread, tracking page progress, and managing series-level read status.
+Use the generated operations to record page-based progress, mark books or series read, and store OPDS/Readium positions. Each operation returns `{ data, error, request, response }`; pass flat parameters first and `{ client }` second.
 
 ## Book read progress
 
+### Progress lifecycle
+
+A book with no `readProgress` is **unread**. Setting `page` while `completed` is false makes it **in progress**; setting `completed: true` makes it **read**. Deleting progress removes the server record and returns the book to unread. The `page` value is one-based: page 1 is the first page.
+
 ### Mark a book as read
 
-Mark a book as completely read:
+`readProgressUpdateDto` is the generated body parameter. `page` can be omitted when completion is explicit:
 
 ```typescript
 import { markBookReadProgress } from 'komga-sdk';
 
-await markBookReadProgress({
-  client,
-  path: { bookId: 'book-123' },
-  body: {
-    completed: true,
+await markBookReadProgress(
+  {
+    bookId: 'book-123',
+    readProgressUpdateDto: { completed: true },
   },
-});
+  { client },
+);
 ```
 
 ### Update page progress
 
-Track which page the user is currently on:
+`completed` can be omitted; Komga determines it from the page passed and the book's total page count:
 
 ```typescript
 import { markBookReadProgress } from 'komga-sdk';
 
-await markBookReadProgress({
-  client,
-  path: { bookId: 'book-123' },
-  body: {
-    page: 42,
-    completed: false,
+await markBookReadProgress(
+  {
+    bookId: 'book-123',
+    readProgressUpdateDto: { page: 42, completed: false },
   },
-});
+  { client },
+);
 ```
 
-<Note>
-The `page` parameter is 1-indexed. Page 1 is the first page of the book.
-</Note>
-
 ### Mark a book as unread
-
-Remove all read progress for a book:
 
 ```typescript
 import { deleteBookReadProgress } from 'komga-sdk';
 
-await deleteBookReadProgress({
-  client,
-  path: { bookId: 'book-123' },
-});
+await deleteBookReadProgress({ bookId: 'book-123' }, { client });
 ```
 
 ## Series read progress
 
-### Mark an entire series as read
-
-Mark all books in a series as read:
+These operations update every book in the series. They are useful for an explicit “mark all” action; they do not preserve each book's previous page position:
 
 ```typescript
-import { markSeriesAsRead } from 'komga-sdk';
+import { markSeriesAsRead, markSeriesAsUnread } from 'komga-sdk';
 
-await markSeriesAsRead({
-  client,
-  path: { seriesId: 'series-123' },
-});
+await markSeriesAsRead({ seriesId: 'series-123' }, { client });
+await markSeriesAsUnread({ seriesId: 'series-123' }, { client });
 ```
 
-### Mark an entire series as unread
+## OPDS progression
 
-Remove read progress from all books in a series:
+OPDS progression stores an exact Readium position and device metadata. Use it for EPUB readers; use page-based progress for comics and manga. `getBookProgression` can return no position when the user has never opened the book.
 
-```typescript
-import { markSeriesAsUnread } from 'komga-sdk';
-
-await markSeriesAsUnread({
-  client,
-  path: { seriesId: 'series-123' },
-});
-```
-
-## OPDS progression (position tracking)
-
-OPDS progression provides detailed position tracking for e-readers and reading apps. It stores the exact position within a book, including device information.
-
-### Get book progression
-
-Retrieve the current reading position:
+### Get a position
 
 ```typescript
 import { getBookProgression } from 'komga-sdk';
 
-const result = await getBookProgression({
-  client,
-  path: { bookId: 'book-123' },
-});
+const result = await getBookProgression({ bookId: 'book-123' }, { client });
 
 if (result.data) {
-  console.log(`Last position: ${result.data.locator?.locations?.position}`);
-  console.log(`Progress: ${(result.data.locator?.locations?.totalProgression ?? 0) * 100}%`);
-  console.log(`Device: ${result.data.device?.name}`);
+  console.log(`Position: ${result.data.locator.locations?.position ?? 0}`);
+  console.log(`Progress: ${(result.data.locator.locations?.totalProgression ?? 0) * 100}%`);
+  console.log(`Device: ${result.data.device.name}`);
 }
 ```
 
-### Update book progression
+### Save a position
 
-Save the current reading position with device info:
+`r2Progression` requires `device`, `locator`, and an ISO timestamp. The `locations` object requires `fragments`, even when it is empty; `position` and `totalProgression` are optional:
 
 ```typescript
 import { updateBookProgression } from 'komga-sdk';
 
-await updateBookProgression({
-  client,
-  path: { bookId: 'book-123' },
-  body: {
-    device: {
-      id: 'device-unique-id',
-      name: 'My Kindle',
-    },
-    locator: {
-      href: '/chapter1.xhtml',
-      type: 'application/xhtml+xml',
-      locations: {
-        position: 1250,
-        totalProgression: 0.45,
+await updateBookProgression(
+  {
+    bookId: 'book-123',
+    r2Progression: {
+      device: { id: 'device-unique-id', name: 'Web Reader' },
+      locator: {
+        href: '/chapter1.xhtml',
+        type: 'application/xhtml+xml',
+        locations: {
+          fragments: [],
+          position: 1250,
+          totalProgression: 0.45,
+        },
       },
+      modified: new Date().toISOString(),
     },
-    modified: new Date().toISOString(),
   },
-});
+  { client },
+);
 ```
 
-<Tip>
-OPDS progression is designed for EPUB readers. For simpler page-based tracking (comics, manga), use `markBookReadProgress` instead.
-</Tip>
+When multiple devices synchronize, keep the server's `modified` timestamp and only overwrite it when the local position is newer according to your application's conflict policy.
 
-## Common workflows
+## Workflows
 
 ### Build a reading tracker
 
-Track reading progress across your library:
+The current `getBooks` operation requires a `bookSearch` object. The lifecycle fields on `BookDto` make it possible to compute all three states without a second request:
 
 ```typescript
-import { getBooks, markBookReadProgress } from 'komga-sdk';
+import { getBooks } from 'komga-sdk';
 
 async function getReadingStats() {
-  const result = await getBooks({
-    client,
-    body: {},
-    query: { page: 0, size: 100 },
-  });
-
-  if (!result.data) return;
+  const result = await getBooks(
+    {
+      unpaged: true,
+      sort: ['metadata.title,asc'],
+      bookSearch: {},
+    },
+    { client },
+  );
+  const books = result.data?.content ?? [];
 
   const stats = {
-    total: result.data.totalElements,
-    unread: 0,
-    inProgress: 0,
-    completed: 0,
+    total: result.data?.totalElements ?? books.length,
+    unread: books.filter((book) => !book.readProgress).length,
+    inProgress: books.filter((book) => book.readProgress && !book.readProgress.completed).length,
+    completed: books.filter((book) => book.readProgress?.completed).length,
   };
-
-  for (const book of result.data.content) {
-    const progress = book.readProgress;
-    if (!progress) {
-      stats.unread++;
-    } else if (progress.completed) {
-      stats.completed++;
-    } else {
-      stats.inProgress++;
-    }
-  }
-
   return stats;
 }
 ```
 
-### Resume reading
+### Resume in-progress books
 
-Find where the user left off:
+`BookDto.readProgress` includes the current page, total page count is in `book.media.pagesCount`, `lastModified` tracks progress updates, and `readDate` is the completion timestamp when available:
 
 ```typescript
 import { getBooks } from 'komga-sdk';
 
-async function getInProgressBooks() {
-  const result = await getBooks({
-    client,
-    body: {
-      readStatus: ['IN_PROGRESS'],
-    },
-    query: {
+async function getResumeQueue() {
+  const result = await getBooks(
+    {
       page: 0,
-      size: 10,
-      sort: ['readProgress.readDate,desc'],
+      size: 20,
+      sort: ['readProgress.lastModified,desc'],
+      bookSearch: {
+        condition: { readStatus: { operator: 'is', value: 'IN_PROGRESS' } },
+      },
     },
-  });
+    { client },
+  );
 
-  if (!result.data) return [];
-
-  return result.data.content.map(book => ({
+  return (result.data?.content ?? []).map((book) => ({
     id: book.id,
     title: book.metadata.title,
-    currentPage: book.readProgress?.page ?? 1,
+    page: book.readProgress?.page ?? 1,
     totalPages: book.media.pagesCount,
-    lastRead: book.readProgress?.readDate,
+    lastRead: book.readProgress?.lastModified,
   }));
 }
 ```
 
-### Mark multiple books as read
+### Mark books in a series as read
 
-Batch mark books as read (e.g., catch up on a series):
+Use `getBooks` with a `seriesId` condition so pagination and filtering use the current list operation. `BookDto.number` is numeric, unlike the display string in metadata:
 
 ```typescript
-import { getBooksBySeriesId, markBookReadProgress } from 'komga-sdk';
+import { getBooks, markBookReadProgress } from 'komga-sdk';
 
-async function markBooksAsReadUpTo(seriesId: string, upToBookNumber: number) {
-  // Get all books in the series
-  const result = await getBooksBySeriesId({
-    client,
-    path: { seriesId },
-    query: { sort: ['metadata.numberSort,asc'] },
-  });
+async function markBooksAsReadUpTo(seriesId: string, upToNumber: number) {
+  const result = await getBooks(
+    {
+      unpaged: true,
+      sort: ['metadata.numberSort,asc'],
+      bookSearch: {
+        condition: { seriesId: { operator: 'is', value: seriesId } },
+      },
+    },
+    { client },
+  );
 
-  if (!result.data) return;
-
-  // Mark books up to the specified number as read
-  for (const book of result.data.content) {
-    const bookNumber = book.metadata.numberSort;
-    if (bookNumber <= upToBookNumber) {
-      await markBookReadProgress({
-        client,
-        path: { bookId: book.id },
-        body: { completed: true },
-      });
+  for (const book of result.data?.content ?? []) {
+    if (book.number <= upToNumber) {
+      await markBookReadProgress(
+        {
+          bookId: book.id,
+          readProgressUpdateDto: { completed: true },
+        },
+        { client },
+      );
     }
   }
 }
 ```
 
-### Sync progress across devices
+### Filter by read status
 
-Use OPDS progression to maintain consistent position across devices:
-
-```typescript
-import { getBookProgression, updateBookProgression } from 'komga-sdk';
-
-const DEVICE_ID = 'unique-device-identifier';
-const DEVICE_NAME = 'Web Reader';
-
-async function syncReadingPosition(bookId: string, newPosition: number, totalProgress: number) {
-  // Get current server position
-  const current = await getBookProgression({
-    client,
-    path: { bookId },
-  });
-
-  // Only update if our position is newer
-  const serverModified = current.data?.modified ? new Date(current.data.modified) : new Date(0);
-  const now = new Date();
-
-  if (now > serverModified) {
-    await updateBookProgression({
-      client,
-      path: { bookId },
-      body: {
-        device: {
-          id: DEVICE_ID,
-          name: DEVICE_NAME,
-        },
-        locator: {
-          href: '',
-          type: 'application/octet-stream',
-          locations: {
-            position: newPosition,
-            totalProgression: totalProgress,
-          },
-        },
-        modified: now.toISOString(),
-      },
-    });
-  }
-}
-```
-
-## Read status filtering
-
-Use read status when searching for books:
+Read status values are `UNREAD`, `IN_PROGRESS`, and `READ`. Put the condition inside `bookSearch`; the removed top-level `readStatus` body field is not a 1.0 parameter:
 
 ```typescript
 import { getBooks } from 'komga-sdk';
 
-// Get unread books
-const unread = await getBooks({
-  client,
-  body: { readStatus: ['UNREAD'] },
-  query: { page: 0, size: 20 },
-});
+const unread = await getBooks(
+  {
+    page: 0,
+    size: 20,
+    bookSearch: { condition: { readStatus: { operator: 'is', value: 'UNREAD' } } },
+  },
+  { client },
+);
 
-// Get in-progress books
-const inProgress = await getBooks({
-  client,
-  body: { readStatus: ['IN_PROGRESS'] },
-  query: { page: 0, size: 20 },
-});
+const inProgress = await getBooks(
+  {
+    page: 0,
+    size: 20,
+    bookSearch: { condition: { readStatus: { operator: 'is', value: 'IN_PROGRESS' } } },
+  },
+  { client },
+);
 
-// Get completed books
-const completed = await getBooks({
-  client,
-  body: { readStatus: ['READ'] },
-  query: { page: 0, size: 20 },
-});
+const completed = await getBooks(
+  {
+    page: 0,
+    size: 20,
+    bookSearch: { condition: { readStatus: { operator: 'is', value: 'READ' } } },
+  },
+  { client },
+);
 ```
 
-<Note>
-Read status values are: `UNREAD`, `IN_PROGRESS`, and `READ`.
-</Note>
+### Sync a position across devices
 
-## Error handling
+Compare timestamps before writing a local position so an older mobile event does not overwrite a newer server position:
+
+```typescript
+import { getBookProgression, updateBookProgression } from 'komga-sdk';
+
+async function syncReadingPosition(bookId: string, position: number, totalProgression: number) {
+  const current = await getBookProgression({ bookId }, { client });
+  const serverModified = current.data?.modified ? new Date(current.data.modified) : new Date(0);
+  const modified = new Date();
+  if (modified <= serverModified) return current;
+
+  return updateBookProgression(
+    {
+      bookId,
+      r2Progression: {
+        device: { id: 'web-reader', name: 'Web Reader' },
+        locator: {
+          href: '',
+          type: 'application/octet-stream',
+          locations: { fragments: [], position, totalProgression },
+        },
+        modified: modified.toISOString(),
+      },
+    },
+    { client },
+  );
+}
+```
+
+## Handle failures
+
+Generated calls do not throw for an HTTP error by default. Inspect `error` and `response`; a 401 means authentication is missing or invalid, while a 403 means the user lacks the operation's permission:
 
 ```typescript
 import { markBookReadProgress } from 'komga-sdk';
 
-const result = await markBookReadProgress({
-  client,
-  path: { bookId: 'book-123' },
-  body: { completed: true },
-});
+const result = await markBookReadProgress(
+  { bookId: 'book-123', readProgressUpdateDto: { completed: true } },
+  { client },
+);
 
 if (result.error) {
-  switch (result.response?.status) {
-    case 404:
-      console.error('Book not found');
-      break;
-    case 401:
-      console.error('Not authenticated');
-      break;
-    default:
-      console.error('Error updating progress:', result.error);
-  }
+  console.error('Progress update failed', result.response?.status, result.error);
 }
 ```
+
+Use `unwrap` when your application prefers exceptions. It throws `KomgaApiError` for an unsuccessful response; see [Quickstart](/quickstart) for the throwing boundary.
 
 ## Next steps
 

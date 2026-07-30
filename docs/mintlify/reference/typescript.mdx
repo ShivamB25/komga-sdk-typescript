@@ -1,10 +1,12 @@
 ---
 title: "TypeScript"
-description: "Recommended compiler settings for the SDK"
+description: "Use generated operation and response types in TypeScript applications"
 icon: "code"
 ---
 
-This SDK is source-only and ships ESM. Use these `tsconfig.json` settings for best results.
+Komga SDK 1.0 exports generated operation functions and generated API types alongside client helpers. Use ESM imports and strict TypeScript settings so flat parameters, optional page fields, and result branches are checked at compile time.
+
+## Recommended compiler settings
 
 ```json
 {
@@ -19,12 +21,113 @@ This SDK is source-only and ships ESM. Use these `tsconfig.json` settings for be
 }
 ```
 
-## Notes
+The SDK package is ESM. Use `import type` for types that are erased at runtime and a current TypeScript-aware Node, Bun, or bundler runtime. The SDK core uses platform Fetch; use Node.js 18+, a modern browser, or provide a compatible `fetch` implementation through [`createKomgaClient`](/reference/configuration).
 
-- Ensure your runtime supports Fetch and Web Crypto (Node 18+ or modern browsers).
-- Prefer ESM imports in your app.
+## Import generated types
+
+The package root re-exports generated DTOs, search types, page types, operation response types, and operation error types:
+
+```typescript
+import type {
+  BookDto,
+  BookSearch,
+  GetBookByIdError,
+  PageBookDto,
+} from 'komga-sdk';
+
+const search: BookSearch = { fullTextSearch: 'manga' };
+
+function firstBook(page: PageBookDto): BookDto | undefined {
+  return page.content?.[0];
+}
+```
+
+Generated page fields such as `content`, `totalElements`, and `totalPages` may be optional. Narrow or provide defaults before using them. Do not add fields from old service-layer search models when they are not present in the generated type.
+
+## Type flat operation parameters
+
+Generated signatures catch wrong parameter names and prevent the removed grouped call shape:
+
+```typescript
+import { getBookById, getBooks } from 'komga-sdk';
+
+const book = await getBookById({ bookId: 'book-123' }, { client });
+const books = await getBooks(
+  { bookSearch: {}, page: 0, size: 20, sort: ['metadata.title,asc'] },
+  { client },
+);
+```
+
+Use the generated DTO property name for body parameters, such as `bookMetadataUpdateDto` in `updateBookMetadata`. Use the generated query name, including names such as `library_id`, exactly as exported.
+
+## Infer an operation's result
+
+An operation's default return type is a Promise of its generated result contract:
+
+```typescript
+import { getBookById } from 'komga-sdk';
+
+type BookResult = Awaited<ReturnType<typeof getBookById>>;
+
+async function loadBook(bookId: string, options: Parameters<typeof getBookById>[1]) {
+  const result: BookResult = await getBookById({ bookId }, options);
+  if (result.error === undefined) {
+    return result.data;
+  }
+  return undefined;
+}
+```
+
+The operation options parameter is optional in the generated signature; `Parameters<typeof getBookById>[1]` therefore includes `undefined`. In application code, pass `{ client }` as the second argument when using an isolated client. Prefer `Awaited<ReturnType<...>>` over manually recreating `{ data, error, request, response }` unions.
+
+## Public helper types
+
+The package root also exports:
+
+- `KomgaClientOptions` and `AuthConfig` for `createKomgaClient`.
+- `KomgaResult` for the default `{ data, error, request, response }` result shape.
+- `KomgaApiError` and `unwrap` for an explicit throwing boundary.
+- `Client` and `GeneratedClientConfig` for advanced generated-client integrations.
+- Generated DTO, page, search, operation response, and operation error types.
+
+Generated types describe the API contract to TypeScript. They do not validate data at runtime, make optional fields required, or add runtime error classes. Add an application-owned validator at the boundary if your integration needs runtime checks.
+
+## Narrow result branches
+
+Use `error === undefined` as the discriminant before reading `data`:
+
+```typescript
+import { getLibraries } from 'komga-sdk';
+
+const result = await getLibraries({ client });
+
+if (result.error === undefined) {
+  for (const library of result.data) {
+    console.log(library.name);
+  }
+} else {
+  console.error(result.response?.status, result.error);
+}
+```
+
+`request` and `response` are optional because network or request-construction failures can happen before Fetch returns a response. Successful void operations have `data: undefined`; binary operations use their generated media type and may require a `parseAs` option.
+
+## Avoid unsafe assertions
+
+Do not cast a result to a DTO before checking its error branch, and do not use `any` to bypass generated parameter errors:
+
+```typescript
+import type { BookDto } from 'komga-sdk';
+
+function displayBook(book: BookDto): string {
+  return `${book.metadata.title} #${book.number}`;
+}
+```
+
+If a server response is untrusted, narrow it with an application-owned schema rather than asserting that it is a generated type. See [Runtime validation](/validation).
 
 ## Next steps
 
-- Quickstart: [Quickstart](/quickstart)
-- Configuration: [Configuration](/reference/configuration)
+- Configure a client: [Fetch configuration](/reference/configuration)
+- Call generated operations: [Direct API functions](/direct-api)
+- Choose result or throwing handling: [Result handling](/errors)

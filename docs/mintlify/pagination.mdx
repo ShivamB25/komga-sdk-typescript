@@ -1,370 +1,229 @@
 ---
-title: "Pagination and Search"
-description: "List resources with pagination, sorting, and filters"
+title: "Pagination and search"
+description: "Use generated list parameters, page response types, sorting, and search"
 icon: "list"
 ---
 
-List endpoints accept pagination and optional search filters. Domain services expose this via the `list()` method.
+Generated list operations expose pagination as flat parameters. The server returns generated page types such as `PageBookDto`, `PageCollectionDto`, and `PageReadListDto`. Pagination state belongs in your application; the SDK does not keep a cursor or automatically fetch another page.
 
-## Understanding the response
+## Page response fields
 
-Every paginated response includes metadata about the result set:
+`PageBookDto` is generated as an object whose fields are optional because the OpenAPI response permits partial data:
 
 ```typescript
-interface PageResponse<T> {
-  content: T[];         // Items in current page
-  totalElements: number; // Total items across all pages
-  totalPages: number;    // Total number of pages
-  size: number;          // Items per page
-  number: number;        // Current page index (0-based)
-  first: boolean;        // Is this the first page?
-  last: boolean;         // Is this the last page?
-  empty: boolean;        // Is the page empty?
+import type { PageBookDto } from 'komga-sdk';
+
+function summarizePage(page: PageBookDto) {
+  return {
+    items: page.content ?? [],
+    totalItems: page.totalElements ?? 0,
+    totalPages: page.totalPages ?? 0,
+    page: page.number ?? 0,
+    pageSize: page.size ?? 0,
+    isFirst: page.first ?? false,
+    isLast: page.last ?? false,
+    isEmpty: page.empty ?? true,
+  };
 }
 ```
 
-## Pagination basics
+Use `??` when rendering or iterating so a missing field does not become an unchecked runtime access. `getLibraries` is not paginated: it returns `LibraryDto[]` directly.
 
-<CodeGroup>
+## Fetch a page of books
 
-```typescript Domain Service
-const books = await bookService.list({
-  page: 0,   // First page (0-indexed)
-  size: 20,  // 20 items per page
-});
+`getBooks` accepts `page`, `size`, `sort`, and `unpaged` alongside its generated `bookSearch` body parameter. Page indexes are zero-based:
 
-console.log(`Page ${books.number + 1} of ${books.totalPages}`);
-console.log(`Showing ${books.content.length} of ${books.totalElements} total`);
-```
-
-```typescript Direct API
+```typescript
 import { getBooks } from 'komga-sdk';
 
-const result = await getBooks({
-  client,
-  body: {},
-  query: { page: 0, size: 20 },
-});
+const result = await getBooks(
+  {
+    bookSearch: { fullTextSearch: 'manga' },
+    page: 0,
+    size: 20,
+    sort: ['metadata.title,asc'],
+  },
+  { client },
+);
 
-if (result.data) {
-  console.log(`Total: ${result.data.totalElements}`);
+if (result.error === undefined) {
+  const page = result.data;
+  console.log(`Page ${(page.number ?? 0) + 1} of ${page.totalPages ?? 0}`);
+  console.log(`Showing ${(page.content ?? []).length} of ${page.totalElements ?? 0}`);
 }
 ```
 
-</CodeGroup>
+For UI state, preserve the search and sort values when moving pages and reset `page` to `0` when the user changes a filter:
+
+```typescript
+type BooksQuery = {
+  page: number;
+  size: number;
+  sort: string[];
+  bookSearch: { fullTextSearch?: string };
+};
+
+async function fetchBooks(query: BooksQuery) {
+  const result = await getBooks(query, { client });
+  if (result.error) {
+    throw new Error(`Book query failed: ${result.response?.status ?? 'unknown'}`);
+  }
+  return result.data;
+}
+```
 
 ## Sorting
 
-Sort values use the format `field,direction` where direction is `asc` or `desc`.
+Pass server sort expressions in the generated `sort` array. The common Komga form is `field,direction`:
 
 ```typescript
-// Single sort
-const books = await bookService.list({
-  page: 0,
-  size: 20,
-  sort: ['metadata.title,asc'],
-});
-
-// Multiple sorts (applied in order)
-const books = await bookService.list({
-  page: 0,
-  size: 20,
-  sort: ['metadata.releaseDate,desc', 'metadata.title,asc'],
-});
-```
-
-### Common sort fields
-
-<Tabs>
-  <Tab title="Books">
-    | Field | Description |
-    |-------|-------------|
-    | `metadata.title` | Book title |
-    | `metadata.number` | Issue/volume number |
-    | `metadata.releaseDate` | Release date |
-    | `created` | When added to Komga |
-    | `lastModified` | Last modification |
-    | `fileSize` | File size |
-  </Tab>
-  
-  <Tab title="Series">
-    | Field | Description |
-    |-------|-------------|
-    | `metadata.title` | Series title |
-    | `metadata.status` | Publication status |
-    | `created` | When added to Komga |
-    | `lastModified` | Last modification |
-    | `booksCount` | Number of books |
-  </Tab>
-</Tabs>
-
-## Search filters
-
-Search filters narrow results. They're passed under the `search` parameter for domain services or `body` for direct API calls.
-
-```typescript
-const books = await bookService.list({
-  search: {
-    fullTextSearch: 'manga',    // Text search
-    tags: ['favorite'],          // Filter by tags
-    readStatus: 'UNREAD',        // UNREAD, IN_PROGRESS, READ
-    libraryId: 'library-123',    // Specific library
+const result = await getBooks(
+  {
+    bookSearch: {},
+    page: 0,
+    size: 20,
+    sort: ['metadata.releaseDate,desc', 'metadata.title,asc'],
   },
-  page: 0,
-  size: 20,
-});
+  { client },
+);
 ```
 
-### Available filters
+Sort strings are transported to Komga; the server determines which fields and directions are accepted for an endpoint. Use a stable tie-breaker such as title or id when exporting multiple pages, and keep sort order unchanged for the duration of the export.
 
-<AccordionGroup>
-  <Accordion title="Book filters">
-    ```typescript
-    interface BookSearch {
-      fullTextSearch?: string;  // Search title, summary, etc.
-      libraryId?: string[];     // Filter by library IDs
-      seriesId?: string[];      // Filter by series IDs
-      tags?: string[];          // Filter by tags
-      readStatus?: 'UNREAD' | 'IN_PROGRESS' | 'READ';
-      authors?: string[];       // Filter by author names
-      deleted?: boolean;        // Include deleted books
-    }
-    ```
-  </Accordion>
-  
-  <Accordion title="Series filters">
-    ```typescript
-    interface SeriesSearch {
-      fullTextSearch?: string;  // Search title, summary
-      libraryId?: string[];     // Filter by library IDs
-      status?: 'ENDED' | 'ONGOING' | 'ABANDONED' | 'HIATUS';
-      readStatus?: 'UNREAD' | 'IN_PROGRESS' | 'READ';
-      publishers?: string[];    // Filter by publishers
-      genres?: string[];        // Filter by genres
-      tags?: string[];          // Filter by tags
-      deleted?: boolean;        // Include deleted series
-    }
-    ```
-  </Accordion>
-</AccordionGroup>
+## Search parameters
+
+`BookSearch` is the generated body type for `getBooks`:
+
+```typescript
+import type { BookSearch } from 'komga-sdk';
+import { getBooks } from 'komga-sdk';
+
+const search: BookSearch = {
+  fullTextSearch: 'manga',
+  // condition?: SearchConditionBook
+};
+
+const result = await getBooks(
+  { bookSearch: search, page: 0, size: 20 },
+  { client },
+);
+```
+
+Do not add the former service-layer fields such as `tags`, `readStatus`, or `libraryId` unless the generated `BookSearch` type for your SDK version includes them. TypeScript will identify fields that are not in the generated contract.
+
+Collections and read lists use query strings instead of `BookSearch`:
+
+```typescript
+import { getCollections, getReadLists } from 'komga-sdk';
+
+const collections = await getCollections(
+  { search: 'favorites', library_id: ['library-123'], page: 0, size: 20 },
+  { client },
+);
+
+const readLists = await getReadLists(
+  { search: 'to-read', page: 0, size: 20 },
+  { client },
+);
+```
+
+The generated parameter name `library_id` is intentional. Arrays are serialized by the generated client according to the OpenAPI contract; pass an array rather than joining ids into a comma-delimited string yourself.
 
 ## Unpaged requests
 
-For small datasets, you can request all items at once:
+List operations expose `unpaged` when the endpoint supports it:
 
 ```typescript
-const allBooks = await bookService.list({
-  unpaged: true,
-  sort: ['metadata.title,asc'],
-});
+const result = await getBooks(
+  {
+    bookSearch: {},
+    unpaged: true,
+    sort: ['metadata.title,asc'],
+  },
+  { client },
+);
 
-console.log(`Got all ${allBooks.content.length} books`);
-```
-
-<Warning>
-Use `unpaged` carefully! Large libraries may have thousands of items. This can be slow and memory-intensive.
-</Warning>
-
-## Pagination patterns
-
-### Simple iteration
-
-```typescript
-async function processAllBooks() {
-  let page = 0;
-  let hasMore = true;
-  
-  while (hasMore) {
-    const result = await bookService.list({ page, size: 100 });
-    
-    for (const book of result.content) {
-      processBook(book);
-    }
-    
-    hasMore = !result.last;
-    page++;
+if (result.error === undefined) {
+  for (const book of result.data.content ?? []) {
+    console.log(book.metadata.title);
   }
 }
 ```
 
-### Async generator
+Use unpaged requests only when the result size is bounded by your application. Large libraries can produce large response bodies, increase memory pressure, and make retries expensive.
 
-A more elegant approach using async generators:
+## Iterate through pages
+
+This async generator stops on the generated `last` field and preserves the default non-throwing result contract:
 
 ```typescript
-async function* getAllBooks() {
+import { getBooks } from 'komga-sdk';
+
+async function* allBooks() {
   let page = 0;
-  let hasMore = true;
-  
-  while (hasMore) {
-    const result = await bookService.list({ 
-      page, 
-      size: 100,
-      sort: ['metadata.title,asc'] 
-    });
-    
-    for (const book of result.content) {
+
+  while (true) {
+    const result = await getBooks(
+      { bookSearch: {}, page, size: 100, sort: ['metadata.title,asc'] },
+      { client },
+    );
+
+    if (result.error !== undefined) {
+      throw new Error(`Book page failed: ${result.response?.status ?? 'unknown'}`);
+    }
+
+    for (const book of result.data.content ?? []) {
       yield book;
     }
-    
-    hasMore = !result.last;
-    page++;
+
+    if (result.data.last ?? true) {
+      return;
+    }
+    page += 1;
   }
 }
 
-// Usage
-for await (const book of getAllBooks()) {
+for await (const book of allBooks()) {
   console.log(book.metadata.title);
 }
 ```
 
-### Parallel fetching (advanced)
+If the server returns an incomplete page envelope, treating a missing `last` as a stop condition avoids an accidental unbounded loop. If you prefer typed API exceptions, replace the error branch with `unwrap(await getBooks(...))` and catch `KomgaApiError` at the application boundary.
 
-Fetch multiple pages in parallel for better performance:
+## Parallel fetching and batch work
+
+Parallel page fetching can reduce latency but increases load and can produce inconsistent snapshots while the library changes. First fetch page `0`, read `totalPages`, then bound concurrency and keep filters and sort fixed:
 
 ```typescript
-async function fetchAllPagesParallel<T>(
-  fetcher: (page: number) => Promise<PageResponse<T>>,
-  concurrency = 3
+async function fetchPages<T>(
+  totalPages: number,
+  fetchPage: (page: number) => Promise<T>,
+  concurrency = 3,
 ): Promise<T[]> {
-  // First, get total pages
-  const firstPage = await fetcher(0);
-  const { totalPages } = firstPage;
-  
-  if (totalPages <= 1) return firstPage.content;
-  
-  // Fetch remaining pages in batches
-  const allContent = [...firstPage.content];
-  
-  for (let batch = 1; batch < totalPages; batch += concurrency) {
-    const pagePromises = [];
-    for (let i = batch; i < Math.min(batch + concurrency, totalPages); i++) {
-      pagePromises.push(fetcher(i));
-    }
-    
-    const pages = await Promise.all(pagePromises);
-    for (const page of pages) {
-      allContent.push(...page.content);
-    }
+  const pages: T[] = [];
+  for (let start = 0; start < totalPages; start += concurrency) {
+    const batch = Array.from(
+      { length: Math.min(concurrency, totalPages - start) },
+      (_, offset) => fetchPage(start + offset),
+    );
+    pages.push(...(await Promise.all(batch)));
   }
-  
-  return allContent;
-}
-
-// Usage
-const allBooks = await fetchAllPagesParallel(
-  (page) => bookService.list({ page, size: 100 })
-);
-```
-
-### UI pagination component
-
-```typescript
-interface PaginationState {
-  page: number;
-  size: number;
-  sort: string[];
-  search?: BookSearch;
-}
-
-async function fetchPage(state: PaginationState) {
-  const result = await bookService.list({
-    page: state.page,
-    size: state.size,
-    sort: state.sort,
-    search: state.search,
-  });
-  
-  return {
-    items: result.content,
-    totalItems: result.totalElements,
-    totalPages: result.totalPages,
-    currentPage: result.number,
-    hasNext: !result.last,
-    hasPrevious: !result.first,
-  };
-}
-
-// React example
-function useBooks(initialPage = 0, pageSize = 20) {
-  const [page, setPage] = useState(initialPage);
-  const [data, setData] = useState(null);
-  
-  useEffect(() => {
-    fetchPage({ page, size: pageSize, sort: ['metadata.title,asc'] })
-      .then(setData);
-  }, [page, pageSize]);
-  
-  return {
-    ...data,
-    nextPage: () => setPage(p => p + 1),
-    prevPage: () => setPage(p => Math.max(0, p - 1)),
-    goToPage: setPage,
-  };
+  return pages;
 }
 ```
 
-## Raw API pagination
-
-When using direct API functions:
-
-```typescript
-import { getBooks } from 'komga-sdk';
-
-const result = await getBooks({
-  client,
-  body: { 
-    fullTextSearch: 'manga' 
-  },
-  query: { 
-    page: 0, 
-    size: 20, 
-    sort: ['metadata.title,asc'] 
-  },
-});
-
-if (result.data) {
-  console.log(result.data.totalElements);
-  console.log(result.data.content);
-}
-```
-
-## Performance tips
-
-<CardGroup cols={2}>
-  <Card title="Use appropriate page sizes" icon="gauge">
-    - UI display: 10-50 items
-    - Batch processing: 50-100 items
-    - Never use unpaged on large datasets
-  </Card>
-  
-  <Card title="Add filters when possible" icon="filter">
-    - Use libraryId to narrow scope
-    - Use readStatus to filter
-    - Use tags for categorization
-  </Card>
-  
-  <Card title="Cache wisely" icon="database">
-    - Cache total counts
-    - Don't cache content that changes
-    - Invalidate on mutations
-  </Card>
-  
-  <Card title="Handle errors" icon="triangle-exclamation">
-    - Retry on timeouts
-    - Handle empty results
-    - Validate page bounds
-  </Card>
-</CardGroup>
+Use sequential iteration for mutations, rate-limited servers, or an export that needs predictable load. Never assume page numbers remain valid after deleting or adding many matching records.
 
 ## Next steps
 
-<CardGroup cols={2}>
-  <Card title="Books Guide" icon="book" href="/guides/books">
-    Full book listing examples.
+<CardGroup cols={3}>
+  <Card title="Direct API functions" icon="code" href="/direct-api">
+    Learn the flat operation call shape.
   </Card>
-  
-  <Card title="Best Practices" icon="star" href="/best-practices">
-    More pagination patterns.
+  <Card title="Result handling" icon="triangle-exclamation" href="/errors">
+    Handle generated errors or use unwrap.
+  </Card>
+  <Card title="Runtime validation" icon="shield-check" href="/validation">
+    Add validation only when your application needs it.
   </Card>
 </CardGroup>

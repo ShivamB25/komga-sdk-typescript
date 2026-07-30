@@ -1,21 +1,13 @@
 {
-  "name": "mintlify",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
+  "name": "komga-sdk-docs",
   "private": true,
-  "devDependencies": {
-    "@types/bun": "latest",
-    "mintlify": "^4.2.299"
+  "scripts": {
+    "dev": "mint dev",
+    "validate": "mint validate",
+    "broken-links": "mint broken-links",
+    "a11y": "mint a11y"
   },
-  "peerDependencies": {
-    "typescript": "^5"
+  "devDependencies": {
+    "mint": "4.2.762"
   }
 }

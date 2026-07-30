@@ -1,54 +1,235 @@
 ---
 title: "Troubleshooting"
-description: "Resolve common integration issues"
+description: "Diagnose authentication, response, and network failures"
 icon: "wrench"
 ---
 
+The SDK uses the platform Fetch API. Generated calls return `{ data, error, request, response }` instead of throwing by default. Inspect `result.error` before using `result.data`.
+
 ## 401 Unauthorized
 
-Confirm your credentials and auth type. Basic auth and API key auth are supported by the client.
+Create the client with Basic credentials or an API key. Both auth modes are configured through `createKomgaClient`:
+
+```typescript
+import { createKomgaClient, getServerSettings } from 'komga-sdk';
+
+const client = createKomgaClient({
+  baseUrl: 'https://komga.example.com',
+  auth: { type: 'basic', username: 'admin', password: 'password' },
+});
+
+const result = await getServerSettings({ client });
+if (result.error) {
+  console.error(result.response?.status, result.error);
+}
+```
+
+For API-key authentication, replace the `auth` value:
 
 ```typescript
 const client = createKomgaClient({
-  baseUrl: 'http://localhost:25600',
-  auth: { type: 'basic', username: 'admin', password: 'password' },
+  baseUrl: 'https://komga.example.com',
+  auth: { type: 'apiKey', key: 'your-api-key' },
 });
 ```
 
-## 404 Not Found
-
-Verify IDs and endpoint compatibility with your Komga version. Some endpoints are deprecated.
-
-## Validation errors
-
-If Zod validation fails, inspect the issues to identify mismatched fields.
+If you need an unauthenticated client for public endpoints, omit `auth`. The client also accepts application headers and Fetch credentials:
 
 ```typescript
-import { isValidationError } from 'komga-sdk';
+const client = createKomgaClient({
+  baseUrl: 'https://komga.example.com',
+  headers: { 'X-Client-Version': 'web-1.0' },
+  credentials: 'include',
+});
+```
+
+Check these causes of a 401:
+
+- The base URL points to the Komga server, not a web UI route or a proxy health endpoint.
+- Basic credentials are correct and the server is using HTTPS in production.
+- The API key is active and sent as `X-API-Key` by the client.
+- The client instance used by each operation is the authenticated instance.
+
+## 403 Forbidden
+
+A valid identity can still lack an operation's required role. Check the endpoint guide for roles such as **ADMIN** or **FILE_DOWNLOAD**, then grant the role in Komga or use an account that already has it. A 403 is an authorization failure, not a client parsing problem.
+
+## 400 Bad Request
+
+Komga reports request validation failures as a typed error. Inspect `ValidationErrorResponse.violations` for the field name and message before changing the request:
+
+```typescript
+import { getAuthors } from 'komga-sdk';
+
+const result = await getAuthors(
+  { library_id: ['library-123'], page: -1, size: 50 },
+  { client },
+);
+
+if (result.error && result.response?.status === 400) {
+  console.error(result.error.violations);
+}
+
+```
+
+
+Common causes are a wrong generated parameter name (`id` versus `collectionId`), an array supplied where the operation expects one ID, an invalid enum, or a missing required search/body document. Retrying the same request does not fix validation.
+
+
+## 404 Not Found
+
+Verify the identifier and the operation's current route. Generated parameters are flat, so use the exact key from the operation signature:
+
+```typescript
+import { getBookThumbnail } from 'komga-sdk';
+
+const result = await getBookThumbnail({ bookId: 'book-123' }, { client });
+if (result.error && result.response?.status === 404) {
+  console.error('The book ID is not available on this server');
+}
+```
+
+For an endpoint that moved, use the replacements in [Deprecated endpoints](/guides/deprecated-endpoints). Pass generated keys at the top level and the client in the separate options object.
+
+## Reading errors
+
+Generated errors are typed from the operation's response map. Preserve the native response while diagnosing the status and body:
+
+```typescript
+import { getServerSettings } from 'komga-sdk';
+
+const result = await getServerSettings({ client });
+if (result.error) {
+  console.error({
+    status: result.response?.status,
+    error: result.error,
+    request: result.request,
+  });
+}
+```
+
+Use `unwrap` when a workflow should throw at a deliberate boundary. It raises `KomgaApiError` with `status`, `body`, `request`, and `response`:
+
+```typescript
+import { getServerSettings, KomgaApiError, unwrap } from 'komga-sdk';
 
 try {
-  await bookService.getById('book-123');
+  const settings = unwrap(await getServerSettings({ client }));
+  console.log(settings);
 } catch (error) {
-  if (isValidationError(error)) {
-    console.log(error.issues);
+  if (error instanceof KomgaApiError) {
+    console.error(`Komga returned ${error.status}`, error.body);
+  } else {
+    throw error;
   }
 }
 ```
 
-## Timeouts and retries
+## Browser CORS and cookie sessions
 
-Increase timeout or tune retry settings for large requests.
+A browser can report a CORS failure before the request reaches Komga. Configure the Komga origin or reverse proxy to allow the exact web application origin, allow the headers used by your auth mode, and answer preflight `OPTIONS` requests. When sending cookies cross-origin, the server must also allow credentials; `Access-Control-Allow-Origin: *` cannot be combined with credentialed requests.
+
+Use Fetch's credentials mode for a cookie-backed session:
 
 ```typescript
+import { createKomgaClient, getCurrentUser } from 'komga-sdk';
+
 const client = createKomgaClient({
-  baseUrl: 'http://localhost:25600',
-  auth: { type: 'apiKey', key: 'your-api-key' },
-  timeout: 60000,
-  retry: { limit: 5, backoffLimit: 5000 },
+  baseUrl: 'https://komga.example.com',
+  credentials: 'include',
 });
+
+const result = await getCurrentUser(undefined, { client });
 ```
+
+If this returns a network error with no `response`, inspect the browser's Network panel for the preflight and verify cookie `SameSite`, `Secure`, and domain/path settings. The SDK does not log in, create cookies, or bypass browser CORS. For an application that cannot expose credentials in a browser, proxy the call through your own server and keep the Komga client server-side.
+
+Basic and API-key clients send an `Authorization` or `X-API-Key` header respectively. Komga's normal REST API does not use a Bearer/JWT client mode; do not “fix” a 401 by adding a bearer token that the server does not issue.
+
+
+## Binary responses
+
+Image, font, and download operations return `Blob | File`. Do not parse these values as JSON or assume they are strings:
+
+```typescript
+import { getBookThumbnail } from 'komga-sdk';
+
+const result = await getBookThumbnail({ bookId: 'book-123' }, { client });
+if (!result.error && result.data) {
+  const objectUrl = URL.createObjectURL(result.data);
+  // Revoke objectUrl when the image is no longer displayed.
+  console.log(objectUrl);
+}
+```
+
+## 202 and 204 responses
+
+A `202 Accepted` operation starts asynchronous server work and has an `unknown` response body. A `204 No Content` operation succeeds without a data payload. Check only for errors and use `response?.status` for confirmation:
+
+```typescript
+import { libraryScan, updateLibraryById } from 'komga-sdk';
+
+const scan = await libraryScan(
+  { libraryId: 'library-123', deep: false },
+  { client },
+);
+if (!scan.error) console.log(`Scan accepted (${scan.response?.status})`);
+
+const update = await updateLibraryById(
+  {
+    libraryId: 'library-123',
+    libraryUpdateDto: { name: 'Comics' },
+  },
+  { client },
+);
+if (!update.error) console.log(`Update completed (${update.response?.status})`);
+```
+
+Common `202` operations include library scans, transient imports, book imports, thumbnail selection/deletion, and thumbnail regeneration. They acknowledge work; they do not mean the resulting book, image, or library state is already visible. Refresh the affected resource after the server-side task completes and avoid blindly retrying a request that may already have been accepted.
+
+Common `204` operations include metadata/settings/library updates and global-setting deletion. The generated 204 normalization makes `result.data` `undefined`; success is `result.error === undefined` plus the response status, not a payload to parse.
+
+
+## Network failures and timeouts
+
+The core client does not retry, cache, or validate requests by default. A network failure can have an undefined `response`; handle that case separately from an HTTP error:
+
+```typescript
+import { getLibraries } from 'komga-sdk';
+
+const result = await getLibraries({ client });
+if (result.error && !result.response) {
+  console.error('No HTTP response was received. Check the URL, TLS, and network.');
+} else if (result.error) {
+  console.error(`Komga returned ${result.response?.status}`, result.error);
+}
+```
+
+
+Set an application-owned timeout or retry policy around a generated call when your product needs one. Keep those policies outside the core client so each workflow can choose its own behavior.
+
+## 5xx Server errors
+
+A `5xx` response means Komga or a reverse proxy failed after receiving the request. Preserve `result.response` and its request ID or headers for server logs, then retry only idempotent reads with an application-owned policy. Do not automatically retry imports, deletes, scans, or thumbnail mutations because a timeout can occur after the server accepted the work.
+
+In Node.js 18+ and modern browsers, Fetch is available globally. If your host supplies a different Fetch implementation, pass it when creating the client instead of replacing the generated transport:
+
+```typescript
+import { createKomgaClient, getLibraries } from 'komga-sdk';
+
+const client = createKomgaClient({
+  baseUrl: 'https://komga.example.com',
+  fetch: globalThis.fetch,
+});
+
+const result = await getLibraries({ client });
+```
+
+If `fetch` is unavailable, `Request`, `Response`, `Headers`, or Web Crypto is missing, install or provide a standards-compatible implementation for that runtime; a JSON parse error is not a substitute for those primitives.
+
 
 ## Next steps
 
-- Configuration: [Configuration](/reference/configuration)
-- Migration guide: [Migration](/guides/migration)
+- [Authentication](/authentication): configure client auth and credentials.
+- [Direct API](/direct-api): call generated operations with flat parameters.
+- [Deprecated endpoints](/guides/deprecated-endpoints): migrate old routes.

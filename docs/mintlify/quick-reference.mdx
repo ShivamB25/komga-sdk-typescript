@@ -1,12 +1,12 @@
 ---
 title: "Quick Reference"
-description: "Common patterns and code snippets at a glance"
+description: "Common komga-sdk client, operation, and result patterns"
 icon: "bolt"
 ---
 
-A cheat sheet of the most common Komga SDK patterns. Copy, paste, and customize.
+Use these snippets as a reference for the generated Komga API client. All endpoint parameters are flat; the configured client is passed in the optional second argument.
 
-## Client Setup
+## Client setup
 
 <CodeGroup>
 
@@ -14,312 +14,252 @@ A cheat sheet of the most common Komga SDK patterns. Copy, paste, and customize.
 import { createKomgaClient } from 'komga-sdk';
 
 const client = createKomgaClient({
-  baseUrl: 'http://localhost:25600',
+  baseUrl: 'https://komga.example.com',
   auth: {
     type: 'basic',
-    username: 'user@example.com',
-    password: 'password',
+    username: process.env.KOMGA_USER!,
+    password: process.env.KOMGA_PASSWORD!,
   },
 });
 ```
 
-```typescript API Key
+```typescript API key
 import { createKomgaClient } from 'komga-sdk';
 
 const client = createKomgaClient({
-  baseUrl: 'http://localhost:25600',
-  auth: {
-    type: 'apiKey',
-    key: 'your-api-key',
-  },
+  baseUrl: 'https://komga.example.com',
+  auth: { type: 'apiKey', key: process.env.KOMGA_API_KEY! },
 });
 ```
 
-```typescript Full Options
+```typescript Browser session or custom headers
 import { createKomgaClient } from 'komga-sdk';
 
 const client = createKomgaClient({
-  baseUrl: 'http://localhost:25600',
-  auth: { type: 'basic', username: 'admin', password: 'password' },
-  timeout: 30000,
-  retry: { limit: 3, backoffLimit: 5000 },
-  debug: false,
+  baseUrl: 'https://komga.example.com',
+  credentials: 'include',
+  headers: { 'X-Request-Source': 'reader-web' },
 });
 ```
 
 </CodeGroup>
 
-## Domain Services
+`baseUrl` is required. `auth` is optional for an unauthenticated server or an application-owned session. Keep Basic credentials and API keys on a server-side boundary when a browser bundle is public.
 
-### Books
+## Flat operation calls
 
 ```typescript
-import { BookService } from 'komga-sdk';
-const bookService = new BookService(client);
+import { getBookById, getBooks, getLibraries } from 'komga-sdk';
 
-// List books
-const books = await bookService.list({ page: 0, size: 20 });
+const bookResult = await getBookById({ bookId: 'book-123' }, { client });
+const librariesResult = await getLibraries({ client });
 
-// Search books
-const results = await bookService.list({
-  search: { fullTextSearch: 'manga' },
-  page: 0,
-  size: 20,
-  sort: ['metadata.title,asc'],
-});
-
-// Get by ID
-const book = await bookService.getById('book-123');
-
-// Update metadata
-await bookService.updateMetadata('book-123', { title: 'New Title' });
-
-// Get pages
-const pages = await bookService.getPages('book-123');
-
-// Get thumbnail URL
-const url = bookService.getThumbnailUrl('book-123');
+const booksResult = await getBooks(
+  {
+    page: 0,
+    size: 20,
+    sort: ['metadata.title,asc'],
+    bookSearch: { fullTextSearch: 'manga' },
+  },
+  { client },
+);
 ```
 
-### Series
+The generated signatures used above are:
+
+- `getBookById({ bookId: string }, options?)`
+- `getLibraries(options?)`
+- `getBooks({ unpaged?, page?, size?, sort?, bookSearch }, options?)`
+
+Operations with no endpoint parameters accept only their options object. Do not use the removed grouped `{ path, query, body }` call shape.
+
+## Nonthrowing results
+
+By default, each call resolves to fields containing `data`, `error`, `request`, and `response`:
 
 ```typescript
-import { SeriesService } from 'komga-sdk';
-const seriesService = new SeriesService(client);
+const result = await getBookById({ bookId: 'book-123' }, { client });
 
-// List series
-const series = await seriesService.list({ page: 0, size: 20 });
-
-// Get by ID
-const s = await seriesService.getById('series-123');
-
-// Get books in series
-const books = await seriesService.getBooks('series-123', { page: 0, size: 50 });
-
-// Update metadata
-await seriesService.updateMetadata('series-123', { status: 'ONGOING' });
-
-// Get collections containing series
-const collections = await seriesService.getCollections('series-123');
-```
-
-### Libraries
-
-```typescript
-import { LibraryService } from 'komga-sdk';
-const libraryService = new LibraryService(client);
-
-// List libraries
-const libraries = await libraryService.getAll();
-
-// Get by ID
-const library = await libraryService.getById('library-123');
-
-// Update
-await libraryService.update('library-123', { name: 'New Name' });
-
-// Scan
-await libraryService.scan('library-123');
-
-// Delete
-await libraryService.delete('library-123');
-```
-
-## Direct API Functions
-
-```typescript
-import { getBookById, getBooks, getSeries } from 'komga-sdk';
-
-// Get single item
-const result = await getBookById({
-  client,
-  path: { bookId: 'book-123' },
-});
-if (result.data) console.log(result.data.metadata.title);
-
-// List with search
-const booksResult = await getBooks({
-  client,
-  body: { fullTextSearch: 'manga' },
-  query: { page: 0, size: 20, sort: ['metadata.title,asc'] },
-});
-```
-
-## Pagination Patterns
-
-```typescript
-// Basic pagination
-const page1 = await bookService.list({ page: 0, size: 20 });
-const page2 = await bookService.list({ page: 1, size: 20 });
-
-// With sorting
-const sorted = await bookService.list({
-  page: 0,
-  size: 20,
-  sort: ['metadata.title,asc'],
-});
-
-// Get all (unpaged)
-const all = await bookService.list({ unpaged: true });
-
-// Iterate all pages
-let page = 0;
-let hasMore = true;
-while (hasMore) {
-  const result = await bookService.list({ page, size: 100 });
-  processBooks(result.content);
-  hasMore = page < result.totalPages - 1;
-  page++;
+if (result.error === undefined) {
+  console.log(result.data.metadata.title);
+} else {
+  console.error(result.response?.status, result.error);
 }
 ```
 
-## Error Handling
+The success and error branches are discriminated by `error`. `request` and `response` are optional because request construction and network failures may happen before Fetch creates either object. Use `response?.status` for HTTP handling and the generated `error` body for operation-specific details.
+
+## Throwing at an explicit boundary
+
+`unwrap` returns data or throws `KomgaApiError`:
 
 ```typescript
-import {
-  isApiError,
-  isValidationError,
-  isNetworkError,
-  isTimeoutError,
-} from 'komga-sdk';
+import { KomgaApiError, getBookById, unwrap } from 'komga-sdk';
 
 try {
-  await bookService.getById('invalid-id');
+  const book = unwrap(await getBookById({ bookId: 'book-123' }, { client }));
+  console.log(book.metadata.title);
 } catch (error) {
-  if (isApiError(error)) {
-    console.log(`HTTP ${error.status}: ${error.statusText}`);
-    if (error.status === 404) console.log('Not found');
-    if (error.status === 401) console.log('Unauthorized');
-  } else if (isValidationError(error)) {
-    console.log('Validation failed:', error.getFieldErrors());
-  } else if (isTimeoutError(error)) {
-    console.log('Request timed out');
-  } else if (isNetworkError(error)) {
-    console.log('Network error:', error.message);
+  if (error instanceof KomgaApiError && error.status === 404) {
+    console.log('Book not found');
+  } else {
+    throw error;
   }
 }
 ```
 
-## Validation
+Use the nonthrowing form for local branching and `unwrap` where an exception is the intended application boundary. A successful `204 No Content` operation unwraps to `undefined`.
+
+## Pagination and search
+
+`getBooks` sends `page`, `size`, `sort`, and `unpaged` as query parameters while `bookSearch` is the generated request body:
 
 ```typescript
-import { 
-  BookDtoSchema, 
-  validateResponse, 
-  safeValidateResponse,
-  createPageSchema 
-} from 'komga-sdk';
+import { getBooks } from 'komga-sdk';
 
-// Throw on invalid
-const book = validateResponse(BookDtoSchema, data);
+const result = await getBooks(
+  {
+    bookSearch: { fullTextSearch: 'manga' },
+    page: 0,
+    size: 100,
+    sort: ['metadata.releaseDate,desc', 'metadata.title,asc'],
+  },
+  { client },
+);
 
-// Safe (no throw)
-const result = safeValidateResponse(BookDtoSchema, data);
-if (result.success) {
-  console.log(result.data);
-} else {
-  console.log(result.error);
+if (result.error === undefined) {
+  console.log(`${result.data.content?.length ?? 0} of ${result.data.totalElements ?? 0}`);
 }
-
-// Paginated response
-const PageBookSchema = createPageSchema(BookDtoSchema);
-const page = PageBookSchema.parse(rawData);
 ```
 
-## Interceptors
+Use `unpaged: true` only for bounded datasets:
+
+```typescript
+const result = await getBooks(
+  { bookSearch: {}, unpaged: true, sort: ['metadata.title,asc'] },
+  { client },
+);
+```
+
+Collections and read lists use generated query names rather than `BookSearch`:
+
+```typescript
+import { getCollections, getReadLists } from 'komga-sdk';
+
+const collections = await getCollections(
+  { search: 'favorites', library_id: ['library-123'], page: 0, size: 20 },
+  { client },
+);
+const readLists = await getReadLists({ page: 0, size: 20 }, { client });
+```
+
+## Common reads and mutations
 
 ```typescript
 import {
-  createLoggingInterceptor,
-  createErrorTransformInterceptor,
-  createValidationInterceptor,
-  BookDtoSchema,
+  getBookPages,
+  getLibraryById,
+  getSeriesById,
+  libraryScan,
+  updateBookMetadata,
 } from 'komga-sdk';
 
-// Logging
-const { request, response } = createLoggingInterceptor({ logHeaders: true });
-client.interceptors.request.use(request);
-client.interceptors.response.use(response);
+const series = await getSeriesById({ seriesId: 'series-123' }, { client });
+const library = await getLibraryById({ libraryId: 'library-123' }, { client });
+const pages = await getBookPages({ bookId: 'book-123' }, { client });
 
-// Error transform
-const errorTransform = createErrorTransformInterceptor();
-client.interceptors.error.use(errorTransform);
+const update = await updateBookMetadata(
+  {
+    bookId: 'book-123',
+    bookMetadataUpdateDto: { title: 'New title' },
+  },
+  { client },
+);
 
-// Validation
-const validation = createValidationInterceptor({
-  schemas: { '/api/books': BookDtoSchema },
-  throwOnError: true,
-});
-client.interceptors.response.use(validation);
+// Scans require the server role documented for this operation.
+const scan = await libraryScan({ libraryId: 'library-123', deep: true }, { client });
 ```
 
-## Common Workflows
+Mutation responses commonly have `data: undefined` because Komga returns `204 No Content`; check `error` and `response` even when there is no data to print. Operation documentation and generated types are the source of truth for required roles and fields.
 
-### Batch update metadata
+## Binary, text, and void responses
+
+Generated Fetch options can select the parser for an endpoint whose response is not JSON:
 
 ```typescript
-const books = await bookService.list({ 
-  search: { fullTextSearch: 'tag:untagged' },
-  unpaged: true 
-});
+import { getBookPageByNumber, getBookPageRawByNumber } from 'komga-sdk';
 
-for (const book of books.content) {
-  await bookService.updateMetadata(book.id, {
-    tags: ['processed'],
-  });
+const image = await getBookPageByNumber(
+  { bookId: 'book-123', pageNumber: 1 },
+  { client, parseAs: 'blob' },
+);
+
+const raw = await getBookPageRawByNumber(
+  { bookId: 'book-123', pageNumber: 1 },
+  { client, parseAs: 'text' },
+);
+
+if (image.error === undefined) {
+  const objectUrl = URL.createObjectURL(image.data);
+  console.log(objectUrl);
 }
 ```
 
-### Build thumbnail gallery
+Use `arrayBuffer`, `blob`, or `text` only when it matches the endpoint's generated response. Always revoke browser object URLs after the image is no longer needed.
+
+## TypeScript types
+
+Generated DTO types are available for annotations. They guide compile-time use and do not validate runtime responses:
 
 ```typescript
-const books = await bookService.list({ page: 0, size: 20 });
+import type { BookDto, BookSearch, PageBookDto } from 'komga-sdk';
 
-const gallery = books.content.map(book => ({
-  id: book.id,
-  title: book.metadata.title,
-  thumbnail: bookService.getThumbnailUrl(book.id),
-}));
-```
+const search: BookSearch = { fullTextSearch: 'manga' };
 
-### Scan and wait
-
-```typescript
-await libraryService.scan('library-123');
-// Note: scan is async on server side
-// Poll or use websockets to check completion
-```
-
-## TypeScript Types
-
-```typescript
-import type {
-  BookDto,
-  SeriesDto,
-  LibraryDto,
-  BookMetadataUpdateDto,
-  SeriesMetadataUpdateDto,
-  PageBookDto,
-} from 'komga-sdk';
-
-function processBook(book: BookDto) {
-  console.log(book.metadata.title);
+function displayBook(book: BookDto): string {
+  return `${book.metadata.title} (${book.number})`;
 }
 
-function updateBook(id: string, updates: BookMetadataUpdateDto) {
-  return bookService.updateMetadata(id, updates);
+function firstBook(page: PageBookDto): BookDto | undefined {
+  return page.content?.[0];
 }
 ```
 
-## Environment Variables
+Use `Awaited<ReturnType<typeof getBookById>>` when a wrapper should follow the generated result contract instead of reproducing it manually.
+
+## Native Fetch customization
+
+Configure headers, credentials, parser options, or a Fetch implementation when creating the client or per operation:
 
 ```typescript
+import { createKomgaClient } from 'komga-sdk';
+
 const client = createKomgaClient({
-  baseUrl: process.env.KOMGA_URL || 'http://localhost:25600',
+  baseUrl: 'https://komga.example.com',
+  headers: { 'X-Request-Source': 'batch-job' },
+  fetch: async (input, init) => {
+    const started = Date.now();
+    try {
+      return await fetch(input, init);
+    } finally {
+      console.log(`Komga request took ${Date.now() - started}ms`);
+    }
+  },
+});
+```
+
+The SDK has no built-in retries, caching, timeout policy, or logging. Implement those policies around Fetch or operation calls, and redact auth headers and cookies from logs.
+
+## Environment variables
+
+```typescript
+import { createKomgaClient } from 'komga-sdk';
+
+const client = createKomgaClient({
+  baseUrl: process.env.KOMGA_URL ?? 'http://localhost:25600',
   auth: {
-    type: 'basic',
-    username: process.env.KOMGA_USER || 'admin',
-    password: process.env.KOMGA_PASS || 'password',
+    type: 'apiKey',
+    key: process.env.KOMGA_API_KEY!,
   },
 });
 ```
@@ -327,11 +267,16 @@ const client = createKomgaClient({
 ## Next steps
 
 <CardGroup cols={2}>
-  <Card title="Domain Services" icon="boxes" href="/domain-services">
-    Full documentation for all service methods.
+  <Card title="Direct API functions" icon="code" href="/direct-api">
+    See request mapping, binary results, and mutation examples.
   </Card>
-  
-  <Card title="Direct API" icon="code" href="/direct-api">
-    Low-level API function reference.
+  <Card title="Pagination" icon="list" href="/pagination">
+    Iterate pages, sort results, and search safely.
+  </Card>
+  <Card title="Result handling" icon="triangle-exclamation" href="/errors">
+    Handle API, network, and parsing failures.
+  </Card>
+  <Card title="Request customization" icon="filter" href="/interceptors">
+    Add low-level Fetch lifecycle hooks.
   </Card>
 </CardGroup>

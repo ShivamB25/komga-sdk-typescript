@@ -1,40 +1,163 @@
 ---
 title: "Testing"
-description: "Test your integration and run the SDK test suite"
+description: "Test Komga integrations and custom Fetch implementations"
 icon: "flask-vial"
 ---
 
+The SDK uses native Fetch and returns a structured result by default. Test the client boundary you own: configure `createKomgaClient`, inject a Fetch implementation, and assert the generated operation receives the expected response.
+
 ## Integration testing
 
-Use a local Komga instance and real credentials to validate your integration end to end.
+Use a dedicated Komga instance and credentials for end-to-end tests. Keep the server URL and credentials in environment variables rather than committing them:
 
 ```typescript
-import { createKomgaClient, BookService } from 'komga-sdk';
+import { createKomgaClient, getCurrentUser } from 'komga-sdk';
 
 const client = createKomgaClient({
-  baseUrl: process.env.KOMGA_URL || 'http://localhost:25600',
+  baseUrl: process.env.KOMGA_URL ?? 'http://localhost:25600',
   auth: {
     type: 'basic',
-    username: process.env.KOMGA_USER || 'admin',
-    password: process.env.KOMGA_PASS || 'password',
+    username: process.env.KOMGA_USER ?? 'admin',
+    password: process.env.KOMGA_PASSWORD ?? 'password',
   },
 });
 
-const book = await new BookService(client).getById('book-123');
-console.log(book.id);
+const result = await getCurrentUser(undefined, { client });
+if (result.error) {
+  throw new Error(`Komga request failed: ${result.response?.status}`);
+}
+
+console.log(result.data?.email);
 ```
 
-## SDK test suite (repo)
+This exercises authentication, request serialization, and the server response. Use API-key authentication instead when that is how the deployment is configured. Keep integration data in a disposable library: write operations can change server state.
 
-```bash
-bun run test
+## Test a custom Fetch implementation
+
+A custom Fetch function has the platform `fetch(input, init)` signature. Record a real `Request` and return a native `Response`; do not return parsed JSON or a custom response object:
+
+```typescript
+import { expect, it } from 'vitest';
+import { createKomgaClient, getGlobalSettings } from 'komga-sdk';
+
+it('uses the injected Fetch implementation', async () => {
+  const requests: Request[] = [];
+  const fetchForTest: typeof fetch = async (input, init) => {
+    requests.push(new Request(input, init));
+    return new Response('{}', {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  const client = createKomgaClient({
+    baseUrl: 'https://komga.test',
+    fetch: fetchForTest,
+  });
+
+  const result = await getGlobalSettings({ client });
+
+  expect(result.error).toBeUndefined();
+  expect(requests).toHaveLength(1);
+  expect(requests[0].method).toBe('GET');
+  expect(requests[0].url).toBe('https://komga.test/api/v1/client-settings/global/list');
+});
 ```
 
+### Assert serialized DTOs and headers
+
+For a body operation, inspect the request after the generated client has serialized the named DTO. A 204 response models the operation's no-content success:
+
+```typescript
+import { expect, it } from 'vitest';
+import { createKomgaClient, saveGlobalSetting } from 'komga-sdk';
+
+it('serializes a global setting map as JSON', async () => {
+  let request: Request | undefined;
+  const fetchForTest: typeof fetch = async (input, init) => {
+    request = new Request(input, init);
+    return new Response(null, { status: 204 });
+  };
+
+  const client = createKomgaClient({ baseUrl: 'https://komga.test', fetch: fetchForTest });
+  const result = await saveGlobalSetting(
+    {
+      body: {
+        'webui.theme.mode': { value: 'dark', allowUnauthorized: false },
+      },
+    },
+    { client },
+  );
+
+  expect(result.error).toBeUndefined();
+  expect(request?.method).toBe('PATCH');
+  expect(request?.headers.get('content-type')).toContain('application/json');
+  expect(await request!.text()).toBe(
+    JSON.stringify({ 'webui.theme.mode': { value: 'dark', allowUnauthorized: false } }),
+  );
+});
+```
+
+## Test structured failures
+
+Generated calls do not throw for HTTP errors unless you use `unwrap`. Return an error response from the injected Fetch implementation to test the non-throwing result:
+
+```typescript
+import { expect, it } from 'vitest';
+import { createKomgaClient, getGlobalSettings } from 'komga-sdk';
+
+it('returns an HTTP error in the result', async () => {
+  const fetchForTest: typeof fetch = async () =>
+    new Response(JSON.stringify({ message: 'forbidden' }), {
+      status: 403,
+      headers: { 'content-type': 'application/json' },
+    });
+
+  const client = createKomgaClient({
+    baseUrl: 'https://komga.test',
+    fetch: fetchForTest,
+  });
+
+  const result = await getGlobalSettings({ client });
+
+  expect(result.error).toBeDefined();
+  expect(result.response?.status).toBe(403);
+});
+```
+
+When the application prefers exceptions, call `unwrap(result)` and assert `KomgaApiError` separately:
+
+```typescript
+import { expect, it } from 'vitest';
+import { KomgaApiError, createKomgaClient, getGlobalSettings, unwrap } from 'komga-sdk';
+
+it('converts a structured error into a typed exception', async () => {
+  const client = createKomgaClient({
+    baseUrl: 'https://komga.test',
+    fetch: async () => new Response('{"message":"forbidden"}', { status: 403 }),
+  });
+
+  const result = await getGlobalSettings({ client });
+  expect(() => unwrap(result)).toThrow(KomgaApiError);
+});
+```
+
+Network errors can produce a result without `response`; test those separately if the application needs to distinguish transport failures from HTTP errors.
+
+## Run repository tests
+
 ```bash
-bun run test:coverage
+npm test
+```
+
+Run the type checker as part of CI:
+
+```bash
+npm run typecheck
 ```
 
 ## Next steps
 
-- Troubleshooting: [Troubleshooting](/guides/troubleshooting)
-- Configuration: [Configuration](/reference/configuration)
+- Configure clients with [Authentication](/authentication).
+- Review [Quickstart](/quickstart) for result handling and `unwrap`.
+- Use [Read Progress](/guides/read-progress) for an operation-level integration example.

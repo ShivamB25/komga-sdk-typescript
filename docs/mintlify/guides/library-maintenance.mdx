@@ -4,7 +4,7 @@ description: "Scan, analyze, and maintain your Komga libraries"
 icon: "screwdriver-wrench"
 ---
 
-This guide covers library maintenance operations including scanning, analysis, metadata refresh, and administrative tasks.
+These examples use generated Komga API 1.25 operations. Values such as `libraryId` and `deep` are flat parameters, followed by `{ client }`. Generated results are non-throwing by default.
 
 <Warning>
 Most operations in this guide require **ADMIN** role.
@@ -14,315 +14,313 @@ Most operations in this guide require **ADMIN** role.
 
 ### List all libraries
 
-Get all configured libraries:
+`getLibraries` accepts `{ client }` as its options argument because it has no parameter object:
 
 ```typescript
 import { getLibraries } from 'komga-sdk';
 
 const result = await getLibraries({ client });
 
-if (result.data) {
-  for (const library of result.data) {
+if (result.error) {
+  console.error('Could not list libraries', result.error);
+} else {
+  for (const library of result.data ?? []) {
     console.log(`${library.name}: ${library.root}`);
-    console.log(`  Type: ${library.importComicInfoBook}, ${library.importComicInfoSeries}`);
   }
 }
 ```
 
-### Get library by ID
-
-Retrieve details about a specific library:
+### Get a library by ID
 
 ```typescript
 import { getLibraryById } from 'komga-sdk';
 
-const result = await getLibraryById({
-  client,
-  path: { libraryId: 'library-123' },
-});
+const result = await getLibraryById({ libraryId: 'library-123' }, { client });
 
-if (result.data) {
+if (result.error) {
+  console.error('Library lookup failed', result.error);
+} else if (result.data) {
   console.log(`Library: ${result.data.name}`);
   console.log(`Root path: ${result.data.root}`);
   console.log(`Scan interval: ${result.data.scanInterval}`);
 }
 ```
 
-### Update library
+### Update a library
 
-Modify library settings:
+`updateLibraryById` returns `void` data on success:
 
 ```typescript
 import { updateLibraryById } from 'komga-sdk';
 
-await updateLibraryById({
-  client,
-  path: { libraryId: 'library-123' },
-  body: {
-    name: 'Updated Library Name',
-    importComicInfoBook: true,
-    importComicInfoSeries: true,
-    scanInterval: 'EVERY_6H',
+const result = await updateLibraryById(
+  {
+    libraryId: 'library-123',
+    libraryUpdateDto: {
+      name: 'Updated Library Name',
+      importComicInfoBook: true,
+      importComicInfoSeries: true,
+      scanInterval: 'EVERY_6H',
+    },
   },
-});
+  { client },
+);
+
+if (result.error) {
+  console.error('Library update failed', result.error);
+} else {
+  console.log('Library updated');
+}
 ```
 
-<Warning>
-`updateLibraryByIdDeprecated` uses the legacy PUT endpoint. Prefer `updateLibraryById` unless you need backward compatibility.
-</Warning>
+### Delete a library
 
-```typescript
-import { updateLibraryByIdDeprecated } from 'komga-sdk';
-
-await updateLibraryByIdDeprecated({
-  client,
-  path: { libraryId: 'library-123' },
-  body: {
-    name: 'Legacy Update Example',
-    scanInterval: 'EVERY_12H',
-  },
-});
-```
-
-### Delete library
-
-<Warning>
-This removes the library from Komga but does NOT delete the underlying files.
-</Warning>
+This removes the library configuration but does not delete underlying files. The successful response has no data:
 
 ```typescript
 import { deleteLibraryById } from 'komga-sdk';
 
-await deleteLibraryById({
-  client,
-  path: { libraryId: 'library-123' },
-});
+const result = await deleteLibraryById({ libraryId: 'library-123' }, { client });
+
+if (result.error) {
+  console.error('Library deletion failed', result.error);
+} else {
+  console.log('Library deleted');
+}
 ```
 
 ## Library maintenance operations
 
 ### Scan library
 
-Trigger a scan to detect new, modified, or deleted books:
+`deep` is an optional flat query parameter:
 
 ```typescript
 import { libraryScan } from 'komga-sdk';
 
-await libraryScan({
-  client,
-  path: { libraryId: 'library-123' },
-});
+const result = await libraryScan(
+  { libraryId: 'library-123', deep: true },
+  { client },
+);
+
+if (result.error) {
+  console.error('Library scan failed', result.error);
+} else {
+  console.log('Library scan queued');
+}
 ```
 
-<Tip>
-Library scans run as background tasks. Monitor the task queue or historical events to track progress.
-</Tip>
+<Info>
+Library scans run as background tasks. The accepted response has no useful data payload; monitor Komga tasks separately.
+</Info>
+
+Do not assume that the scan has finished when the request resolves. If you need a strict sequence (scan → analyze → refresh), observe the server's task state between calls; otherwise, these operations may overlap.
 
 ### Analyze library
-
-Analyze all books in a library for metadata and page information:
 
 ```typescript
 import { libraryAnalyze } from 'komga-sdk';
 
-await libraryAnalyze({
-  client,
-  path: { libraryId: 'library-123' },
-});
+const result = await libraryAnalyze({ libraryId: 'library-123' }, { client });
+if (result.error) {
+  console.error('Library analysis failed', result.error);
+}
 ```
 
 ### Refresh metadata
 
-Refresh metadata for all series in a library from external sources:
-
 ```typescript
 import { libraryRefreshMetadata } from 'komga-sdk';
 
-await libraryRefreshMetadata({
-  client,
-  path: { libraryId: 'library-123' },
-});
+const result = await libraryRefreshMetadata({ libraryId: 'library-123' }, { client });
+if (result.error) {
+  console.error('Library metadata refresh failed', result.error);
+}
 ```
 
 ### Empty trash
 
-Permanently delete books marked for deletion:
-
 ```typescript
 import { libraryEmptyTrash } from 'komga-sdk';
 
-await libraryEmptyTrash({
-  client,
-  path: { libraryId: 'library-123' },
-});
+const result = await libraryEmptyTrash({ libraryId: 'library-123' }, { client });
+if (result.error) {
+  console.error('Empty trash failed', result.error);
+}
 ```
 
 ## Book maintenance
 
 ### Analyze a book
 
-Re-analyze a single book:
-
 ```typescript
 import { bookAnalyze } from 'komga-sdk';
 
-await bookAnalyze({
-  client,
-  path: { bookId: 'book-123' },
-});
+const result = await bookAnalyze({ bookId: 'book-123' }, { client });
+if (result.error) {
+  console.error('Book analysis failed', result.error);
+}
 ```
 
 ### Refresh book metadata
 
-Refresh metadata for a single book:
-
 ```typescript
 import { bookRefreshMetadata } from 'komga-sdk';
 
-await bookRefreshMetadata({
-  client,
-  path: { bookId: 'book-123' },
-});
+const result = await bookRefreshMetadata({ bookId: 'book-123' }, { client });
+if (result.error) {
+  console.error('Book metadata refresh failed', result.error);
+}
 ```
 
-### Delete book file
+### Delete a book file
 
 <Warning>
-This permanently deletes the book file from disk. Cannot be undone.
+This permanently deletes the book file from disk and cannot be undone.
 </Warning>
 
 ```typescript
 import { deleteBookFile } from 'komga-sdk';
 
-await deleteBookFile({
-  client,
-  path: { bookId: 'book-123' },
-});
+const result = await deleteBookFile({ bookId: 'book-123' }, { client });
+if (result.error) {
+  console.error('Book file deletion failed', result.error);
+}
 ```
 
-### Delete series file
+### Delete series files
 
 <Warning>
-This permanently deletes all book files in the series from disk. Cannot be undone.
+This permanently deletes all book files in the series from disk and cannot be undone.
 </Warning>
 
 ```typescript
 import { deleteSeriesFile } from 'komga-sdk';
 
-await deleteSeriesFile({
-  client,
-  path: { seriesId: 'series-123' },
-});
+const result = await deleteSeriesFile({ seriesId: 'series-123' }, { client });
+if (result.error) {
+  console.error('Series file deletion failed', result.error);
+}
 ```
 
 ### Update book metadata
 
-Update metadata for a single book:
-
 ```typescript
 import { updateBookMetadata } from 'komga-sdk';
 
-await updateBookMetadata({
-  client,
-  path: { bookId: 'book-123' },
-  body: {
-    title: 'New Title',
-    summary: 'Updated summary',
-    authors: [{ name: 'Author Name', role: 'writer' }],
+const result = await updateBookMetadata(
+  {
+    bookId: 'book-123',
+    bookMetadataUpdateDto: {
+      title: 'New Title',
+      summary: 'Updated summary',
+      authors: [{ name: 'Author Name', role: 'writer' }],
+    },
   },
-});
+  { client },
+);
+
+if (result.error) {
+  console.error('Book metadata update failed', result.error);
+}
 ```
 
 ### Batch update book metadata
 
-Update metadata for multiple books at once:
+`updateBookMetadataByBatch` takes a flat `body` map keyed by book ID. It does not accept an `ids` plus `metadata` object:
 
 ```typescript
 import { updateBookMetadataByBatch } from 'komga-sdk';
 
-await updateBookMetadataByBatch({
-  client,
-  body: {
-    ids: ['book-1', 'book-2', 'book-3'],
-    metadata: {
-      tags: ['batch-updated'],
+const result = await updateBookMetadataByBatch(
+  {
+    body: {
+      'book-1': { tags: ['batch-updated'] },
+      'book-2': { tags: ['batch-updated'] },
     },
   },
-});
+  { client },
+);
+
+if (result.error) {
+  console.error('Batch metadata update failed', result.error);
+}
 ```
+
+### Metadata reset and batch semantics
+
+Book and series metadata updates are partial: omitted fields remain unchanged. The API update contract permits `null` to unset a scalar metadata field, while an empty array such as `tags: []` clears a collection. Lock flags are independent and must be updated explicitly. Both single-item metadata updates and `updateBookMetadataByBatch` return `204 No Content`; re-fetch items if the caller needs the resulting DTO.
+
+The batch endpoint's flat `body` is a map from book ID to its own `BookMetadataUpdateDto`. It is not an `{ ids, metadata }` envelope; each map value may contain a different partial update.
 
 ## Common workflows
 
 ### Full library refresh
 
-Perform a complete maintenance cycle on a library:
+The maintenance operations return accepted responses, so check `error` after each request:
 
 ```typescript
-import { 
-  libraryScan, 
-  libraryAnalyze, 
+import {
+  libraryScan,
+  libraryAnalyze,
   libraryRefreshMetadata,
-  booksRegenerateThumbnails 
+  booksRegenerateThumbnails,
 } from 'komga-sdk';
 
 async function fullLibraryMaintenance(libraryId: string) {
-  console.log('Starting library maintenance...');
-  
-  // Step 1: Scan for changes
-  await libraryScan({ client, path: { libraryId } });
-  console.log('Scan triggered');
-  
-  // Step 2: Analyze books
-  await libraryAnalyze({ client, path: { libraryId } });
-  console.log('Analysis triggered');
-  
-  // Step 3: Refresh metadata
-  await libraryRefreshMetadata({ client, path: { libraryId } });
-  console.log('Metadata refresh triggered');
-  
-  // Step 4: Regenerate thumbnails
-  await booksRegenerateThumbnails({ client });
-  console.log('Thumbnail regeneration triggered');
-  
-  console.log('Maintenance tasks queued. Check server tasks for progress.');
+  const scan = await libraryScan({ libraryId }, { client });
+  if (scan.error) throw scan.error;
+
+  const analysis = await libraryAnalyze({ libraryId }, { client });
+  if (analysis.error) throw analysis.error;
+
+  const refresh = await libraryRefreshMetadata({ libraryId }, { client });
+  if (refresh.error) throw refresh.error;
+
+  const thumbnails = await booksRegenerateThumbnails(undefined, { client });
+  if (thumbnails.error) throw thumbnails.error;
+
+  console.log('Maintenance tasks queued');
 }
 ```
 
-### Batch operations on library
+`libraryAnalyze`, `libraryRefreshMetadata`, and thumbnail regeneration are also queued administrative tasks. A maintenance runner should record which requests were accepted and let Komga's task system report completion rather than treating a successful HTTP response as completed work.
+
+### Batch operations on a library
+
+Use the `SearchConditionLibraryId` condition inside `bookSearch` to list only books from one library:
 
 ```typescript
 import { getBooks, updateBookMetadataByBatch } from 'komga-sdk';
 
 async function batchTagUntaggedBooks(libraryId: string) {
-  // Get all books in library
-  const result = await getBooks({
-    client,
-    body: { libraryId },
-    query: { unpaged: true },
-  });
-
-  if (!result.data) return;
-
-  // Find books without tags
-  const untaggedBooks = result.data.content.filter(
-    book => !book.metadata.tags || book.metadata.tags.length === 0
-  );
-
-  if (untaggedBooks.length === 0) {
-    console.log('No untagged books found');
-    return;
-  }
-
-  // Batch tag them
-  await updateBookMetadataByBatch({
-    client,
-    body: {
-      ids: untaggedBooks.map(b => b.id),
-      metadata: {
-        tags: ['needs-tagging'],
+  const result = await getBooks(
+    {
+      unpaged: true,
+      bookSearch: {
+        condition: {
+          libraryId: { operator: 'is', value: libraryId },
+        },
       },
     },
-  });
+    { client },
+  );
+  if (result.error) throw result.error;
+
+  const untaggedBooks = (result.data?.content ?? []).filter(
+    (book) => !book.metadata.tags || book.metadata.tags.length === 0,
+  );
+  if (untaggedBooks.length === 0) return;
+
+  const update = await updateBookMetadataByBatch(
+    {
+      body: Object.fromEntries(
+        untaggedBooks.map((book) => [book.id, { tags: ['needs-tagging'] }]),
+      ),
+    },
+    { client },
+  );
+  if (update.error) throw update.error;
 
   console.log(`Tagged ${untaggedBooks.length} books`);
 }
@@ -334,31 +332,43 @@ async function batchTagUntaggedBooks(libraryId: string) {
 import { getLibraries, getSeries, getBooks } from 'komga-sdk';
 
 async function getLibraryStatistics() {
-  const libraries = await getLibraries({ client });
-  
-  if (!libraries.data) return;
+  const librariesResult = await getLibraries({ client });
+  if (librariesResult.error) throw librariesResult.error;
 
   const stats = [];
-
-  for (const library of libraries.data) {
+  for (const library of librariesResult.data ?? []) {
     const [series, books] = await Promise.all([
-      getSeries({
-        client,
-        body: { libraryId: library.id },
-        query: { unpaged: true },
-      }),
-      getBooks({
-        client,
-        body: { libraryId: library.id },
-        query: { unpaged: true },
-      }),
+      getSeries(
+        {
+          unpaged: true,
+          seriesSearch: {
+            condition: {
+              libraryId: { operator: 'is', value: library.id },
+            },
+          },
+        },
+        { client },
+      ),
+      getBooks(
+        {
+          unpaged: true,
+          bookSearch: {
+            condition: {
+              libraryId: { operator: 'is', value: library.id },
+            },
+          },
+        },
+        { client },
+      ),
     ]);
+
+    if (series.error) throw series.error;
+    if (books.error) throw books.error;
 
     stats.push({
       name: library.name,
       seriesCount: series.data?.totalElements ?? 0,
       bookCount: books.data?.totalElements ?? 0,
-      lastScan: library.lastScanDate,
     });
   }
 
@@ -369,34 +379,35 @@ async function getLibraryStatistics() {
 ### Maintenance scheduler
 
 ```typescript
-class MaintenanceScheduler {
-  private libraryId: string;
+import {
+  libraryScan,
+  libraryAnalyze,
+  libraryRefreshMetadata,
+  booksRegenerateThumbnails,
+} from 'komga-sdk';
 
-  constructor(libraryId: string) {
-    this.libraryId = libraryId;
-  }
+class MaintenanceScheduler {
+  constructor(private readonly libraryId: string) {}
 
   async runDailyMaintenance() {
-    await libraryScan({
-      client,
-      path: { libraryId: this.libraryId },
-    });
+    const result = await libraryScan({ libraryId: this.libraryId }, { client });
+    if (result.error) throw result.error;
   }
 
   async runWeeklyMaintenance() {
-    await libraryAnalyze({
-      client,
-      path: { libraryId: this.libraryId },
-    });
+    const result = await libraryAnalyze({ libraryId: this.libraryId }, { client });
+    if (result.error) throw result.error;
   }
 
   async runMonthlyMaintenance() {
-    await libraryRefreshMetadata({
-      client,
-      path: { libraryId: this.libraryId },
-    });
-    
-    await booksRegenerateThumbnails({ client });
+    const refresh = await libraryRefreshMetadata(
+      { libraryId: this.libraryId },
+      { client },
+    );
+    if (refresh.error) throw refresh.error;
+
+    const thumbnails = await booksRegenerateThumbnails(undefined, { client });
+    if (thumbnails.error) throw thumbnails.error;
   }
 }
 ```
@@ -406,10 +417,7 @@ class MaintenanceScheduler {
 ```typescript
 import { libraryScan } from 'komga-sdk';
 
-const result = await libraryScan({
-  client,
-  path: { libraryId: 'library-123' },
-});
+const result = await libraryScan({ libraryId: 'library-123' }, { client });
 
 if (result.error) {
   switch (result.response?.status) {
@@ -423,7 +431,7 @@ if (result.error) {
       console.error('Library not found');
       break;
     default:
-      console.error('Scan failed:', result.error);
+      console.error('Scan failed', result.error);
   }
 }
 ```
@@ -434,15 +442,15 @@ if (result.error) {
   <Card title="Libraries" icon="book-open" href="/guides/libraries">
     Learn about library creation and configuration.
   </Card>
-  
+
   <Card title="Admin" icon="shield-halved" href="/guides/admin">
     Server administration and settings.
   </Card>
-  
+
   <Card title="Book Content" icon="images" href="/guides/book-content">
     Access book pages and thumbnails.
   </Card>
-  
+
   <Card title="Series Discovery" icon="compass" href="/guides/series-discovery">
     Browse and discover series.
   </Card>

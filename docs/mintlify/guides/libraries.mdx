@@ -4,37 +4,52 @@ description: "Create, update, scan, and manage libraries"
 icon: "database"
 ---
 
-This guide covers common library workflows using `LibraryService`.
+These examples use generated Komga API 1.25 operations. Parameters are flat, and `{ client }` is passed as the options argument. Generated results are non-throwing by default.
 
 ## List libraries
 
+`getLibraries` has no parameter object, so `{ client }` is its options argument:
+
 ```typescript
-import { LibraryService } from 'komga-sdk';
+import { getLibraries } from 'komga-sdk';
 
-const service = new LibraryService(client);
-const libraries = await service.getAll();
+const result = await getLibraries({ client });
 
-console.log(libraries.map((library) => library.name));
+if (result.error) {
+  console.error('Could not list libraries', result.error);
+} else {
+  for (const library of result.data ?? []) {
+    console.log(library.name);
+  }
+}
 ```
+
+`getLibraries` returns only libraries visible to the current user; it is not an administrator-only inventory endpoint. An empty array can therefore mean either that no libraries are configured or that the account has no library permission.
 
 ## Get a library by ID
 
 ```typescript
-const library = await service.getById('library-123');
-console.log(library.root);
+import { getLibraryById } from 'komga-sdk';
+
+const result = await getLibraryById({ libraryId: 'library-123' }, { client });
+
+if (result.error) {
+  console.error('Library lookup failed', result.error);
+} else if (result.data) {
+  console.log(result.data.root);
+}
 ```
 
 ## Create a library
 
-`LibraryCreationDto` has many required fields. Use the API reference if you need to tune defaults.
+`addLibrary` expects the flat `libraryCreationDto` parameter. The required fields below match the generated type:
 
 ```typescript
-import { type LibraryCreationDto } from 'komga-sdk';
+import { addLibrary, type LibraryCreationDto } from 'komga-sdk';
 
-const payload: LibraryCreationDto = {
+const libraryCreationDto: LibraryCreationDto = {
   name: 'Comics',
   root: '/data/comics',
-  oneshotsDirectory: '/data/comics/oneshots',
   scanInterval: 'DAILY',
   seriesCover: 'FIRST',
   scanDirectoryExclusions: [],
@@ -62,28 +77,111 @@ const payload: LibraryCreationDto = {
   scanOnStartup: true,
 };
 
-const created = await service.create(payload);
+const result = await addLibrary({ libraryCreationDto }, { client });
+
+if (result.error) {
+  console.error('Library creation failed', result.error);
+} else if (result.data) {
+  console.log(`Created ${result.data.name} (${result.data.id})`);
+}
 ```
+
+### Configuration fields that affect scanning
+
+`scanInterval` controls scheduled scans (`DISABLED`, `HOURLY`, `EVERY_6H`, `EVERY_12H`, `DAILY`, or `WEEKLY`), while `scanOnStartup` controls the initial startup scan. `scanCbx`, `scanEpub`, and `scanPdf` select the file families that are discovered. The `importComicInfo*`, `importEpub*`, and `importLocalArtwork` flags control metadata/artwork import; `scanDirectoryExclusions` contains server-side relative paths to skip. Hashing, dimension analysis, conversion, and trash cleanup are independent switches—enable only the work the deployment needs.
+
+All paths are interpreted by the Komga server. A client should not assume that `/data/comics` is meaningful on its own machine.
 
 ## Update a library
 
+`updateLibraryById` returns no data on success:
+
 ```typescript
-await service.update('library-123', { name: 'Updated Library' });
+import { updateLibraryById } from 'komga-sdk';
+
+const result = await updateLibraryById(
+  {
+    libraryId: 'library-123',
+    libraryUpdateDto: { name: 'Updated Library' },
+  },
+  { client },
+);
+
+if (result.error) {
+  console.error('Library update failed', result.error);
+} else {
+  console.log('Library updated');
+}
 ```
 
 ## Scan a library
 
+`deep` is an optional flat query parameter:
+
 ```typescript
-await service.scan('library-123');
+import { libraryScan } from 'komga-sdk';
+
+const result = await libraryScan(
+  { libraryId: 'library-123', deep: true },
+  { client },
+);
+
+if (result.error) {
+  console.error('Library scan failed', result.error);
+} else {
+  console.log('Library scan queued');
+}
 ```
+
+### Library lifecycle
+
+Creating or updating configuration does not replace a scan. After an update, explicitly call `libraryScan` when files should be discovered immediately, then treat the accepted response as a queued background task:
+
+```typescript
+const updated = await updateLibraryById(
+  {
+    libraryId: 'library-123',
+    libraryUpdateDto: {
+      scanInterval: 'EVERY_6H',
+      scanDirectoryExclusions: ['incoming'],
+    },
+  },
+  { client },
+);
+if (updated.error) throw updated.error;
+
+const scan = await libraryScan(
+  { libraryId: 'library-123', deep: false },
+  { client },
+);
+if (scan.error) throw scan.error;
+// 202 Accepted has no useful data payload; observe server tasks separately.
+```
+
+Use `deep: true` only when a deep reconciliation is required; it can be substantially more expensive than a regular scan. Deleting a library removes configuration, not files on disk.
 
 ## Delete a library
 
+Deleting a library removes its configuration but does not delete files on disk. The successful response has no data:
+
 ```typescript
-await service.delete('library-123');
+import { deleteLibraryById } from 'komga-sdk';
+
+const result = await deleteLibraryById({ libraryId: 'library-123' }, { client });
+
+if (result.error) {
+  console.error('Library deletion failed', result.error);
+} else {
+  console.log('Library deleted');
+}
 ```
+
+## Permissions and failure modes
+
+Creating, updating, scanning, and deleting libraries require `ADMIN`. A normal `getLibraries`/`getLibraryById` request is filtered by the current user's permissions. Handle `401` (not authenticated), `403` (insufficient role), `404` (library not found or not visible), and `409` (a conflicting library configuration) from `result.response?.status`; do not treat an error result as an empty list.
 
 ## Next steps
 
+- Maintenance operations: [Library Maintenance](/guides/library-maintenance)
 - Configuration reference: [Configuration](/reference/configuration)
 - Troubleshooting: [Troubleshooting](/guides/troubleshooting)

@@ -1,57 +1,194 @@
 ---
 title: "Direct API functions"
-description: "Use low-level endpoints when you need full API coverage"
+description: "Call generated Komga operations with flat parameters and typed results"
 icon: "code"
 ---
 
-Direct API functions return `{ data, error }` and require manual response validation if you want runtime checks.
+The 1.0 SDK exports generated operation functions for the complete Komga API surface. Pass endpoint parameters as a flat object, then pass `{ client }` as the operation options. The default response is a result object with `data`, `error`, `request`, and `response` fields.
 
-## Fetch a book
+## Create a client
 
 ```typescript
-import { createKomgaClient, getBookById } from 'komga-sdk';
+import { createKomgaClient } from 'komga-sdk';
 
 const client = createKomgaClient({
   baseUrl: 'http://localhost:25600',
   auth: { type: 'basic', username: 'admin', password: 'password' },
 });
+```
 
-const result = await getBookById({
-  client,
-  path: { bookId: 'book-123' },
-});
+`createKomgaClient` also supports API-key authentication, no authentication, custom headers, cookie credentials, and a custom Fetch implementation. See [Fetch configuration](/reference/configuration).
 
-if (result.data) {
+## Understand the call shape
+
+The first argument contains only endpoint inputs. The generator maps each known field to the correct path, query, or JSON body location:
+
+```typescript
+// Path input: { bookId } is mapped to /api/v1/books/{bookId}
+const bookResult = await getBookById({ bookId: 'book-123' }, { client });
+
+// Query and body inputs can coexist in one flat object.
+const pageResult = await getBooks(
+  { bookSearch: { fullTextSearch: 'manga' }, page: 0, size: 20 },
+  { client },
+);
+```
+
+Do not use the removed grouped `{ path, query, body }` shape. The generated function signature and generated types are the source of truth for parameter names, required fields, and permissions.
+
+## Get a book
+
+`getBookById` takes a flat `bookId` parameter. The generated client maps it to the path segment:
+
+```typescript
+import { getBookById } from 'komga-sdk';
+
+const result = await getBookById({ bookId: 'book-123' }, { client });
+
+if (result.error === undefined) {
   console.log(result.data.metadata.title);
+} else {
+  console.error('Request failed', result.response?.status, result.error);
 }
 ```
 
 ## List books with search and pagination
 
+`getBooks` combines its flat query parameters with the generated `bookSearch` body parameter:
+
 ```typescript
 import { getBooks } from 'komga-sdk';
 
-const result = await getBooks({
-  client,
-  body: { fullTextSearch: 'manga' },
-  query: { page: 0, size: 20, sort: ['metadata.title,asc'] },
-});
+const result = await getBooks(
+  {
+    bookSearch: { fullTextSearch: 'manga' },
+    page: 0,
+    size: 20,
+    sort: ['metadata.title,asc'],
+  },
+  { client },
+);
 
-if (result.data) {
-  console.log(result.data.totalElements);
+if (result.error === undefined) {
+  console.log(result.data.totalElements ?? 0);
+  console.log(result.data.content ?? []);
 }
 ```
 
-## Validate responses
+The generated `BookSearch` type currently exposes `fullTextSearch` and an optional `condition`. It does not use the former service-layer `search` object; use the generated type rather than guessing filter properties.
+
+## List collections, read lists, and related resources
+
+These list operations use flat query parameters. `library_id` is the generated parameter name:
 
 ```typescript
-import { BookDtoSchema, validateResponse } from 'komga-sdk';
+import { getCollections, getReadLists, getBooksBySeriesId } from 'komga-sdk';
 
-const validated = validateResponse(BookDtoSchema, result.data);
-console.log(validated.id);
+const collections = await getCollections(
+  { search: 'favorites', page: 0, size: 20 },
+  { client },
+);
+
+const readLists = await getReadLists(
+  { library_id: ['library-123'], page: 0, size: 20 },
+  { client },
+);
+
+const seriesBooks = await getBooksBySeriesId(
+  { seriesId: 'series-123', page: 0, size: 50 },
+  { client },
+);
 ```
+
+Check `error` on each result before reading page content. The generated page envelope has optional fields because the OpenAPI contract permits partial responses.
+
+## Mutations and permissions
+
+Mutation bodies are named generated DTO properties. A successful mutation often returns `204 No Content`, so the data branch is `undefined`:
+
+```typescript
+import { updateBookMetadata } from 'komga-sdk';
+
+const result = await updateBookMetadata(
+  {
+    bookId: 'book-123',
+    bookMetadataUpdateDto: { title: 'New title' },
+  },
+  { client },
+);
+
+if (result.error) {
+  console.error('Update failed', result.response?.status, result.error);
+} else {
+  console.log('Metadata updated');
+}
+```
+
+Generated operation comments identify required roles such as `ADMIN` or `FILE_DOWNLOAD`. A `403` means the authenticated user lacks permission; changing the body or retrying unchanged credentials will not grant access.
+
+## Binary and text responses
+
+Use generated Fetch parser options for endpoints that return media rather than JSON:
+
+```typescript
+import { getBookPageByNumber, getBookPageRawByNumber } from 'komga-sdk';
+
+const image = await getBookPageByNumber(
+  { bookId: 'book-123', pageNumber: 1 },
+  { client, parseAs: 'blob' },
+);
+const raw = await getBookPageRawByNumber(
+  { bookId: 'book-123', pageNumber: 1 },
+  { client, parseAs: 'text' },
+);
+
+if (image.error === undefined) {
+  const objectUrl = URL.createObjectURL(image.data);
+  // Set objectUrl as an <img> source, then URL.revokeObjectURL(objectUrl) when done.
+}
+if (raw.error === undefined) {
+  console.log(raw.data);
+}
+```
+
+For downloads, use the operation's generated response type and an appropriate parser (`blob` in a browser, `arrayBuffer` in a Node pipeline). Do not force JSON parsing on a file or page endpoint.
+
+## Use throwing results when needed
+
+Generated calls remain non-throwing by default. `unwrap` is the explicit boundary that returns data or throws `KomgaApiError`:
+
+```typescript
+import { getBookById, unwrap } from 'komga-sdk';
+
+const book = unwrap(await getBookById({ bookId: 'book-123' }, { client }));
+```
+
+Successful void operations return `undefined` through `unwrap`, matching their generated type. An absent result is rejected as a malformed invocation; network and HTTP failures become `KomgaApiError` only at the `unwrap` boundary.
+
+## Per-call generated options
+
+The second argument can override generated Fetch behavior for one operation:
+
+```typescript
+const result = await getBookById(
+  { bookId: 'book-123' },
+  {
+    client,
+    headers: { 'X-Request-Source': 'admin-screen' },
+    signal: AbortSignal.timeout(10_000),
+    throwOnError: false,
+  },
+);
+```
+
+Use `throwOnError` only when you explicitly want generated-client throwing behavior; `unwrap` gives a typed `KomgaApiError` and is usually easier to standardize. Do not log the second argument when it may contain credentials.
+
+## No implicit validation
+
+The generated TypeScript types describe the API at compile time. The core package does not parse responses with Zod or another runtime schema library. Add an application-owned validator only when your application needs one; see [Runtime validation](/validation).
 
 ## Next steps
 
-- Learn validation helpers: [Validation](/validation)
-- Learn error handling: [Errors](/errors)
+- Handle result branches and typed throwing: [Result handling](/errors)
+- List and iterate page responses: [Pagination](/pagination)
+- Customize the underlying Fetch lifecycle: [Request customization](/interceptors)

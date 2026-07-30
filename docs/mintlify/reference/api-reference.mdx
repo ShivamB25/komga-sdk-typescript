@@ -1,25 +1,79 @@
 ---
 title: "API reference"
-description: "TypeDoc and OpenAPI references for Komga"
+description: "Generated SDK exports and the Komga 1.25.0 API reference"
 icon: "book-open-cover"
 ---
 
-Komga SDK ships two complementary references:
+Komga SDK 1.0 has two related references: the generated TypeScript surface in the package and the Komga server's OpenAPI reference.
 
-## TypeDoc (SDK)
+## Generated SDK exports
 
-TypeDoc provides class and type details for the SDK itself.
+The package root re-exports:
 
-- Local output: `docs/api/`
-- Generate: `bun run docs`
+- Generated operation functions such as `getBooks`, `getBookById`, `getBookPages`, `getSeriesById`, `getLibraries`, `getLibraryById`, `getCollections`, and `getReadLists`.
+- Generated DTO, search, page, operation response, and operation error types.
+- `createKomgaClient`, `AuthConfig`, and `KomgaClientOptions`.
+- `KomgaResult`, `KomgaApiError`, and `unwrap`.
+- The generated `createClient` function and `GeneratedClientConfig` type for advanced integrations.
 
-When hosted alongside Mintlify, use the TypeDoc tab or open `/api/`.
+Generated operations use flat parameter objects. For example, `getBookById` has the shape `(parameters: { bookId: string }, options?: Options<never, ThrowOnError>)`; call it as follows:
 
-## OpenAPI (Komga server)
+```typescript
+import { getBookById } from 'komga-sdk';
 
-The API Reference tab in this site is generated from Komga's OpenAPI spec. It stays aligned with the server API version.
+const result = await getBookById(
+  { bookId: 'book-123' },
+  { client },
+);
+
+if (result.error === undefined) {
+  console.log(result.data.metadata.title);
+}
+```
+
+The default result uses fields `{ data, error, request, response }`. See [Direct API functions](/direct-api) for operation examples and [Result handling](/errors) for `unwrap`.
+
+## Read the generated operation contract
+
+The generated function and type names make the transport mapping explicit:
+
+```typescript
+import type {
+  BookMetadataUpdateDto,
+  GetBookByIdError,
+  PageBookDto,
+} from 'komga-sdk';
+
+const update: BookMetadataUpdateDto = { title: 'New title' };
+
+function render(page: PageBookDto) {
+  return page.content?.map((book) => book.metadata.title) ?? [];
+}
+```
+
+Operation comments can include required roles such as `ADMIN` or `FILE_DOWNLOAD`, documented status codes, and whether a successful response is a DTO, page, blob, text value, or `204 No Content`. Use those generated comments and types rather than assuming every endpoint returns JSON.
+
+## Komga server API
+
+The API Reference tab uses the Komga **1.25.0** OpenAPI document:
+
+`https://raw.githubusercontent.com/gotson/komga/1.25.0/komga/docs/openapi.json`
+
+Use it to confirm endpoint parameters, authorization requirements, status codes, and server response schemas. The generated SDK operation names and types are produced from this API contract.
+
+## Version alignment
+
+Keep the generated SDK surface and the server reference on the same API version when you document an operation. If you target another Komga server release, verify its OpenAPI document before relying on a parameter or response field; generated types do not validate a newer server response automatically.
+
+When upgrading Komga, compare operation signatures and response types, regenerate the client, and re-run application-owned runtime validation fixtures if your integration has them. Keep migration notes focused on actual changed operations rather than reintroducing removed service or schema layers.
+
+## TypeDoc and source navigation
+
+The package's generated declarations and TypeScript types are the authoritative SDK reference. TypeDoc can provide symbol-level details for the published source, while this page and the OpenAPI tab explain how to use the generated surface. The generated `sdk.gen.ts` file is intentionally mechanical; prefer the examples in [Direct API](/direct-api) and [Quick reference](/quick-reference) for integration patterns.
 
 ## Next steps
 
-- Usage guides: [Domain services](/domain-services)
-- Direct API calls: [Direct API](/direct-api)
+- Configure the generated client: [Fetch configuration](/reference/configuration)
+- Browse operation usage: [Generated API operations](/domain-services)
+- Add consumer-owned validation: [Runtime validation](/validation)
+- Handle result and media responses: [Result handling](/errors)

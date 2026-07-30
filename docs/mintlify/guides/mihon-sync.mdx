@@ -4,139 +4,165 @@ description: "Sync read progress for Mihon/Tachiyomi clients"
 icon: "arrows-rotate"
 ---
 
-Komga supports Mihon/Tachiyomi read progress syncing for both series and read lists.
+Komga exposes Mihon/Tachiyomi progress operations for read lists and series. Use the standard [Read Progress](/guides/read-progress) operations for page-based or OPDS/Readium readers.
+
+Generated operations return `{ data, error, request, response }`. Path and body values are flat parameters; pass `{ client }` as the second argument.
 
 <Warning>
-These endpoints are intended for Mihon/Tachiyomi-compatible clients. Use standard read progress endpoints for other clients.
+These endpoints use Mihon's progress model. A read-list position (`lastBookRead`) is an index into the list, while a series position (`lastBookNumberSortRead`) is the numeric sort value of the last book. Do not send one field to the other operation.
 </Warning>
 
-## Read list progress (Mihon/Tachiyomi)
+## Read-list progress
 
-### Get read list progress
+### Get read-list progress
+
+The response includes total, unread, in-progress, and read counts plus the last continuously read index:
 
 ```typescript
 import { getMihonReadProgressByReadListId } from 'komga-sdk';
 
-const result = await getMihonReadProgressByReadListId({
-  client,
-  path: { readListId: 'readlist-123' },
-});
+const result = await getMihonReadProgressByReadListId(
+  { id: 'readlist-123' },
+  { client },
+);
 
 if (result.data) {
-  console.log(`Chapters read: ${result.data.read}`);
-  console.log(`Chapters total: ${result.data.total}`);
+  console.log(`Books read: ${result.data.booksReadCount}`);
+  console.log(`Books in progress: ${result.data.booksInProgressCount}`);
+  console.log(`Books unread: ${result.data.booksUnreadCount}`);
+  console.log(`Books total: ${result.data.booksCount}`);
+  console.log(`Last continuous index: ${result.data.lastReadContinuousIndex}`);
 }
 ```
 
-### Update read list progress
+### Update read-list progress
+
+The body parameter is `tachiyomiReadProgressUpdateDto` and contains only `lastBookRead`:
 
 ```typescript
 import { updateMihonReadProgressByReadListId } from 'komga-sdk';
 
-await updateMihonReadProgressByReadListId({
-  client,
-  path: { readListId: 'readlist-123' },
-  body: {
-    read: 12,
-    total: 25,
+await updateMihonReadProgressByReadListId(
+  {
+    id: 'readlist-123',
+    tachiyomiReadProgressUpdateDto: { lastBookRead: 12 },
   },
-});
+  { client },
+);
 ```
 
-## Series progress (Mihon/Tachiyomi)
+Send the list position produced by the Mihon client, not a book ID or a series number. The update returns a successful no-content result; fetch the progress endpoint again when the UI needs refreshed counts.
+
+## Series progress
 
 ### Get series progress
+
+The v2 response also reports the maximum and last continuous numeric sort values:
 
 ```typescript
 import { getMihonReadProgressBySeriesId } from 'komga-sdk';
 
-const result = await getMihonReadProgressBySeriesId({
-  client,
-  path: { seriesId: 'series-123' },
-});
+const result = await getMihonReadProgressBySeriesId(
+  { seriesId: 'series-123' },
+  { client },
+);
 
 if (result.data) {
-  console.log(`Chapters read: ${result.data.read}`);
-  console.log(`Chapters total: ${result.data.total}`);
+  console.log(`Books read: ${result.data.booksReadCount}`);
+  console.log(`Books in progress: ${result.data.booksInProgressCount}`);
+  console.log(`Books unread: ${result.data.booksUnreadCount}`);
+  console.log(`Books total: ${result.data.booksCount}`);
+  console.log(`Last continuous number: ${result.data.lastReadContinuousNumberSort}`);
+  console.log(`Maximum number: ${result.data.maxNumberSort}`);
 }
 ```
 
 ### Update series progress
 
+The series operation uses `tachiyomiReadProgressUpdateV2Dto` with `lastBookNumberSortRead`:
+
 ```typescript
 import { updateMihonReadProgressBySeriesId } from 'komga-sdk';
 
-await updateMihonReadProgressBySeriesId({
-  client,
-  path: { seriesId: 'series-123' },
-  body: {
-    read: 42,
-    total: 100,
+await updateMihonReadProgressBySeriesId(
+  {
+    seriesId: 'series-123',
+    tachiyomiReadProgressUpdateV2Dto: { lastBookNumberSortRead: 42 },
   },
-});
+  { client },
+);
 ```
 
-## Common workflows
+This value follows Komga's numeric book sort, so a display label such as `#42.5` must be converted using the same numeric sort value the server returns rather than parsed as an integer.
 
-### Sync progress from client state
+## Workflow: sync client state
+
+Read the server state before writing and keep the model-specific field in local state:
 
 ```typescript
-import { updateMihonReadProgressBySeriesId } from 'komga-sdk';
+import {
+  getMihonReadProgressBySeriesId,
+  updateMihonReadProgressBySeriesId,
+} from 'komga-sdk';
 
-async function syncSeriesProgress(seriesId: string, read: number, total: number) {
-  await updateMihonReadProgressBySeriesId({
-    client,
-    path: { seriesId },
-    body: { read, total },
-  });
+async function syncSeriesProgress(seriesId: string, lastBookNumberSortRead: number) {
+  const current = await getMihonReadProgressBySeriesId({ seriesId }, { client });
+  if (current.error) return current;
+
+  const serverValue = current.data?.lastReadContinuousNumberSort ?? 0;
+  if (lastBookNumberSortRead < serverValue) return current;
+
+  return updateMihonReadProgressBySeriesId(
+    {
+      seriesId,
+      tachiyomiReadProgressUpdateV2Dto: { lastBookNumberSortRead },
+    },
+    { client },
+  );
 }
 ```
 
-### Mirror read list progress
+For a read list, send the list index instead:
 
 ```typescript
 import { updateMihonReadProgressByReadListId } from 'komga-sdk';
 
-async function syncReadListProgress(readListId: string, read: number, total: number) {
-  await updateMihonReadProgressByReadListId({
-    client,
-    path: { readListId },
-    body: { read, total },
-  });
+async function syncReadListProgress(readListId: string, lastBookRead: number) {
+  return updateMihonReadProgressByReadListId(
+    {
+      id: readListId,
+      tachiyomiReadProgressUpdateDto: { lastBookRead },
+    },
+    { client },
+  );
 }
 ```
 
-## Error handling
+## Handle failures
+
+Inspect the structured result when a request should remain non-throwing. A 404 generally means the list or series ID is not visible to the authenticated user; a 401 means the client is not authenticated:
 
 ```typescript
 import { getMihonReadProgressBySeriesId } from 'komga-sdk';
 
-const result = await getMihonReadProgressBySeriesId({
-  client,
-  path: { seriesId: 'series-123' },
-});
+const result = await getMihonReadProgressBySeriesId(
+  { seriesId: 'series-123' },
+  { client },
+);
 
 if (result.error) {
-  switch (result.response?.status) {
-    case 404:
-      console.error('Series not found');
-      break;
-    case 401:
-      console.error('Not authenticated');
-      break;
-    default:
-      console.error('Sync error:', result.error);
-  }
+  console.error('Mihon sync failed', result.response?.status, result.error);
 }
 ```
+
+Use `unwrap` and `KomgaApiError` when your application wants a throwing boundary.
 
 ## Next steps
 
 <CardGroup cols={2}>
   <Card title="Read Progress" icon="bookmark" href="/guides/read-progress">
-    Standard read progress tracking.
+    Track standard page and OPDS progression.
   </Card>
-  
   <Card title="Read Lists" icon="list-ordered" href="/guides/read-lists">
     Create and manage reading lists.
   </Card>
