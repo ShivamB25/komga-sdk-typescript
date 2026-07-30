@@ -4,25 +4,23 @@ description: "Access book pages, images, and reading positions"
 icon: "images"
 ---
 
-This guide covers accessing book content including pages, thumbnails, reading positions, and WebPub manifests for different book formats.
+The generated Komga API 1.25 operations return non-throwing results. Pass path values as flat parameters and provide `{ client }` in the second argument.
 
 ## Get book pages
 
-Retrieve metadata about all pages in a book:
+Retrieve metadata about every page in a book:
 
 ```typescript
 import { getBookPages } from 'komga-sdk';
 
-const result = await getBookPages({
-  client,
-  path: { bookId: 'book-123' },
-});
+const result = await getBookPages({ bookId: 'book-123' }, { client });
 
-if (result.data) {
-  console.log(`Total pages: ${result.data.length}`);
-  result.data.forEach((page, index) => {
-    console.log(`Page ${index + 1}: ${page.width}x${page.height}`);
-  });
+if (result.error) {
+  console.error('Could not load page metadata', result.error);
+} else {
+  for (const page of result.data ?? []) {
+    console.log(`${page.number}: ${page.width ?? 0}x${page.height ?? 0}`);
+  }
 }
 ```
 
@@ -30,261 +28,263 @@ if (result.data) {
 
 ### Get page image
 
-Retrieve a specific page as an image:
+`getBookPageByNumber` returns the page image as a `Blob | File`. Its optional query parameters (`convert`, `zero_based`, and `contentNegotiation`) are also flat:
 
 ```typescript
 import { getBookPageByNumber } from 'komga-sdk';
 
-const result = await getBookPageByNumber({
-  client,
-  path: { 
+const result = await getBookPageByNumber(
+  {
     bookId: 'book-123',
-    pageNumber: 5 
+    pageNumber: 5,
+    convert: 'jpeg',
   },
-});
+  { client },
+);
 
-if (result.data) {
-  // result.data is a Blob containing the image
+if (result.error) {
+  console.error('Page request failed', result.error);
+} else if (result.data) {
   const imageUrl = URL.createObjectURL(result.data);
-  // Display in an img tag or canvas
+  // Display imageUrl, then revoke it when the image is no longer needed.
 }
 ```
 
-### Get raw page (unprocessed)
+### Get raw page
 
-Get the raw image file without any processing:
+`getBookPageRawByNumber` has a different generated response shape from the rendered page endpoint: its `result.data` is a `string`, not a `Blob | File`. Use it when your client needs the server's raw representation; do not pass it to `URL.createObjectURL`.
 
 ```typescript
 import { getBookPageRawByNumber } from 'komga-sdk';
 
-const result = await getBookPageRawByNumber({
-  client,
-  path: { 
-    bookId: 'book-123',
-    pageNumber: 5 
-  },
-});
+const result = await getBookPageRawByNumber(
+  { bookId: 'book-123', pageNumber: 5 },
+  { client },
+);
 
-if (result.data) {
-  const rawImageUrl = URL.createObjectURL(result.data);
+if (result.error) {
+  console.error('Raw page request failed', result.error);
+} else if (result.data) {
+  console.log('Raw page payload:', result.data);
 }
 ```
 
 ### Get page thumbnail
 
-Get a thumbnail version of a page:
-
 ```typescript
 import { getBookPageThumbnailByNumber } from 'komga-sdk';
 
-const result = await getBookPageThumbnailByNumber({
-  client,
-  path: { 
-    bookId: 'book-123',
-    pageNumber: 5 
-  },
-});
+const result = await getBookPageThumbnailByNumber(
+  { bookId: 'book-123', pageNumber: 5 },
+  { client },
+);
 
-if (result.data) {
+if (result.error) {
+  console.error('Page thumbnail request failed', result.error);
+} else if (result.data) {
   const thumbnailUrl = URL.createObjectURL(result.data);
 }
 ```
 
-## Get reading positions
 
-Retrieve calculated reading positions for EPUB books:
+## Reading progress and EPUB positions
+
+`getBookPositions` returns an `R2Positions` object (`positions` plus `total`) for EPUB locations. This is separate from the page-based `ReadProgressDto` used by comic pages.
 
 ```typescript
-import { getBookPositions } from 'komga-sdk';
+import {
+  getBookPositions,
+  getBookProgression,
+  updateBookProgression,
+} from 'komga-sdk';
 
-const result = await getBookPositions({
-  client,
-  path: { bookId: 'book-123' },
-});
+const positions = await getBookPositions({ bookId: 'book-123' }, { client });
+if (positions.error) throw positions.error;
+console.log(`${positions.data?.total ?? 0} EPUB positions`);
 
-if (result.data) {
-  // Positions are used for EPUB reading progress
-  console.log(`Total positions: ${result.data.length}`);
+const progression = await getBookProgression({ bookId: 'book-123' }, { client });
+if (progression.error) throw progression.error;
+if (progression.data) {
+  console.log(progression.data.locator.href);
 }
 ```
+
+`updateBookProgression` accepts the complete `r2Progression` document (device, locator, and modified timestamp) and returns `204 No Content`. It is intended for the EPUB reader's Readium/OPDS progression, not for a page number:
+
+```typescript
+const saved = await updateBookProgression(
+  {
+    bookId: 'book-123',
+    r2Progression: {
+      device: { id: 'web-reader', name: 'Web reader' },
+      locator: {
+        href: 'OEBPS/chapter-2.xhtml',
+        type: 'application/xhtml+xml',
+        locations: { progression: 0.42 },
+      },
+      modified: new Date().toISOString(),
+    },
+  },
+  { client },
+);
+if (saved.error) console.error('Could not save EPUB progression', saved.error);
+```
+
+The page-oriented `markBookReadProgress` operation accepts `{ page }` or `{ completed: true }`; `deleteBookReadProgress` resets the book to unread. Both are accepted/204 operations and return no updated book.
 
 ## Book thumbnails
 
 ### Get book thumbnail
 
-Retrieve the thumbnail for a book:
-
 ```typescript
 import { getBookThumbnail } from 'komga-sdk';
 
-const result = await getBookThumbnail({
-  client,
-  path: { bookId: 'book-123' },
-});
+const result = await getBookThumbnail({ bookId: 'book-123' }, { client });
 
-if (result.data) {
+if (result.error) {
+  console.error('Book thumbnail request failed', result.error);
+} else if (result.data) {
   const thumbnailUrl = URL.createObjectURL(result.data);
 }
 ```
 
 ### List available thumbnails
 
-Get all available thumbnails for a book:
-
 ```typescript
 import { getBookThumbnails } from 'komga-sdk';
 
-const result = await getBookThumbnails({
-  client,
-  path: { bookId: 'book-123' },
-});
+const result = await getBookThumbnails({ bookId: 'book-123' }, { client });
 
-if (result.data) {
-  result.data.forEach(thumb => {
-    console.log(`Thumbnail ID: ${thumb.id}, Selected: ${thumb.selected}`);
-  });
+if (result.error) {
+  console.error('Could not list thumbnails', result.error);
+} else {
+  for (const thumbnail of result.data ?? []) {
+    console.log(`${thumbnail.id}: ${thumbnail.selected ? 'selected' : 'available'}`);
+  }
 }
 ```
 
-### Get specific thumbnail
-
-Retrieve a thumbnail by its ID:
+### Get a specific thumbnail
 
 ```typescript
 import { getBookThumbnailById } from 'komga-sdk';
 
-const result = await getBookThumbnailById({
-  client,
-  path: { 
-    bookId: 'book-123',
-    thumbnailId: 'thumb-456'
-  },
-});
+const result = await getBookThumbnailById(
+  { bookId: 'book-123', thumbnailId: 'thumb-456' },
+  { client },
+);
 
-if (result.data) {
+if (result.error) {
+  console.error('Thumbnail request failed', result.error);
+} else if (result.data) {
   const thumbnailUrl = URL.createObjectURL(result.data);
 }
 ```
 
-### Upload custom thumbnail
+### Upload a custom thumbnail
 
-Add a custom thumbnail to a book:
+`addUserUploadedBookThumbnail` takes the file as the flat `file` parameter and accepts `selected` as a query parameter:
 
 ```typescript
 import { addUserUploadedBookThumbnail } from 'komga-sdk';
 
 const file = new File([imageBlob], 'custom-thumb.jpg', { type: 'image/jpeg' });
+const result = await addUserUploadedBookThumbnail(
+  { bookId: 'book-123', file, selected: true },
+  { client },
+);
 
-const result = await addUserUploadedBookThumbnail({
-  client,
-  path: { bookId: 'book-123' },
-  body: { file },
-});
-
-if (result.data) {
+if (result.error) {
+  console.error('Thumbnail upload failed', result.error);
+} else if (result.data) {
   console.log(`Uploaded thumbnail: ${result.data.id}`);
 }
 ```
 
-### Delete custom thumbnail
+### Delete a custom thumbnail
 
-Remove a user-uploaded thumbnail:
+The delete operation returns an accepted response without a data payload:
 
 ```typescript
 import { deleteUserUploadedBookThumbnail } from 'komga-sdk';
 
-await deleteUserUploadedBookThumbnail({
-  client,
-  path: { 
-    bookId: 'book-123',
-    thumbnailId: 'thumb-456'
-  },
-});
+const result = await deleteUserUploadedBookThumbnail(
+  { bookId: 'book-123', thumbnailId: 'thumb-456' },
+  { client },
+);
+
+if (result.error) {
+  console.error('Thumbnail deletion failed', result.error);
+} else {
+  console.log('Thumbnail deleted');
+}
 ```
 
-### Mark thumbnail as selected
-
-Set a specific thumbnail as the active one:
+### Mark a thumbnail as selected
 
 ```typescript
 import { markBookThumbnailSelected } from 'komga-sdk';
 
-await markBookThumbnailSelected({
-  client,
-  path: { 
-    bookId: 'book-123',
-    thumbnailId: 'thumb-456'
-  },
-});
+const result = await markBookThumbnailSelected(
+  { bookId: 'book-123', thumbnailId: 'thumb-456' },
+  { client },
+);
+
+if (result.error) {
+  console.error('Could not select thumbnail', result.error);
+} else {
+  console.log('Thumbnail selected');
+}
 ```
 
 ## WebPub manifests
 
-Komga provides WebPub manifests for different book formats to support various readers.
-
-### Generic manifest
+The manifest operations return WebPub publication data rather than binary image data:
 
 ```typescript
-import { getBookWebPubManifest } from 'komga-sdk';
-
-const result = await getBookWebPubManifest({
-  client,
-  path: { bookId: 'book-123' },
-});
-
-if (result.data) {
-  console.log('WebPub manifest:', result.data);
-}
-```
-
-### Format-specific manifests
-
-```typescript
-import { 
+import {
+  getBookWebPubManifest,
   getBookWebPubManifestDivina,
   getBookWebPubManifestEpub,
-  getBookWebPubManifestPdf 
+  getBookWebPubManifestPdf,
 } from 'komga-sdk';
 
-// DiViNa manifest (for webtoons/long-strip)
-const divinaResult = await getBookWebPubManifestDivina({
-  client,
-  path: { bookId: 'book-123' },
-});
+const generic = await getBookWebPubManifest({ bookId: 'book-123' }, { client });
+const divina = await getBookWebPubManifestDivina({ bookId: 'book-123' }, { client });
+const epub = await getBookWebPubManifestEpub({ bookId: 'book-123' }, { client });
+const pdf = await getBookWebPubManifestPdf({ bookId: 'book-123' }, { client });
 
-// EPUB manifest
-const epubResult = await getBookWebPubManifestEpub({
-  client,
-  path: { bookId: 'book-123' },
-});
-
-// PDF manifest
-const pdfResult = await getBookWebPubManifestPdf({
-  client,
-  path: { bookId: 'book-123' },
-});
+for (const [name, result] of Object.entries({ generic, divina, epub, pdf })) {
+  if (result.error) {
+    console.error(`${name} manifest failed`, result.error);
+  } else if (result.data) {
+    console.log(`${name} manifest loaded`, result.data);
+  }
+}
 ```
 
 ## EPUB resources
 
-Access resources within EPUB files:
+`getBookEpubResource` returns the resource body as a string:
 
 ```typescript
 import { getBookEpubResource } from 'komga-sdk';
 
-const result = await getBookEpubResource({
-  client,
-  path: { 
-    bookId: 'book-123',
-    resource: 'OEBPS/images/cover.jpg'
-  },
-});
+const result = await getBookEpubResource(
+  { bookId: 'book-123', resource: 'OEBPS/images/cover.jpg' },
+  { client },
+);
 
-if (result.data) {
-  // Resource content as Blob
-  const resourceUrl = URL.createObjectURL(result.data);
+if (result.error) {
+  console.error('EPUB resource request failed', result.error);
+} else if (result.data) {
+  console.log(result.data);
 }
 ```
+
+## Response and cleanup semantics
+
+Rendered pages, page thumbnails, book thumbnails, and thumbnail-by-ID responses are `Blob | File`. Create an object URL only for those binary responses and revoke it when the image is removed from the UI. WebPub manifest operations return a `WpPublicationDto`, while `getBookEpubResource` and raw-page operations are generated as `string` responses. A `404` commonly means the requested page/resource does not exist; a `400` can indicate an invalid page number, conversion, or resource path.
 
 ## Common workflows
 
@@ -294,30 +294,25 @@ if (result.data) {
 import { getBookPages, getBookPageByNumber } from 'komga-sdk';
 
 async function createPageViewer(bookId: string) {
-  // Get page metadata
-  const pagesResult = await getBookPages({
-    client,
-    path: { bookId },
-  });
+  const pagesResult = await getBookPages({ bookId }, { client });
+  if (pagesResult.error) throw pagesResult.error;
 
-  if (!pagesResult.data) return;
-
-  const pages = pagesResult.data;
+  const pages = pagesResult.data ?? [];
   let currentPage = 1;
 
   async function showPage(pageNum: number) {
     if (pageNum < 1 || pageNum > pages.length) return;
 
-    const result = await getBookPageByNumber({
-      client,
-      path: { bookId, pageNumber: pageNum },
-    });
+    const result = await getBookPageByNumber(
+      { bookId, pageNumber: pageNum },
+      { client },
+    );
+    if (result.error) throw result.error;
+    if (!result.data) return;
 
-    if (result.data) {
-      const imageUrl = URL.createObjectURL(result.data);
-      // Display imageUrl in your viewer
-      currentPage = pageNum;
-    }
+    const imageUrl = URL.createObjectURL(result.data);
+    // Display imageUrl in your viewer.
+    currentPage = pageNum;
   }
 
   return {
@@ -329,32 +324,27 @@ async function createPageViewer(bookId: string) {
 }
 ```
 
-### Create thumbnail gallery
+### Create a thumbnail gallery
 
 ```typescript
 import { getBookThumbnails, getBookThumbnailById } from 'komga-sdk';
 
 async function createThumbnailGallery(bookId: string) {
-  const result = await getBookThumbnails({
-    client,
-    path: { bookId },
-  });
-
-  if (!result.data) return [];
+  const result = await getBookThumbnails({ bookId }, { client });
+  if (result.error) throw result.error;
 
   const thumbnails = [];
-  
-  for (const thumb of result.data) {
-    const thumbResult = await getBookThumbnailById({
-      client,
-      path: { bookId, thumbnailId: thumb.id },
-    });
-
-    if (thumbResult.data) {
+  for (const thumbnail of result.data ?? []) {
+    const thumbnailResult = await getBookThumbnailById(
+      { bookId, thumbnailId: thumbnail.id },
+      { client },
+    );
+    if (thumbnailResult.error) throw thumbnailResult.error;
+    if (thumbnailResult.data) {
       thumbnails.push({
-        id: thumb.id,
-        url: URL.createObjectURL(thumbResult.data),
-        selected: thumb.selected,
+        id: thumbnail.id,
+        url: URL.createObjectURL(thumbnailResult.data),
+        selected: thumbnail.selected,
       });
     }
   }
@@ -363,25 +353,18 @@ async function createThumbnailGallery(bookId: string) {
 }
 ```
 
-### Display book with WebPub reader
+### Display a WebPub reader
 
 ```typescript
 import { getBookWebPubManifest } from 'komga-sdk';
 
 async function loadWebPubReader(bookId: string) {
-  const result = await getBookWebPubManifest({
-    client,
-    path: { bookId },
-  });
-
+  const result = await getBookWebPubManifest({ bookId }, { client });
+  if (result.error) throw result.error;
   if (!result.data) return;
 
-  // Use with a WebPub-compatible reader like Readium
-  const manifest = result.data;
-  
-  // Example: Initialize Readium Web Reader
-  // const reader = new ReadiumWebReader();
-  // await reader.loadManifest(manifest);
+  // Pass the publication data to a WebPub-compatible reader.
+  return result.data;
 }
 ```
 
@@ -391,7 +374,7 @@ async function loadWebPubReader(bookId: string) {
   <Card title="Books" icon="book" href="/guides/books">
     Learn about book management operations.
   </Card>
-  
+
   <Card title="Thumbnails" icon="image" href="/guides/thumbnails">
     Deep dive into thumbnail management across all content types.
   </Card>

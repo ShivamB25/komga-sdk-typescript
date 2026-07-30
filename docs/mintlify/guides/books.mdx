@@ -4,67 +4,214 @@ description: "List, search, and manage books"
 icon: "book"
 ---
 
-This guide covers common book workflows using `BookService`.
+These examples use generated operations from the Komga API 1.25 client. Each operation receives flat parameters first and `{ client }` as its options argument. Results are non-throwing by default.
 
 ## List books
 
+`getBooks` requires a `bookSearch` value, even when no search filters are needed:
+
 ```typescript
-import { BookService } from 'komga-sdk';
+import { getBooks } from 'komga-sdk';
 
-const service = new BookService(client);
-const page = await service.list({ page: 0, size: 20 });
+const result = await getBooks(
+  {
+    page: 0,
+    size: 20,
+    sort: ['metadata.title,asc'],
+    bookSearch: {},
+  },
+  { client },
+);
 
-console.log(page.totalElements);
+if (result.error) {
+  console.error('Could not list books', result.error);
+} else {
+  console.log(result.data?.totalElements ?? 0);
+}
 ```
 
 ## Search books
 
+`bookSearch.fullTextSearch` searches the indexed book fields:
+
 ```typescript
-const page = await service.list({
-  search: { fullTextSearch: 'manga' },
-  page: 0,
-  size: 20,
-  sort: ['metadata.title,asc'],
-});
+const result = await getBooks(
+  {
+    page: 0,
+    size: 20,
+    sort: ['metadata.title,asc'],
+    bookSearch: { fullTextSearch: 'manga' },
+  },
+  { client },
+);
+
+if (result.error) {
+  console.error('Book search failed', result.error);
+} else {
+  for (const book of result.data?.content ?? []) {
+    console.log(book.metadata.title);
+  }
+}
 ```
+
+### Filters, sorting, and pagination
+
+`bookSearch` is a document with either `fullTextSearch` or a recursive `condition`. Combine conditions with `allOf` (every condition must match) or `anyOf` (at least one must match). Operators include `is`, `isNot`, `contains`, `beginsWith`, `endsWith`, `isNull`, and `isNotNull`; date fields additionally support `before`, `after`, `isInTheLast`, and `isNotInTheLast`.
+
+```typescript
+const unreadManga = await getBooks(
+  {
+    page: 0,
+    size: 50,
+    sort: ['metadata.releaseDate,desc', 'metadata.title,asc'],
+    bookSearch: {
+      condition: {
+        allOf: [
+          { libraryId: { operator: 'is', value: 'library-123' } },
+          { readStatus: { operator: 'is', value: 'UNREAD' } },
+          { title: { operator: 'contains', value: 'manga' } },
+        ],
+      },
+    },
+  },
+  { client },
+);
+```
+
+`page` is zero-based and `size` controls the page size. Set `unpaged: true` when you need every match (for example, an administrative batch), but avoid doing that for a large library. `sort` accepts one or more `property,asc|desc` values. The response is a `PageBookDto`; use `content`, `totalElements`, `totalPages`, and `number` to render a pager.
+
+`readStatus` values are `UNREAD`, `READ`, and `IN_PROGRESS`. Other useful book conditions include `mediaStatus`, `mediaProfile`, `libraryId`, `seriesId`, `readListId`, `tag`, `author`, `poster`, `numberSort`, `releaseDate`, `deleted`, and `oneShot`.
+
+<Tip>
+Keep the filter tree in the request body (`bookSearch`). Pagination and sorting stay as flat parameters in the same object; do not wrap them in `query` or `body`.
+</Tip>
+
+## Mark read progress
+
+Use `markBookReadProgress` to mark a book read or store the current page. Its update body can contain only the field being changed: `page` may be omitted when `completed` is `true`, and the server can infer completion from the page and total page count.
+
+```typescript
+import { markBookReadProgress } from 'komga-sdk';
+
+const result = await markBookReadProgress(
+  {
+    bookId: 'book-123',
+    readProgressUpdateDto: { page: 12 },
+  },
+  { client },
+);
+
+if (result.error) {
+  console.error('Could not save progress', result.error);
+} else {
+  // This is a 204 response; there is no updated BookDto in result.data.
+  console.log('Progress saved');
+}
+```
+
+To mark a book complete without knowing the final page, send `{ completed: true }`. To reset it to unread, call `deleteBookReadProgress`; that accepted response also has no data payload.
+
+## Metadata reset semantics
+
+`updateBookMetadata` is a partial update: omitted fields stay unchanged. The API metadata update contract permits setting a metadata field to `null` to unset it, while an empty array (for example `tags: []`) deliberately clears a collection. Locks such as `titleLock` and `tagsLock` are independent fields, so clear or change them explicitly when needed. A successful update is `204 No Content`, not a refreshed book object; fetch the book again if the UI needs the resulting metadata.
+
+When using generated TypeScript types, keep the request shape as `bookMetadataUpdateDto` and use the nullable form supported by the generated version for fields you are clearing.
+
+## Failure modes
+
+Generated calls return an error result instead of throwing by default. A missing book is normally `404`; `401` means the client did not authenticate, and `403` means the account lacks the operation's permission. Inspect `result.response?.status` before deciding whether to retry or show an empty state.
+
 
 ## Get a book by ID
 
 ```typescript
-const book = await service.getById('book-123');
-console.log(book.metadata.title);
+import { getBookById } from 'komga-sdk';
+
+const result = await getBookById({ bookId: 'book-123' }, { client });
+
+if (result.error) {
+  console.error('Book lookup failed', result.error);
+} else if (result.data) {
+  console.log(result.data.metadata.title);
+}
 ```
 
 ## Update metadata
 
+`updateBookMetadata` accepts `bookMetadataUpdateDto` as a flat parameter. A successful update returns no data.
+
+<Warning>
+Updating metadata requires the **ADMIN** role. Reading books and changing the current user's read progress use different permissions.
+</Warning>
+
 ```typescript
-await service.updateMetadata('book-123', {
-  title: 'New Title',
-  summary: 'Updated summary',
-});
+import { updateBookMetadata } from 'komga-sdk';
+
+const result = await updateBookMetadata(
+  {
+    bookId: 'book-123',
+    bookMetadataUpdateDto: {
+      title: 'New Title',
+      summary: 'Updated summary',
+    },
+  },
+  { client },
+);
+
+if (result.error) {
+  console.error('Metadata update failed', result.error);
+} else {
+  console.log('Metadata updated');
+}
 ```
 
 ## Get pages
 
 ```typescript
-const pages = await service.getPages('book-123');
-console.log(pages.length);
+import { getBookPages } from 'komga-sdk';
+
+const result = await getBookPages({ bookId: 'book-123' }, { client });
+
+if (result.error) {
+  console.error('Page metadata request failed', result.error);
+} else {
+  console.log(`Pages: ${result.data?.length ?? 0}`);
+}
 ```
 
 ## Delete read progress
 
 ```typescript
-await service.deleteReadProgress('book-123');
+import { deleteBookReadProgress } from 'komga-sdk';
+
+const result = await deleteBookReadProgress({ bookId: 'book-123' }, { client });
+
+if (result.error) {
+  console.error('Could not delete read progress', result.error);
+} else {
+  console.log('Read progress deleted');
+}
 ```
 
-## Thumbnails
+## Book thumbnail
+
+`getBookThumbnail` returns a `Blob | File` response:
 
 ```typescript
-const url = service.getThumbnailUrl('book-123');
-// /api/v1/books/book-123/thumbnail
+import { getBookThumbnail } from 'komga-sdk';
+
+const result = await getBookThumbnail({ bookId: 'book-123' }, { client });
+
+if (result.error) {
+  console.error('Thumbnail request failed', result.error);
+} else if (result.data) {
+  const imageUrl = URL.createObjectURL(result.data);
+  // Display imageUrl in an img element, then revoke it when finished.
+}
 ```
 
 ## Next steps
 
 - Series guide: [Series](/guides/series)
+- Book content: [Book Content](/guides/book-content)
 - Pagination details: [Pagination](/pagination)

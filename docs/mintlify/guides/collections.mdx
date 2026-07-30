@@ -4,274 +4,266 @@ description: "Organize series into curated collections"
 icon: "folder-open"
 ---
 
-Collections allow you to group related series together, such as "Summer Reading", "Award Winners", or "Favorites". Unlike [Read Lists](/guides/read-lists) which contain individual books, collections contain entire series.
+Collections group related **series**, such as a summer reading theme, an award shortlist, or a favorite set. A collection stores series IDs; use [Read Lists](/guides/read-lists) when the items are individual books.
+
+Generated operations return `{ data, error, request, response }`. Pass flat parameters first and `{ client }` second. Collection creation and updates require the **ADMIN** role; listing and reading collections follows the user's library permissions.
 
 ## List collections
-
-Get all collections with optional pagination:
 
 ```typescript
 import { getCollections } from 'komga-sdk';
 
-const result = await getCollections({
-  client,
-  query: { page: 0, size: 20 },
-});
+const result = await getCollections(
+  {
+    page: 0,
+    size: 20,
+    search: 'award',
+    library_id: ['library-1'],
+  },
+  { client },
+);
 
 if (result.data) {
-  console.log(`Found ${result.data.totalElements} collections`);
-  for (const collection of result.data.content) {
+  console.log(`Found ${result.data.totalElements ?? 0} collections`);
+  for (const collection of result.data.content ?? []) {
     console.log(`${collection.name} - ${collection.seriesIds.length} series`);
   }
 }
 ```
 
-## Get a collection by ID
+`search`, `library_id`, `page`, `size`, and `unpaged` are flat query parameters. Use `unpaged: true` when a client needs to inspect every collection rather than walking pages.
 
-Retrieve full details about a specific collection:
+## Get a collection by ID
 
 ```typescript
 import { getCollectionById } from 'komga-sdk';
 
-const result = await getCollectionById({
-  client,
-  path: { collectionId: 'collection-123' },
-});
+const result = await getCollectionById({ id: 'collection-123' }, { client });
 
 if (result.data) {
-  console.log(`Collection: ${result.data.name}`);
-  console.log(`Series count: ${result.data.seriesIds.length}`);
+  console.log(`${result.data.name}: ${result.data.seriesIds.length} series`);
+  console.log(`Ordered: ${result.data.ordered}`);
 }
 ```
 
 ## Create a collection
 
-Create a new collection with a name and optional series:
+The generated body parameter is `collectionCreationDto`:
 
 ```typescript
 import { createCollection } from 'komga-sdk';
 
-const result = await createCollection({
-  client,
-  body: {
-    name: 'Award Winners 2024',
-    ordered: false, // If true, series maintain specific order
-    seriesIds: ['series-1', 'series-2', 'series-3'],
+const result = await createCollection(
+  {
+    collectionCreationDto: {
+      name: 'Award Winners 2024',
+      ordered: true,
+      seriesIds: ['series-1', 'series-2', 'series-3'],
+    },
   },
-});
+  { client },
+);
 
-if (result.data) {
-  console.log(`Created collection: ${result.data.name}`);
-}
+if (result.data) console.log(`Created collection: ${result.data.name}`);
 ```
 
-<Note>
-Collections can be ordered or unordered. Use `ordered: true` when the sequence of series matters.
-</Note>
+Use `ordered: true` when the sequence of series is meaningful. With `ordered: false`, consumers should treat `seriesIds` as a grouping rather than a reading order.
 
 ## Update a collection
 
-Modify collection metadata or change which series are included:
+`collectionUpdateDto` is partial. Include `seriesIds` when changing membership or order; the supplied array replaces the collection's current series list, so fetch the collection first when adding one ID without dropping existing entries:
 
 ```typescript
 import { updateCollectionById } from 'komga-sdk';
 
-const result = await updateCollectionById({
-  client,
-  path: { collectionId: 'collection-123' },
-  body: {
-    name: 'Updated Collection Name',
-    ordered: true,
-    seriesIds: ['series-1', 'series-2', 'series-4'], // Replace all series
+await updateCollectionById(
+  {
+    id: 'collection-123',
+    collectionUpdateDto: {
+      name: 'Updated Collection Name',
+      ordered: true,
+      seriesIds: ['series-1', 'series-2', 'series-4'],
+    },
   },
-});
+  { client },
+);
 ```
 
 ## Delete a collection
 
-Remove a collection (this doesn't delete the series):
+Deleting a collection does not delete any of its series:
 
 ```typescript
 import { deleteCollectionById } from 'komga-sdk';
 
-await deleteCollectionById({
-  client,
-  path: { collectionId: 'collection-123' },
-});
+await deleteCollectionById({ id: 'collection-123' }, { client });
 ```
 
-## Get collections containing a series
+## Find collections for a series
 
-Find which collections include a specific series:
+This endpoint returns an array, not a paginated response:
 
 ```typescript
 import { getCollectionsBySeriesId } from 'komga-sdk';
 
-const result = await getCollectionsBySeriesId({
-  client,
-  path: { seriesId: 'series-123' },
-});
-
-if (result.data) {
-  console.log(`Series appears in ${result.data.length} collections`);
-  for (const collection of result.data) {
-    console.log(`- ${collection.name}`);
-  }
+const result = await getCollectionsBySeriesId({ seriesId: 'series-123' }, { client });
+for (const collection of result.data ?? []) {
+  console.log(`${collection.name} (${collection.ordered ? 'ordered' : 'unordered'})`);
 }
 ```
 
 ## Thumbnails
 
-### Get collection thumbnail
+Komga can expose a selected poster for a collection and can retain several uploaded thumbnails. Thumbnail reads return binary data, uploads return thumbnail metadata, and deletes return an accepted/no-content result.
 
-Retrieve the thumbnail image for a collection:
+### Read a collection thumbnail
 
 ```typescript
 import { getCollectionThumbnail } from 'komga-sdk';
 
-const result = await getCollectionThumbnail({
-  client,
-  path: { collectionId: 'collection-123' },
-});
-
-if (result.data) {
-  // result.data is the image binary
+const result = await getCollectionThumbnail({ id: 'collection-123' }, { client });
+const imageElement = document.querySelector<HTMLImageElement>('#collection-thumbnail');
+if (result.data && imageElement) {
   const thumbnailUrl = URL.createObjectURL(result.data);
+  imageElement.src = thumbnailUrl;
+  imageElement.onload = () => URL.revokeObjectURL(thumbnailUrl);
 }
 ```
 
-### Upload custom thumbnail
+### Upload a custom thumbnail
 
-Add a custom thumbnail to a collection:
+The upload parameter is a flat `file` value. Set `selected: true` when this upload should become the collection's selected poster; omit it when storing an alternate thumbnail.
 
 ```typescript
 import { addUserUploadedCollectionThumbnail } from 'komga-sdk';
 
 const file = new File([imageBlob], 'thumbnail.jpg', { type: 'image/jpeg' });
-
-await addUserUploadedCollectionThumbnail({
-  client,
-  path: { collectionId: 'collection-123' },
-  body: { file },
-});
+await addUserUploadedCollectionThumbnail(
+  { id: 'collection-123', file, selected: true },
+  { client },
+);
 ```
 
-### Delete custom thumbnail
+### Delete a custom thumbnail
 
-Remove a user-uploaded thumbnail:
+Use the collection ID and the uploaded thumbnail ID returned by the thumbnail-list operation:
 
 ```typescript
 import { deleteUserUploadedCollectionThumbnail } from 'komga-sdk';
 
-await deleteUserUploadedCollectionThumbnail({
-  client,
-  path: { collectionId: 'collection-123' },
-});
+await deleteUserUploadedCollectionThumbnail(
+  { id: 'collection-123', thumbnailId: 'thumbnail-456' },
+  { client },
+);
 ```
 
-## Common workflows
+## Workflows
 
-### Build a "Recently Added" collection
+### Build a “Recently Added” collection
+
+`getSeries` uses the same flat pagination/sort parameters and a required `seriesSearch` body. This workflow keeps the newest series in a defined order:
 
 ```typescript
-import { getSeries, createCollection } from 'komga-sdk';
+import { createCollection, getSeries } from 'komga-sdk';
 
 async function createRecentSeriesCollection() {
-  // Get recently added series
-  const seriesResult = await getSeries({
-    client,
-    body: {},
-    query: { 
-      page: 0, 
+  const seriesResult = await getSeries(
+    {
+      page: 0,
       size: 10,
-      sort: ['created,desc']
+      sort: ['created,desc'],
+      seriesSearch: {},
     },
-  });
+    { client },
+  );
 
-  if (!seriesResult.data) return;
+  const seriesIds = (seriesResult.data?.content ?? []).map((series) => series.id);
+  if (seriesIds.length === 0) return;
 
-  // Create collection with recent series
-  const recentIds = seriesResult.data.content.map(s => s.id);
-  
-  await createCollection({
-    client,
-    body: {
-      name: 'Recently Added',
-      ordered: true,
-      seriesIds: recentIds,
+  return createCollection(
+    {
+      collectionCreationDto: {
+        name: 'Recently Added',
+        ordered: true,
+        seriesIds,
+      },
     },
-  });
+    { client },
+  );
 }
 ```
 
-### Organize series by genre into collections
+### Organize series by genre
+
+`seriesSearch.fullTextSearch` is the generated search field. Create a collection only when a genre has matches:
 
 ```typescript
-import { getSeries, createCollection } from 'komga-sdk';
+import { createCollection, getSeries } from 'komga-sdk';
 
-async function organizeByGenre() {
-  const genres = ['Action', 'Comedy', 'Drama', 'Sci-Fi'];
-  
+async function organizeByGenre(genres: string[]) {
   for (const genre of genres) {
-    // Find series with this genre
-    const seriesResult = await getSeries({
-      client,
-      body: { 
-        fullTextSearch: genre 
-      },
-      query: { 
-        page: 0, 
+    const seriesResult = await getSeries(
+      {
+        page: 0,
         size: 100,
-        sort: ['metadata.title,asc']
+        sort: ['metadata.title,asc'],
+        seriesSearch: { fullTextSearch: genre },
       },
-    });
+      { client },
+    );
 
-    if (seriesResult.data && seriesResult.data.content.length > 0) {
-      const seriesIds = seriesResult.data.content.map(s => s.id);
-      
-      await createCollection({
-        client,
-        body: {
+    const seriesIds = (seriesResult.data?.content ?? []).map((series) => series.id);
+    if (seriesIds.length === 0) continue;
+
+    await createCollection(
+      {
+        collectionCreationDto: {
           name: `${genre} Series`,
           ordered: false,
           seriesIds,
         },
-      });
-    }
+      },
+      { client },
+    );
   }
 }
 ```
 
-### Update collection with new series
+### Add a series without losing existing order
+
+Read the current list, append only if the series is not already present, and send the complete replacement list:
 
 ```typescript
-async function addSeriesToCollection(collectionId: string, newSeriesId: string) {
-  // Get current collection
-  const collectionResult = await getCollectionById({
-    client,
-    path: { collectionId },
-  });
+import { getCollectionById, updateCollectionById } from 'komga-sdk';
 
-  if (!collectionResult.data) return;
+async function addSeriesToCollection(collectionId: string, seriesId: string) {
+  const current = await getCollectionById({ id: collectionId }, { client });
+  if (!current.data || current.data.seriesIds.includes(seriesId)) return current;
 
-  // Add new series to existing list
-  const updatedSeriesIds = [...collectionResult.data.seriesIds, newSeriesId];
-  
-  // Update collection
-  await updateCollectionById({
-    client,
-    path: { collectionId },
-    body: {
-      name: collectionResult.data.name,
-      ordered: collectionResult.data.ordered,
-      seriesIds: updatedSeriesIds,
+  return updateCollectionById(
+    {
+      id: collectionId,
+      collectionUpdateDto: {
+        seriesIds: [...current.data.seriesIds, seriesId],
+      },
     },
-  });
+    { client },
+  );
 }
 ```
 
+## Collections vs Read Lists
+
+| Feature | Collections | Read Lists |
+| --- | --- | --- |
+| Contains | Series | Individual books |
+| Ordering | Optional `ordered` flag | Optional `ordered` flag |
+| Typical use | Group related series | Define a book-by-book sequence |
+| Navigation | Browse series | Next/previous book helpers |
+| Deletion | Removes the grouping only | Removes the list only; books remain |
+
 ## Next steps
 
-- Learn about [Read Lists](/guides/read-lists) for organizing individual books
-- Explore [Series management](/guides/series)
-- See [Books guide](/guides/books) for working with individual books
+- Organize individual books with [Read Lists](/guides/read-lists).
+- Manage progress with [Read Progress](/guides/read-progress).
+- Manage series with the [Series guide](/guides/series).

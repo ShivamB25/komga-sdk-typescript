@@ -1,453 +1,289 @@
 ---
 title: "Thumbnails"
-description: "Manage thumbnails for books, series, collections, and read lists"
+description: "Retrieve, upload, select, and delete thumbnails"
 icon: "image"
 ---
 
-This guide covers thumbnail management across all content types in Komga, including retrieving, uploading, and selecting thumbnails.
+Thumbnail image operations return binary `Blob | File` data. Listing operations return generated thumbnail DTOs. Upload, selection, deletion, and regeneration operations require **ADMIN**.
 
-<Note>
-Thumbnails are generated automatically during library scans. You can also upload custom thumbnails to override the defaults.
-</Note>
+Komga normally generates posters during scans. A listing DTO records the thumbnail `id`, `selected` flag, `type`, `mediaType`, dimensions, and file size; the `type` is a server-provided string (commonly `SIDECAR`, `EMBEDDED`, or `UPLOADED`), so use `selected` rather than assuming a particular type is active.
+
 
 ## Book thumbnails
 
-### Get book thumbnail
-
-Retrieve the currently selected thumbnail for a book:
+Get the selected image, list available thumbnails, or fetch a specific thumbnail. Parameters are flat:
 
 ```typescript
-import { getBookThumbnail } from 'komga-sdk';
+import {
+  getBookThumbnail,
+  getBookThumbnails,
+  getBookThumbnailById,
+} from 'komga-sdk';
 
-const result = await getBookThumbnail({
-  client,
-  path: { bookId: 'book-123' },
-});
-
-if (result.data) {
-  // result.data is a Blob containing the image
-  const thumbnailUrl = URL.createObjectURL(result.data);
-  // Use in an img tag: <img src={thumbnailUrl} />
+const image = await getBookThumbnail({ bookId: 'book-123' }, { client });
+if (!image.error && image.data) {
+  const url = URL.createObjectURL(image.data);
+  console.log(url);
 }
+
+const available = await getBookThumbnails({ bookId: 'book-123' }, { client });
+for (const thumbnail of available.data ?? []) {
+  console.log(thumbnail.id, thumbnail.selected, thumbnail.type);
+}
+
+const specific = await getBookThumbnailById(
+  { bookId: 'book-123', thumbnailId: 'thumb-456' },
+  { client },
+);
 ```
 
-### List available thumbnails
+Upload a custom poster by passing `file` directly. Do not wrap it in a `body` or `path` object:
+The optional `selected: true` query parameter can make a newly uploaded poster active immediately. If you omit it, upload the poster first, then select it with the `mark...ThumbnailSelected` operation.
 
-Get all available thumbnails for a book (including auto-generated and user-uploaded):
-
-```typescript
-import { getBookThumbnails } from 'komga-sdk';
-
-const result = await getBookThumbnails({
-  client,
-  path: { bookId: 'book-123' },
-});
-
-if (result.data) {
-  result.data.forEach(thumb => {
-    console.log(`ID: ${thumb.id}`);
-    console.log(`Selected: ${thumb.selected}`);
-    console.log(`Type: ${thumb.type}`); // 'SIDECAR', 'EMBEDDED', or 'UPLOADED'
-  });
-}
-```
-
-### Get specific thumbnail by ID
-
-```typescript
-import { getBookThumbnailById } from 'komga-sdk';
-
-const result = await getBookThumbnailById({
-  client,
-  path: { 
-    bookId: 'book-123',
-    thumbnailId: 'thumb-456'
-  },
-});
-
-if (result.data) {
-  const thumbnailUrl = URL.createObjectURL(result.data);
-}
-```
-
-### Upload custom thumbnail
-
-Add a user-uploaded thumbnail to a book:
 
 ```typescript
 import { addUserUploadedBookThumbnail } from 'komga-sdk';
 
-const fileInput = document.getElementById('thumbnail-input') as HTMLInputElement;
-const file = fileInput.files?.[0];
-
+const file = document.querySelector<HTMLInputElement>('#thumbnail')?.files?.[0];
 if (file) {
-  const result = await addUserUploadedBookThumbnail({
-    client,
-    path: { bookId: 'book-123' },
-    body: { file },
-  });
-
-  if (result.data) {
-    console.log(`Uploaded thumbnail: ${result.data.id}`);
-  }
+  const result = await addUserUploadedBookThumbnail(
+    { bookId: 'book-123', file, selected: true },
+    { client },
+  );
+  if (!result.error) console.log(result.data?.id);
 }
 ```
 
-### Select a thumbnail
-
-Mark a specific thumbnail as the active one:
+Select or delete a user-uploaded poster with flat `bookId` and `thumbnailId` parameters:
 
 ```typescript
-import { markBookThumbnailSelected } from 'komga-sdk';
+import {
+  markBookThumbnailSelected,
+  deleteUserUploadedBookThumbnail,
+} from 'komga-sdk';
 
-await markBookThumbnailSelected({
-  client,
-  path: { 
-    bookId: 'book-123',
-    thumbnailId: 'thumb-456'
-  },
-});
+const selected = await markBookThumbnailSelected(
+  { bookId: 'book-123', thumbnailId: 'thumb-456' },
+  { client },
+);
+const removed = await deleteUserUploadedBookThumbnail(
+  { bookId: 'book-123', thumbnailId: 'thumb-456' },
+  { client },
+);
+
+for (const result of [selected, removed]) {
+  if (result.error) console.error(result.response?.status, result.error);
+  else console.log(`Accepted (${result.response?.status})`);
+}
 ```
 
-### Delete custom thumbnail
+Both operations return HTTP 202 with an `unknown` body; a successful result has no thumbnail payload to inspect.
 
-Remove a user-uploaded thumbnail:
+Selection and deletion are asynchronous. After a `202`, refetch the listing or selected image when the server-side task has completed instead of assuming the old image URL has changed immediately. The SDK does not cache thumbnail bytes or metadata; any browser/service-worker cache is application-owned.
 
-```typescript
-import { deleteUserUploadedBookThumbnail } from 'komga-sdk';
+When you refresh a UI, revoke object URLs created for removed images. A URL created before selection can continue to display the old bytes even after the server has a new selected poster, so replace it after the refresh.
 
-await deleteUserUploadedBookThumbnail({
-  client,
-  path: { 
-    bookId: 'book-123',
-    thumbnailId: 'thumb-456'
-  },
-});
-```
 
 ## Series thumbnails
 
-### Get series thumbnail
+Series operations use `seriesId`:
 
 ```typescript
-import { getSeriesThumbnail } from 'komga-sdk';
+import {
+  getSeriesThumbnail,
+  getSeriesThumbnails,
+  getSeriesThumbnailById,
+  addUserUploadedSeriesThumbnail,
+  markSeriesThumbnailSelected,
+  deleteUserUploadedSeriesThumbnail,
+} from 'komga-sdk';
 
-const result = await getSeriesThumbnail({
-  client,
-  path: { seriesId: 'series-123' },
-});
-
-if (result.data) {
-  const thumbnailUrl = URL.createObjectURL(result.data);
-}
-```
-
-### List series thumbnails
-
-```typescript
-import { getSeriesThumbnails } from 'komga-sdk';
-
-const result = await getSeriesThumbnails({
-  client,
-  path: { seriesId: 'series-123' },
-});
-
-if (result.data) {
-  console.log(`Available thumbnails: ${result.data.length}`);
-}
-```
-
-### Get specific series thumbnail
-
-```typescript
-import { getSeriesThumbnailById } from 'komga-sdk';
-
-const result = await getSeriesThumbnailById({
-  client,
-  path: { 
-    seriesId: 'series-123',
-    thumbnailId: 'thumb-456'
-  },
-});
-```
-
-### Upload series thumbnail
-
-```typescript
-import { addUserUploadedSeriesThumbnail } from 'komga-sdk';
+const current = await getSeriesThumbnail({ seriesId: 'series-123' }, { client });
+const list = await getSeriesThumbnails({ seriesId: 'series-123' }, { client });
+const selected = await getSeriesThumbnailById(
+  { seriesId: 'series-123', thumbnailId: 'thumb-456' },
+  { client },
+);
 
 const file = new File([imageBlob], 'series-thumb.jpg', { type: 'image/jpeg' });
+const uploaded = await addUserUploadedSeriesThumbnail(
+  { seriesId: 'series-123', file },
+  { client },
+);
+await markSeriesThumbnailSelected(
+  { seriesId: 'series-123', thumbnailId: uploaded.data?.id ?? 'thumb-456' },
+  { client },
+);
+await deleteUserUploadedSeriesThumbnail(
+  { seriesId: 'series-123', thumbnailId: 'thumb-456' },
+  { client },
+);
 
-await addUserUploadedSeriesThumbnail({
-  client,
-  path: { seriesId: 'series-123' },
-  body: { file },
-});
+if (!current.error && current.data) console.log(URL.createObjectURL(current.data));
+console.log(list.data, selected.data);
 ```
 
-### Select series thumbnail
-
-```typescript
-import { markSeriesThumbnailSelected } from 'komga-sdk';
-
-await markSeriesThumbnailSelected({
-  client,
-  path: { 
-    seriesId: 'series-123',
-    thumbnailId: 'thumb-456'
-  },
-});
-```
-
-### Delete series thumbnail
-
-```typescript
-import { deleteUserUploadedSeriesThumbnail } from 'komga-sdk';
-
-await deleteUserUploadedSeriesThumbnail({
-  client,
-  path: { 
-    seriesId: 'series-123',
-    thumbnailId: 'thumb-456'
-  },
-});
-```
+Selection and deletion return HTTP 202 with an `unknown` body. Check `result.error` when the operation must be confirmed.
 
 ## Collection thumbnails
 
-### Get collection thumbnail
+Collection paths use the generated parameter name `id`, not `collectionId`:
 
 ```typescript
-import { getCollectionThumbnail } from 'komga-sdk';
+import {
+  getCollectionThumbnail,
+  getCollectionThumbnails,
+  getCollectionThumbnailById,
+  addUserUploadedCollectionThumbnail,
+  markCollectionThumbnailSelected,
+  deleteUserUploadedCollectionThumbnail,
+} from 'komga-sdk';
 
-const result = await getCollectionThumbnail({
-  client,
-  path: { collectionId: 'collection-123' },
-});
-
-if (result.data) {
-  const thumbnailUrl = URL.createObjectURL(result.data);
-}
-```
-
-### List collection thumbnails
-
-```typescript
-import { getCollectionThumbnails } from 'komga-sdk';
-
-const result = await getCollectionThumbnails({
-  client,
-  path: { collectionId: 'collection-123' },
-});
-```
-
-### Get specific collection thumbnail
-
-```typescript
-import { getCollectionThumbnailById } from 'komga-sdk';
-
-const result = await getCollectionThumbnailById({
-  client,
-  path: { 
-    collectionId: 'collection-123',
-    thumbnailId: 'thumb-456'
-  },
-});
-```
-
-### Upload collection thumbnail
-
-```typescript
-import { addUserUploadedCollectionThumbnail } from 'komga-sdk';
+const current = await getCollectionThumbnail({ id: 'collection-123' }, { client });
+const list = await getCollectionThumbnails({ id: 'collection-123' }, { client });
+const specific = await getCollectionThumbnailById(
+  { id: 'collection-123', thumbnailId: 'thumb-456' },
+  { client },
+);
 
 const file = new File([imageBlob], 'collection-thumb.jpg', { type: 'image/jpeg' });
+await addUserUploadedCollectionThumbnail(
+  { id: 'collection-123', file },
+  { client },
+);
+await markCollectionThumbnailSelected(
+  { id: 'collection-123', thumbnailId: 'thumb-456' },
+  { client },
+);
+await deleteUserUploadedCollectionThumbnail(
+  { id: 'collection-123', thumbnailId: 'thumb-456' },
+  { client },
+);
 
-await addUserUploadedCollectionThumbnail({
-  client,
-  path: { collectionId: 'collection-123' },
-  body: { file },
-});
+if (!current.error && current.data) console.log(URL.createObjectURL(current.data));
+console.log(list.data, specific.data);
 ```
 
-### Select collection thumbnail
+## Read-list thumbnails
+
+Read-list paths also use `id`:
 
 ```typescript
-import { markCollectionThumbnailSelected } from 'komga-sdk';
+import {
+  getReadListThumbnail,
+  getReadListThumbnails,
+  getReadListThumbnailById,
+  addUserUploadedReadListThumbnail,
+  markReadListThumbnailSelected,
+  deleteUserUploadedReadListThumbnail,
+} from 'komga-sdk';
 
-await markCollectionThumbnailSelected({
-  client,
-  path: { 
-    collectionId: 'collection-123',
-    thumbnailId: 'thumb-456'
-  },
-});
+const current = await getReadListThumbnail({ id: 'readlist-123' }, { client });
+const list = await getReadListThumbnails({ id: 'readlist-123' }, { client });
+const specific = await getReadListThumbnailById(
+  { id: 'readlist-123', thumbnailId: 'thumb-456' },
+  { client },
+);
+
+const file = new File([imageBlob], 'readlist-thumb.jpg', { type: 'image/jpeg' });
+await addUserUploadedReadListThumbnail(
+  { id: 'readlist-123', file },
+  { client },
+);
+await markReadListThumbnailSelected(
+  { id: 'readlist-123', thumbnailId: 'thumb-456' },
+  { client },
+);
+await deleteUserUploadedReadListThumbnail(
+  { id: 'readlist-123', thumbnailId: 'thumb-456' },
+  { client },
+);
+
+if (!current.error && current.data) console.log(URL.createObjectURL(current.data));
+console.log(list.data, specific.data);
 ```
 
-## Read list thumbnails
+## Build a thumbnail selector
 
-### Get read list thumbnail
+List metadata first, then fetch only the thumbnails the user needs. Use the `selected` flag to render the current choice and refetch after selection because the selection call returns `202` without a thumbnail payload:
 
 ```typescript
-import { getReadListThumbnail } from 'komga-sdk';
+import {
+  getBookThumbnailById,
+  getBookThumbnails,
+  markBookThumbnailSelected,
+} from 'komga-sdk';
 
-const result = await getReadListThumbnail({
-  client,
-  path: { readListId: 'readlist-123' },
-});
+const bookId = 'book-123';
+const choices = await getBookThumbnails({ bookId }, { client });
 
-if (result.data) {
-  const thumbnailUrl = URL.createObjectURL(result.data);
+for (const choice of choices.data ?? []) {
+  const preview = await getBookThumbnailById(
+    { bookId, thumbnailId: choice.id },
+    { client },
+  );
+  if (preview.error || !preview.data) continue;
+
+  const previewUrl = URL.createObjectURL(preview.data);
+  console.log({ id: choice.id, selected: choice.selected, previewUrl });
+  // Attach previewUrl to the UI and revoke it when the element is removed.
+}
+
+const selected = await markBookThumbnailSelected(
+  { bookId, thumbnailId: 'thumb-456' },
+  { client },
+);
+if (!selected.error) {
+  const refreshed = await getBookThumbnails({ bookId }, { client });
+  console.log(refreshed.data);
 }
 ```
 
-### List read list thumbnails
 
-```typescript
-import { getReadListThumbnails } from 'komga-sdk';
 
-const result = await getReadListThumbnails({
-  client,
-  path: { readListId: 'readlist-123' },
-});
-```
+## Regenerate book thumbnails
 
-### Get specific read list thumbnail
-
-```typescript
-import { getReadListThumbnailById } from 'komga-sdk';
-
-const result = await getReadListThumbnailById({
-  client,
-  path: { 
-    readListId: 'readlist-123',
-    thumbnailId: 'thumb-456'
-  },
-});
-```
-
-### Upload read list thumbnail
-
-```typescript
-import { addUserUploadedReadListThumbnail } from 'komga-sdk';
-
-const file = new File([imageBlob], 'readlist-thumb.jpg', { type: 'image/jpeg' });
-
-await addUserUploadedReadListThumbnail({
-  client,
-  path: { readListId: 'readlist-123' },
-  body: { file },
-});
-```
-
-### Select read list thumbnail
-
-```typescript
-import { markReadListThumbnailSelected } from 'komga-sdk';
-
-await markReadListThumbnailSelected({
-  client,
-  path: { 
-    readListId: 'readlist-123',
-    thumbnailId: 'thumb-456'
-  },
-});
-```
-
-## Regenerate thumbnails
-
-<Warning>
-Requires **ADMIN** role. This operation regenerates thumbnails for all books and can be resource-intensive.
-</Warning>
-
-Regenerate all thumbnails (useful after changing thumbnail settings):
+Regeneration is an asynchronous admin operation. Pass `for_bigger_result_only` only when you want to regenerate posters that can be improved:
 
 ```typescript
 import { booksRegenerateThumbnails } from 'komga-sdk';
 
-await booksRegenerateThumbnails({ client });
-```
-
-## Common workflows
-
-### Thumbnail selector component
-
-```typescript
-import { getBookThumbnails, getBookThumbnailById, markBookThumbnailSelected } from 'komga-sdk';
-
-async function createThumbnailSelector(bookId: string, container: HTMLElement) {
-  const result = await getBookThumbnails({
-    client,
-    path: { bookId },
-  });
-
-  if (!result.data) return;
-
-  for (const thumb of result.data) {
-    const thumbResult = await getBookThumbnailById({
-      client,
-      path: { bookId, thumbnailId: thumb.id },
-    });
-
-    if (thumbResult.data) {
-      const img = document.createElement('img');
-      img.src = URL.createObjectURL(thumbResult.data);
-      img.classList.toggle('selected', thumb.selected);
-      
-      img.addEventListener('click', async () => {
-        await markBookThumbnailSelected({
-          client,
-          path: { bookId, thumbnailId: thumb.id },
-        });
-        // Refresh UI
-      });
-      
-      container.appendChild(img);
-    }
-  }
+const result = await booksRegenerateThumbnails(
+  { for_bigger_result_only: false },
+  { client },
+);
+if (result.error) {
+  console.error(result.response?.status, result.error);
+} else {
+  // HTTP 202 with an unknown body; processing continues on the server.
+  console.log(`Accepted (${result.response?.status})`);
 }
 ```
 
-### Upload and select workflow
+## Binary response handling
+
+Every image getter returns `Blob | File`. Revoke object URLs when the image is no longer needed:
 
 ```typescript
-import { 
-  addUserUploadedBookThumbnail, 
-  markBookThumbnailSelected 
-} from 'komga-sdk';
+function objectUrl(file: Blob | File): string {
+  return URL.createObjectURL(file);
+}
 
-async function uploadAndSelectThumbnail(bookId: string, file: File) {
-  // Upload
-  const uploadResult = await addUserUploadedBookThumbnail({
-    client,
-    path: { bookId },
-    body: { file },
-  });
-
-  if (!uploadResult.data) {
-    throw new Error('Upload failed');
-  }
-
-  // Select the new thumbnail
-  await markBookThumbnailSelected({
-    client,
-    path: { 
-      bookId, 
-      thumbnailId: uploadResult.data.id 
-    },
-  });
-
-  return uploadResult.data;
+function releaseObjectUrl(url: string): void {
+  URL.revokeObjectURL(url);
 }
 ```
 
 ## Next steps
 
 <CardGroup cols={2}>
-  <Card title="Book Content" icon="images" href="/guides/book-content">
+  <Card title="Book content" icon="images" href="/guides/book-content">
     Access book pages and reading positions.
   </Card>
-  
   <Card title="Books" icon="book" href="/guides/books">
     Learn about book management operations.
+  </Card>
+  <Card title="Administration" icon="shield-halved" href="/guides/admin">
+    Review admin permissions and asynchronous tasks.
   </Card>
 </CardGroup>

@@ -1,360 +1,229 @@
 ---
 title: "Downloads"
-description: "Download books, series, and read lists as files"
+description: "Download books, series, and read lists as binary files"
 icon: "download"
 ---
 
-This guide covers downloading content from Komga, including individual book files, entire series as ZIP archives, and read list exports.
+Download operations require the **FILE_DOWNLOAD** role. Their generated response type is `StreamingResponseBody` (`unknown`) because Komga streams files. Pass `parseAs: 'blob'` in the options object when you need a browser `Blob`, then narrow `result.data` before using it.
 
-<Note>
-Download operations require the **FILE_DOWNLOAD** role. Check with your administrator if you don't have access.
-</Note>
-
-## Download a single book
-
-Download the original book file (CBZ, CBR, PDF, EPUB, etc.):
+## Download a book
 
 ```typescript
 import { downloadBookFile } from 'komga-sdk';
 
-const result = await downloadBookFile({
-  client,
-  path: { bookId: 'book-123' },
-});
-
-if (result.data) {
-  // result.data is a Blob containing the file
-  const blob = result.data;
-  
-  // In a browser, trigger download
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'book.cbz'; // Use actual filename from response headers
-  a.click();
+const result = await downloadBookFile(
+  { bookId: 'book-123' },
+  { client, parseAs: 'blob' },
+);
+if (result.error) {
+  console.error(result.response?.status, result.error);
+} else if (result.data instanceof Blob) {
+  const url = URL.createObjectURL(result.data);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'book.cbz';
+  link.click();
   URL.revokeObjectURL(url);
 }
 ```
 
-### Download with wildcard path
-
-Some proxy setups require the wildcard file endpoint. Use this variant if standard download fails with a 404 in reverse-proxy routes.
+The wildcard route is exposed as `downloadBookFile1` and has the same flat signature. Use it only when your reverse proxy requires that route:
 
 ```typescript
 import { downloadBookFile1 } from 'komga-sdk';
 
-const result = await downloadBookFile1({
-  client,
-  path: { bookId: 'book-123' },
-});
-
-if (result.data) {
-  const url = URL.createObjectURL(result.data);
-  // Trigger download or display
+const result = await downloadBookFile1(
+  { bookId: 'book-123' },
+  { client, parseAs: 'blob' },
+);
+if (!result.error && result.data instanceof Blob) {
+  console.log(`Received ${result.data.size} bytes`);
 }
 ```
 
-### Getting the original filename
+### Read the server filename
 
-The original filename is returned in the `Content-Disposition` header:
+The generated result includes the native `Response` so you can read `Content-Disposition`:
 
 ```typescript
 import { downloadBookFile } from 'komga-sdk';
 
-const result = await downloadBookFile({
-  client,
-  path: { bookId: 'book-123' },
-});
-
-if (result.data && result.response) {
-  const contentDisposition = result.response.headers.get('Content-Disposition');
-  // Parse filename from: attachment; filename*=UTF-8''My%20Book.cbz
-  const filenameMatch = contentDisposition?.match(/filename\*?=['"]?(?:UTF-8'')?([^;\n"']+)/i);
-  const filename = filenameMatch ? decodeURIComponent(filenameMatch[1]) : 'download';
-  
-  console.log(`Downloading: ${filename}`);
+const result = await downloadBookFile(
+  { bookId: 'book-123' },
+  { client, parseAs: 'blob' },
+);
+if (result.error || !(result.data instanceof Blob) || !result.response) {
+  throw new Error('Book download failed');
 }
+
+const disposition = result.response.headers.get('Content-Disposition') ?? '';
+const utf8 = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+const regular = disposition.match(/filename="?([^";]+)"?/i);
+const filename = utf8
+  ? decodeURIComponent(utf8[1])
+  : regular?.[1] ?? 'download';
+
+const url = URL.createObjectURL(result.data);
+console.log(`Download ${filename} from ${url}`);
 ```
 
-## Download a series as ZIP
+## Download archives
 
-Download all books in a series as a single ZIP archive:
+Download an entire series as a ZIP. The parameter is `seriesId`:
 
 ```typescript
 import { downloadSeriesAsZip } from 'komga-sdk';
 
-const result = await downloadSeriesAsZip({
-  client,
-  path: { seriesId: 'series-123' },
-});
-
-if (result.data) {
-  // result.data is a Blob containing the ZIP file
-  const blob = result.data;
-  console.log(`Downloaded ${blob.size} bytes`);
+const result = await downloadSeriesAsZip(
+  { seriesId: 'series-123' },
+  { client, parseAs: 'blob' },
+);
+if (!result.error && result.data instanceof Blob) {
+  console.log(`Series archive: ${result.data.size} bytes`);
 }
 ```
 
-<Warning>
-Large series may take significant time to download. The server creates the ZIP archive on-the-fly, which can be resource-intensive.
-</Warning>
-
-## Download a read list as ZIP
-
-Export all books in a read list as a ZIP archive:
+Download a read list as a ZIP. The generated operation names the path parameter `id`:
 
 ```typescript
 import { downloadReadListAsZip } from 'komga-sdk';
 
-const result = await downloadReadListAsZip({
-  client,
-  path: { readListId: 'readlist-123' },
-});
-
-if (result.data) {
-  const blob = result.data;
-  
-  // Save in Node.js environment
-  const buffer = await blob.arrayBuffer();
-  await fs.writeFile('readlist.zip', Buffer.from(buffer));
+const result = await downloadReadListAsZip(
+  { id: 'readlist-123' },
+  { client, parseAs: 'blob' },
+);
+if (!result.error && result.data instanceof Blob) {
+  const bytes = await result.data.arrayBuffer();
+  console.log(`Read list archive: ${bytes.byteLength} bytes`);
 }
 ```
 
-## Common workflows
+Large series and read lists are created on the server and may take time to produce. The SDK does not expose a progress event and does not add retries or caching. `parseAs: 'blob'` buffers the response, so use it for ordinary downloads; if you need incremental progress, provide an application-owned `fetch`/streaming transport and apply the same authentication policy outside the core SDK.
 
-### Download with progress tracking
+<Warning>
+An archive request can be expensive for a large series or read list. Avoid firing duplicate requests from UI rerenders, and surface the server-side wait to users instead of treating a slow response or connection as an immediate failure.
+</Warning>
 
-For large downloads, you may want to track progress:
+## Save a download in Node.js
+
+Node.js 18+ provides `Blob` and Fetch. Use `parseAs: 'blob'`, convert the result to an `ArrayBuffer`, and write it with the Node filesystem APIs:
 
 ```typescript
-async function downloadWithProgress(bookId: string, onProgress: (percent: number) => void) {
-  const response = await fetch(`${baseUrl}/api/v1/books/${bookId}/file`, {
-    headers: {
-      'Authorization': `Basic ${credentials}`,
+import { writeFile } from 'node:fs/promises';
+import { downloadBookFile } from 'komga-sdk';
+
+const result = await downloadBookFile(
+  { bookId: 'book-123' },
+  { client, parseAs: 'blob' },
+);
+
+if (result.error || !(result.data instanceof Blob)) {
+  throw new Error(`Download failed (${result.response?.status ?? 'network error'})`);
+}
+
+await writeFile('book.cbz', Buffer.from(await result.data.arrayBuffer()));
+```
+
+For a server-side download service, keep the `KomgaClient` on the server so Basic credentials or API keys never enter a browser bundle. The SDK returns the native `Response` as `result.response`; use it for `Content-Type`, `Content-Length`, and `Content-Disposition` when proxying the file to another client.
+
+## Batch and offline workflows
+
+For several books, list the books first, then download sequentially or with a bounded worker pool. Sequential requests make back-pressure explicit and avoid exhausting the server's file-download role:
+
+```typescript
+import { downloadBookFile } from 'komga-sdk';
+import { getBooks } from 'komga-sdk';
+
+const listed = await getBooks(
+  {
+    page: 0,
+    size: 20,
+    sort: ['metadata.numberSort,asc'],
+    bookSearch: {
+      condition: {
+        seriesId: { operator: 'is', value: 'series-123' },
+      },
     },
-  });
+  },
+  { client },
+);
 
-  if (!response.ok) {
-    throw new Error(`Download failed: ${response.status}`);
+const files: Array<{ bookId: string; file: Blob }> = [];
+for (const book of listed.data?.content ?? []) {
+  const downloaded = await downloadBookFile(
+    { bookId: book.id },
+    { client, parseAs: 'blob' },
+  );
+  if (!downloaded.error && downloaded.data instanceof Blob) {
+    files.push({ bookId: book.id, file: downloaded.data });
   }
-
-  const contentLength = response.headers.get('Content-Length');
-  const total = contentLength ? parseInt(contentLength) : 0;
-  
-  const reader = response.body?.getReader();
-  if (!reader) throw new Error('No response body');
-
-  const chunks: Uint8Array[] = [];
-  let received = 0;
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    
-    chunks.push(value);
-    received += value.length;
-    
-    if (total > 0) {
-      onProgress((received / total) * 100);
-    }
-  }
-
-  return new Blob(chunks);
-}
-
-// Usage
-const blob = await downloadWithProgress('book-123', (percent) => {
-  console.log(`Download progress: ${percent.toFixed(1)}%`);
-});
-```
-
-### Batch download books
-
-Download multiple books with a queue:
-
-```typescript
-import { downloadBookFile, getBooksBySeriesId } from 'komga-sdk';
-
-async function downloadBooksFromSeries(seriesId: string, downloadDir: string) {
-  // Get all books in series
-  const result = await getBooksBySeriesId({
-    client,
-    path: { seriesId },
-    query: { sort: ['metadata.numberSort,asc'] },
-  });
-
-  if (!result.data) return;
-
-  const downloads: { name: string; blob: Blob }[] = [];
-
-  for (const book of result.data.content) {
-    console.log(`Downloading: ${book.metadata.title}`);
-    
-    const downloadResult = await downloadBookFile({
-      client,
-      path: { bookId: book.id },
-    });
-
-    if (downloadResult.data) {
-      downloads.push({
-        name: `${book.metadata.number} - ${book.metadata.title}.${book.media.mediaType.split('/')[1]}`,
-        blob: downloadResult.data,
-      });
-    }
-    
-    // Add delay between downloads to be nice to the server
-    await new Promise(resolve => setTimeout(resolve, 500));
-  }
-
-  return downloads;
 }
 ```
 
-### Download for offline reading
+An offline package should retain the book metadata alongside the binary and should be prepared for a missing or changed book between the list and the download. For a single book, `getBookById` plus `getBookPages` can provide the metadata and page count before downloading; do not infer either from the archive bytes.
 
-Create an offline reading package:
 
-```typescript
-import { 
-  downloadBookFile, 
-  getBookById, 
-  getBookPages,
-} from 'komga-sdk';
+## Browser helper
 
-interface OfflineBook {
-  metadata: {
-    id: string;
-    title: string;
-    series: string;
-    number: string;
-  };
-  file: Blob;
-  pageCount: number;
-}
-
-async function prepareOfflineBook(bookId: string): Promise<OfflineBook> {
-  // Get book metadata
-  const bookResult = await getBookById({
-    client,
-    path: { bookId },
-  });
-
-  if (!bookResult.data) {
-    throw new Error('Book not found');
-  }
-
-  // Get page count
-  const pagesResult = await getBookPages({
-    client,
-    path: { bookId },
-  });
-
-  // Download the file
-  const downloadResult = await downloadBookFile({
-    client,
-    path: { bookId },
-  });
-
-  if (!downloadResult.data) {
-    throw new Error('Download failed');
-  }
-
-  return {
-    metadata: {
-      id: bookResult.data.id,
-      title: bookResult.data.metadata.title,
-      series: bookResult.data.seriesTitle,
-      number: bookResult.data.metadata.number,
-    },
-    file: downloadResult.data,
-    pageCount: pagesResult.data?.length ?? 0,
-  };
-}
-```
-
-## Browser download helpers
-
-### Trigger browser download
+Keep object URL cleanup in one helper:
 
 ```typescript
-function triggerDownload(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+function triggerDownload(file: Blob | File, filename: string): void {
+  const url = URL.createObjectURL(file);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
   URL.revokeObjectURL(url);
 }
-
-// Usage
-const result = await downloadBookFile({
-  client,
-  path: { bookId: 'book-123' },
-});
-
-if (result.data) {
-  triggerDownload(result.data, 'my-book.cbz');
-}
 ```
 
-### Download with filename from server
+Use the helper with any binary result:
 
 ```typescript
-async function downloadBook(bookId: string) {
-  const result = await downloadBookFile({
-    client,
-    path: { bookId },
-  });
+import { downloadBookFile } from 'komga-sdk';
 
-  if (!result.data || !result.response) {
-    throw new Error('Download failed');
-  }
-
-  // Extract filename from Content-Disposition header
-  const disposition = result.response.headers.get('Content-Disposition') ?? '';
-  let filename = 'download';
-
-  // Handle UTF-8 encoded filenames
-  const utf8Match = disposition.match(/filename\*=UTF-8''(.+)/i);
-  if (utf8Match) {
-    filename = decodeURIComponent(utf8Match[1]);
-  } else {
-    // Fallback to regular filename
-    const match = disposition.match(/filename="?([^";\n]+)"?/i);
-    if (match) {
-      filename = match[1];
-    }
-  }
-
-  triggerDownload(result.data, filename);
+const result = await downloadBookFile(
+  { bookId: 'book-123' },
+  { client, parseAs: 'blob' },
+);
+if (!result.error && result.data instanceof Blob) {
+  triggerDownload(result.data, 'my-book.cbz');
 }
 ```
 
 ## Error handling
 
+The default result is a typed success/error union. Status `401` means the client did not authenticate, `403` means the account lacks `FILE_DOWNLOAD`, and `404` usually means the requested ID is not available:
+
 ```typescript
-import { downloadBookFile } from 'komga-sdk';
+import { downloadBookFile, KomgaApiError, unwrap } from 'komga-sdk';
 
-const result = await downloadBookFile({
-  client,
-  path: { bookId: 'book-123' },
-});
-
-if (result.error) {
-  switch (result.response?.status) {
-    case 401:
-      console.error('Not authenticated');
-      break;
-    case 403:
-      console.error('Download permission denied - FILE_DOWNLOAD role required');
-      break;
-    case 404:
-      console.error('Book not found');
-      break;
-    default:
-      console.error('Download error:', result.error);
+try {
+  const file = unwrap(
+    await downloadBookFile({ bookId: 'book-123' }, { client, parseAs: 'blob' }),
+  );
+  if (!(file instanceof Blob)) throw new Error('Expected a binary download');
+  triggerDownload(file, 'book.cbz');
+} catch (error) {
+  if (error instanceof KomgaApiError) {
+    switch (error.status) {
+      case 401:
+        console.error('Authenticate the client before downloading');
+        break;
+      case 403:
+        console.error('The account needs FILE_DOWNLOAD');
+        break;
+      case 404:
+        console.error('Book not found');
+        break;
+      default:
+        console.error(error.body);
+    }
+  } else {
+    throw error;
   }
 }
 ```
@@ -363,9 +232,12 @@ if (result.error) {
 
 <CardGroup cols={2}>
   <Card title="Books" icon="book" href="/guides/books">
-    Browse and manage your book library.
+    Browse and manage books.
   </Card>
-  <Card title="Read Lists" icon="list" href="/guides/read-lists">
-    Create custom reading lists for export.
+  <Card title="Read lists" icon="list" href="/guides/read-lists">
+    Create reading lists for export.
+  </Card>
+  <Card title="Authentication" icon="key" href="/authentication">
+    Configure Basic or API-key authentication.
   </Card>
 </CardGroup>

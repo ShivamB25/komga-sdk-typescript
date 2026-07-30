@@ -1,46 +1,129 @@
 ---
-title: "Validation"
-description: "Validate responses with Zod schemas and helper functions"
+title: "Runtime validation"
+description: "Add consumer-owned response validation when compile-time types are not enough"
 icon: "shield-check"
 ---
 
-The SDK ships Zod schemas for DTOs and helpers for runtime validation.
+The SDK's generated TypeScript types describe the Komga API at compile time. The core package does not export handwritten DTO schemas, validation helpers, or a runtime validation interceptor. Runtime validation is optional and belongs to your application.
 
-## Validate a response
+## Compile-time types first
 
-```typescript
-import { BookDtoSchema, validateResponse } from 'komga-sdk';
-
-const book = validateResponse(BookDtoSchema, responseData);
-```
-
-## Safe validation
+Generated DTOs, search types, page types, and operation response/error types are re-exported from `komga-sdk`:
 
 ```typescript
-import { BookDtoSchema, safeValidateResponse } from 'komga-sdk';
+import type { BookDto, BookSearch, GetBookByIdError, PageBookDto } from 'komga-sdk';
 
-const result = safeValidateResponse(BookDtoSchema, responseData);
-if (result.success) {
-  console.log(result.data);
-} else {
-  console.log(result.error);
+const search: BookSearch = { fullTextSearch: 'manga' };
+
+function title(book: BookDto): string {
+  return book.metadata.title;
+}
+
+function items(page: PageBookDto): BookDto[] {
+  return page.content ?? [];
 }
 ```
 
-## Pagination schemas
+These types do not inspect data received at runtime. Treat data from an untrusted server as runtime input when your application requires a stronger boundary. Generated page fields such as `content`, `totalElements`, and `totalPages` may be optional, so narrow or default them even when validation is not enabled.
+
+## Add an application-owned schema
+
+You can use Zod or another validator in your application. The schema and its package dependency are yours; they are not exports from `komga-sdk`:
 
 ```typescript
-import { createPageSchema, BookDtoSchema } from 'komga-sdk';
+import { z } from 'zod';
+import { getBookById } from 'komga-sdk';
 
-const PageBookSchema = createPageSchema(BookDtoSchema);
-const page = PageBookSchema.parse(rawData);
+const appBookSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  metadata: z.object({ title: z.string() }),
+});
+
+const result = await getBookById({ bookId: 'book-123' }, { client });
+
+if (result.error === undefined) {
+  const parsed = appBookSchema.safeParse(result.data);
+  if (!parsed.success) {
+    console.error('Application validation failed', parsed.error.issues);
+  } else {
+    console.log(parsed.data.metadata.title);
+  }
+}
 ```
 
-## Nullish fields
+Use `parse` when invalid data should throw, or `safeParse` when the application should keep the validation result alongside the response. Validate only the fields your feature consumes unless you deliberately need a full API contract.
 
-Fields that can be `null` from the API are represented as `nullish` in schemas. This keeps optional TypeScript types compatible with runtime responses.
+## Validate page boundaries
 
-## Next steps
+For a page, validate the envelope and the fields your feature consumes. A complete schema is an application policy, not an SDK requirement:
 
-- Handle errors: [Errors](/errors)
-- Use interceptors: [Interceptors](/interceptors)
+```typescript
+import { z } from 'zod';
+import { getBooks } from 'komga-sdk';
+
+const pageSchema = z.object({
+  content: z.array(z.object({ id: z.string() })).optional(),
+  number: z.number().optional(),
+  last: z.boolean().optional(),
+  totalElements: z.number().optional(),
+  totalPages: z.number().optional(),
+});
+
+const result = await getBooks(
+  { bookSearch: {}, page: 0, size: 20 },
+  { client },
+);
+
+if (result.error === undefined) {
+  const page = pageSchema.parse(result.data);
+  console.log(page.content ?? []);
+}
+```
+
+The generated `PageBookDto` fields are optional because that is the generated contract. Keep the schema aligned with fields the application actually requires and avoid claiming that a partial validation schema proves the entire response is valid.
+
+## Validate at the application boundary
+
+Validate at the boundary where data enters your application, such as a repository function, server-side data loader, queue consumer, or cache read. This keeps generated operations reusable and makes failures observable:
+
+```typescript
+import type { BookDto } from 'komga-sdk';
+import { getBookById } from 'komga-sdk';
+
+async function loadValidatedBook(bookId: string): Promise<BookDto> {
+  const result = await getBookById({ bookId }, { client });
+  if (result.error !== undefined) {
+    throw result.error;
+  }
+
+  // Replace with the application schema's parsed value.
+  return result.data;
+}
+```
+
+Do not validate an HTTP error body as a successful DTO. Check the generated result branch first, then validate `data`. For a `204 No Content` mutation, there is no response body to validate; success is indicated by `error === undefined`.
+
+## Validation and Fetch hooks
+
+The generated client can observe response data through low-level options or interceptors, but it does not provide Komga DTO schemas. If a validator is registered as an application-owned response hook, keep its scope explicit and preserve the original `Response` or error contract:
+
+```typescript
+const validationId = client.interceptors.response.use((response, request) => {
+  // Inspect status/headers here. Response bodies are streams; do not consume
+  // them unless you return a replacement Response for downstream parsing.
+  return response;
+});
+
+client.interceptors.response.eject(validationId);
+```
+
+For most applications, validating the parsed `result.data` in a repository is easier to reason about than consuming response streams in a global hook. See [Request customization](/interceptors).
+
+## What the SDK does not provide
+
+- No SDK-exported runtime schemas or validation helper functions.
+- No automatic response validation for JSON, text, blobs, or streams.
+- No validation errors in the SDK error handling contract.
+
+A schema failure is an application error. Keep it distinct from an HTTP error (`result.error` with a `response`) and from a network failure (often no `response`). For HTTP result branches and the explicit throwing helper, see [Result handling](/errors).

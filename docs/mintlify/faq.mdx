@@ -1,213 +1,166 @@
 ---
 title: "FAQ"
-description: "Frequently asked questions about Komga SDK"
+description: "Answers to common questions about komga-sdk 1.0"
 icon: "circle-help"
 ---
 
+The snippets that use `{ client }` assume a client created with `createKomgaClient` as shown in [Authentication](/authentication).
+
 <AccordionGroup>
 
-<Accordion title="What is Komga?" icon="database">
-Komga is a media server for comics, manga, and ebooks. It organizes your digital library, provides metadata management, and serves content to readers.
+<Accordion title="What does komga-sdk 1.0 contain?" icon="code">
+`komga-sdk` 1.0 is generated from Komga API **1.25.0**. It exposes **165 typed operations** and has **zero runtime dependencies**. The core package provides generated operation functions, generated TypeScript types, `createKomgaClient`, `unwrap`, and `KomgaApiError`.
 
-The Komga SDK provides a type-safe TypeScript client to interact with the Komga API programmatically.
+The package does not include the former domain-service classes, handwritten DTO schemas, legacy error hierarchy, or built-in retry/cache middleware. Add those policies in your application when they are useful.
 </Accordion>
 
-<Accordion title="Should I use domain services or direct API?" icon="git-compare">
-**Use domain services** for most application code:
-- Built-in response validation with Zod
-- Higher-level, intuitive methods
-- Automatic error handling
-- Type-safe from end to end
-
-**Use direct API functions** when:
-- You need endpoints not covered by domain services
-- You want full control over request/response
-- You're building custom abstractions
-- You need to access the raw API response
-
-See [Domain services](/domain-services) vs [Direct API](/direct-api) for more details.
-</Accordion>
-
-<Accordion title="What authentication methods are supported?" icon="key">
-The SDK supports two authentication methods:
-
-1. **Basic Auth** - Username and password (recommended for development)
-2. **API Key** - Long-lived tokens (recommended for production)
-
-1. **Basic Auth** - Username and password (recommended for development)
-2. **API Key** - Long-lived tokens (recommended for production)
-3. **Bearer Token** - JWT tokens (for session-based auth)
-
-See [Authentication](/authentication) for configuration examples.
-</Accordion>
-
-<Accordion title="Can I use this SDK in the browser?" icon="globe">
-Yes! The SDK is built for modern JavaScript runtimes that support:
-- Fetch API
-- Web Crypto API
-
-This includes:
-- Node.js 18+
-- Modern browsers (Chrome, Firefox, Safari, Edge)
-- Edge runtimes (Cloudflare Workers, Vercel Edge, etc.)
-</Accordion>
-
-<Accordion title="How do I handle pagination?" icon="list">
-All list endpoints support pagination via the `page` and `size` parameters:
+<Accordion title="How do I call an operation?" icon="bolt">
+Pass endpoint parameters as one flat object. Pass the configured client as the optional second argument:
 
 ```typescript
-const books = await bookService.list({
-  page: 0,  // Page index (0-based)
-  size: 20, // Items per page
-});
+import { getBookById } from 'komga-sdk';
 
-console.log(books.totalElements); // Total items available
-console.log(books.totalPages);    // Total pages
-console.log(books.content);       // Current page items
+const result = await getBookById({ bookId: 'book-123' }, { client });
 ```
 
-You can also use `unpaged: true` to get all results at once (use with caution on large libraries).
-
-See [Pagination](/pagination) for advanced patterns including sorting and search filters.
-</Accordion>
-
-<Accordion title="What happens when validation fails?" icon="shield-alert">
-When a response doesn't match the expected Zod schema, a `ValidationError` is thrown:
+Operations without endpoint parameters accept only the options object:
 
 ```typescript
-import { isValidationError } from 'komga-sdk';
+import { getLibraries } from 'komga-sdk';
 
-try {
-  await bookService.getById('book-123');
-} catch (error) {
-  if (isValidationError(error)) {
-    console.log('Validation failed:', error.getFieldErrors());
-    // Check error.issues for detailed information
-  }
+const result = await getLibraries({ client });
+```
+
+The removed grouped `{ path, query, body }` shape is not part of the 1.0 public operation signatures. Check the generated function or [Direct API](/direct-api) when an operation has a body plus query fields.
+</Accordion>
+
+<Accordion title="Which authentication methods are supported?" icon="key">
+`createKomgaClient` supports:
+
+- HTTP Basic Auth with `auth: { type: 'basic', username, password }`
+- Komga API keys with `auth: { type: 'apiKey', key }`
+- No built-in authentication, when `auth` is omitted
+- Application-owned headers through `headers`
+- Fetch cookie credentials through `credentials: 'include'`
+
+The SDK does not implement OAuth login, JWT/Bearer authentication, or a browser login UI. `getOAuth2Providers` can list server-configured providers, but the application must own any provider flow and session handoff. See [Authentication](/authentication) for examples.
+</Accordion>
+
+<Accordion title="Can I use the SDK in a browser or Node.js?" icon="globe">
+Yes. The client uses native Fetch APIs and runs in Node.js 18+, modern browsers, and compatible edge runtimes. The runtime must provide Fetch, `Headers`, `Request`, `Response`, `TextEncoder`, and Web Crypto. Pass a custom `fetch` implementation to `createKomgaClient` when the host runtime needs one.
+
+For a browser session, configure `credentials: 'include'` and ensure Komga's CORS and cookie policies allow the exact origin. Do not ship long-lived Basic credentials or API keys in a public bundle.
+</Accordion>
+
+<Accordion title="Do requests throw errors?" icon="list-check">
+Not by default. A generated operation resolves to fields containing `data`, `error`, `request`, and `response`:
+
+```typescript
+import { getBookById } from 'komga-sdk';
+
+const result = await getBookById({ bookId: 'book-123' }, { client });
+
+if (result.error) {
+  console.error(result.response?.status, result.error);
 }
 ```
 
-Validation errors typically indicate:
-- API version mismatch
-- Undocumented API changes
-- Malformed responses
+`request` and `response` are optional for request-construction and network failures. Use `unwrap` when your application wants a throwing boundary; it returns response data or throws `KomgaApiError` with `status`, `body`, `request`, and `response` fields.
 </Accordion>
 
-<Accordion title="How do I enable debug logging?" icon="bug">
-Set `debug: true` in your client configuration:
+<Accordion title="What happens for void, binary, or text responses?" icon="file">
+A successful `204 No Content` operation has `data: undefined`; success is represented by `error === undefined`. Generated binary and text operations can use Fetch parser options:
 
 ```typescript
+import { getBookPageByNumber } from 'komga-sdk';
+
+const result = await getBookPageByNumber(
+  { bookId: 'book-123', pageNumber: 1 },
+  { client, parseAs: 'blob' },
+);
+```
+
+Use `blob`, `arrayBuffer`, or `text` only for an endpoint whose generated response supports that representation. Inspect the generated type before assuming a JSON object.
+</Accordion>
+
+<Accordion title="Does the SDK validate response bodies at runtime?" icon="shield-check">
+No. Generated TypeScript types provide compile-time guidance; the core client does not validate response bodies at runtime and does not export Zod schemas or validation helpers. Add an application-owned validator at the boundary where untrusted data enters your system. See [Runtime validation](/validation).
+</Accordion>
+
+<Accordion title="Are retries, caching, or timeouts enabled?" icon="gear">
+No. The core client uses native Fetch and does not enable retries, caching, timeout handling, or debug logging by default. Add those policies around operation calls or provide a custom Fetch implementation. Any retry policy should account for whether an operation is safe to repeat, honor `Retry-After`, and avoid retrying `401` or `403` unchanged.
+</Accordion>
+
+<Accordion title="How do I customize Fetch or add logging?" icon="filter">
+Pass standard client options when creating the client:
+
+```typescript
+import { createKomgaClient } from 'komga-sdk';
+
 const client = createKomgaClient({
-  baseUrl: 'http://localhost:25600',
-  auth: { type: 'basic', username: 'admin', password: 'password' },
-  debug: true,
+  baseUrl: 'https://komga.example.com',
+  headers: { 'X-Request-Source': 'dashboard' },
+  credentials: 'include',
+  fetch: async (input, init) => fetch(input, init),
 });
 ```
 
-For more detailed logging, use the [logging interceptor](/interceptors):
-
-```typescript
-const { request, response } = createLoggingInterceptor({ 
-  logHeaders: true,
-  logBody: true 
-});
-client.interceptors.request.use(request);
-client.interceptors.response.use(response);
-```
+For lifecycle hooks, register `client.interceptors.request`, `.response`, or `.error`; `use` returns an id that can be passed to `eject`. Redact credentials and cookies, and remember that hooks run for every operation made with that client.
 </Accordion>
 
-<Accordion title="Can I customize retry behavior?" icon="rotate-ccw">
-Yes, configure retry options when creating the client:
+<Accordion title="How do I paginate book results?" icon="list">
+Use `getBooks` with its required `bookSearch` field and the flat `page`, `size`, `sort`, or `unpaged` parameters:
 
 ```typescript
-const client = createKomgaClient({
-  baseUrl: 'http://localhost:25600',
-  auth: { type: 'apiKey', key: 'your-api-key' },
-  retry: {
-    limit: 5,              // Max retry attempts
-    methods: ['GET'],      // HTTP methods to retry
-    statusCodes: [408, 413, 429, 500, 502, 503, 504],
-    backoffLimit: 5000,    // Max backoff delay in ms
+import { getBooks } from 'komga-sdk';
+
+const result = await getBooks(
+  {
+    page: 0,
+    size: 20,
+    sort: ['metadata.title,asc'],
+    bookSearch: { fullTextSearch: 'manga' },
   },
-});
-```
-</Accordion>
+  { client },
+);
 
-<Accordion title="Are there any rate limits?" icon="gauge">
-The SDK doesn't implement rate limiting - it depends on your Komga server's configuration. If you're making many requests:
-
-1. Use pagination with appropriate `size` values
-2. Add delays between batches
-3. Consider using the `retry` configuration for 429 responses
-4. Monitor your server's performance
-
-Common patterns for large operations:
-```typescript
-// Process in batches with delays
-for (let page = 0; page < totalPages; page++) {
-  const books = await bookService.list({ page, size: 50 });
-  await processBatch(books.content);
-  await sleep(100); // Add delay between requests
+for (const book of result.data?.content ?? []) {
+  console.log(book.metadata.title);
 }
 ```
+
+Page indexes are zero-based. Use `last`, `totalPages`, and `content` defensively because generated page fields may be optional. See [Pagination](/pagination).
 </Accordion>
 
-<Accordion title="How do I get book thumbnails for my UI?" icon="image">
-Use the service methods to generate thumbnail URLs:
-
-```typescript
-const service = new BookService(client);
-const book = await service.getById('book-123');
-
-// Get thumbnail URL
-const thumbnailUrl = service.getThumbnailUrl(book.id);
-// Or use the raw API path
-const thumbnailUrl = `${client.baseUrl}/api/v1/books/${book.id}/thumbnail`;
-```
-
-For series and collections, similar methods are available on their respective services.
+<Accordion title="What does a 401, 403, or 404 mean?" icon="triangle-exclamation">
+Inspect `result.response?.status` and `result.error` on the nonthrowing result. A `401` usually means configured credentials or a session were rejected, a `403` means the authenticated user lacks permission, and a `404` means the endpoint or resource was not found. If you use `unwrap`, inspect `error instanceof KomgaApiError` and its `status` and `body` fields.
 </Accordion>
 
-<Accordion title="What should I do if I get a 404 error?" icon="file-x">
-404 errors typically indicate:
+<Accordion title="Can I use separate clients for separate servers?" icon="server">
+Yes. `createKomgaClient` returns an isolated client instance. Create one client per Komga server or distinct authentication context, then pass the appropriate `{ client }` options object to each operation. Interceptors and custom Fetch implementations are also instance-local.
+</Accordion>
 
-1. **Invalid ID** - Verify the book/series/library ID exists
-2. **Deleted resource** - The item may have been removed
-3. **Wrong endpoint** - Check you're using the correct API version
-4. **Deprecated endpoint** - Some endpoints are deprecated (see [Migration](/guides/migration))
+<Accordion title="How do I use generated TypeScript types?" icon="code">
+Import DTOs, search types, page types, and operation result types as type-only imports:
 
 ```typescript
-import { isApiError } from 'komga-sdk';
+import type { BookDto, BookSearch, PageBookDto } from 'komga-sdk';
 
-try {
-  await bookService.getById('invalid-id');
-} catch (error) {
-  if (isApiError(error) && error.status === 404) {
-    console.log('Resource not found');
-    // Handle missing resource gracefully
-  }
+const search: BookSearch = { fullTextSearch: 'manga' };
+function firstBook(page: PageBookDto): BookDto | undefined {
+  return page.content?.[0];
 }
 ```
-</Accordion>
 
-<Accordion title="Can I contribute to the SDK?" icon="github">
-Yes! The SDK is open source. Contributions are welcome for:
-
-- Bug fixes
-- Documentation improvements
-- New features
-- Test coverage
-
-See the repository's `CONTRIBUTING.md` for guidelines.
+Types describe the API contract to TypeScript; they do not prove that a runtime response is valid. Use an application-owned schema if your boundary needs runtime checks.
 </Accordion>
 
 </AccordionGroup>
 
-## Still have questions?
+## More information
 
-If you can't find the answer you're looking for:
-
-1. Check the [Troubleshooting](/guides/troubleshooting) guide
-2. Review the [API Reference](/reference/api-reference) 
-3. Browse the [TypeDoc](/api/) documentation
-4. Open an issue on GitHub
+- [Quickstart](/quickstart) for installation and the first request
+- [Authentication](/authentication) for Basic Auth, API keys, headers, sessions, and credentials
+- [Quick reference](/quick-reference) for common flat-call patterns
+- [Direct API](/direct-api) for request mapping and result handling
+- [API reference](/reference/api-reference) for the generated Komga API surface

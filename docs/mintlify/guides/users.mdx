@@ -4,171 +4,154 @@ description: "Manage users, API keys, passwords, and authentication activity"
 icon: "users"
 ---
 
-This guide covers user management operations including creating users, managing API keys, updating passwords, and monitoring authentication activity.
+This guide covers user administration, API keys, passwords, and authentication activity. Generated operations return `{ data, error, request, response }`; pass flat parameters first and `{ client }` second.
 
 <Note>
-Most user management operations require **ADMIN** role. Regular users can only manage their own profile, password, and API keys.
+Most user administration operations require the **ADMIN** role. A regular user can manage their own profile, password, settings, and API keys, but cannot create, update, delete, or audit another user.
 </Note>
 
-## Get current user
+## Roles and restrictions
 
-Retrieve the authenticated user's profile:
+Roles are server-defined strings. Common roles include:
+
+| Role | Capability |
+| --- | --- |
+| `USER` | Normal authenticated library access |
+| `ADMIN` | User, library, and server administration |
+| `FILE_DOWNLOAD` | Download complete book files |
+| `PAGE_STREAMING` | Stream individual book pages |
+
+Library and content restrictions are separate from roles:
+
+- `sharedLibraries: { all: false, libraryIds }` limits a user to selected libraries. Set `all: true` for every library.
+- `labelsAllow` exposes only content carrying at least one allowed label.
+- `labelsExclude` hides content carrying an excluded label.
+- `ageRestriction` accepts `ALLOW_ONLY`, `EXCLUDE`, or `NONE` with an age value.
+
+The response shape exposes these as `sharedAllLibraries`, `sharedLibrariesIds`, and the corresponding label/age fields.
+
+## Get the current user
+
+`getCurrentUser` has an optional query parameter, so pass `undefined` when only the client is needed:
 
 ```typescript
 import { getCurrentUser } from 'komga-sdk';
 
-const result = await getCurrentUser({ client });
-
+const result = await getCurrentUser(undefined, { client });
 if (result.data) {
-  console.log(`Logged in as: ${result.data.email}`);
+  console.log(`Logged in as ${result.data.email}`);
   console.log(`Roles: ${result.data.roles.join(', ')}`);
 }
 ```
 
 ## List all users
 
-<Warning>
-Requires **ADMIN** role.
-</Warning>
+<Warning>Requires the **ADMIN** role.</Warning>
 
 ```typescript
 import { getUsers } from 'komga-sdk';
 
 const result = await getUsers({ client });
-
-if (result.data) {
-  for (const user of result.data) {
-    console.log(`${user.email} - Roles: ${user.roles.join(', ')}`);
-  }
+for (const user of result.data ?? []) {
+  console.log(`${user.email} - ${user.roles.join(', ')}`);
 }
 ```
 
 ## Create a user
 
-<Warning>
-Requires **ADMIN** role.
-</Warning>
+<Warning>Requires the **ADMIN** role.</Warning>
+
+The generated body parameter is `userCreationDto`. Apply library and content restrictions at creation time when possible:
 
 ```typescript
 import { addUser } from 'komga-sdk';
 
-const result = await addUser({
-  client,
-  body: {
-    email: 'newuser@example.com',
-    password: 'secure-password-123',
-    roles: ['USER'],
+const result = await addUser(
+  {
+    userCreationDto: {
+      email: 'newuser@example.com',
+      password: 'secure-password-123',
+      roles: ['USER', 'PAGE_STREAMING'],
+      sharedLibraries: { all: false, libraryIds: ['library-1'] },
+      labelsAllow: ['family-friendly'],
+      labelsExclude: ['adult'],
+      ageRestriction: { age: 13, restriction: 'ALLOW_ONLY' },
+    },
   },
-});
+  { client },
+);
 
-if (result.data) {
-  console.log(`Created user: ${result.data.id}`);
-}
+if (result.data) console.log(`Created user: ${result.data.id}`);
 ```
-
-### Available roles
-
-| Role | Description |
-|------|-------------|
-| `USER` | Basic access to libraries |
-| `ADMIN` | Full administrative access |
-| `FILE_DOWNLOAD` | Can download book files |
-| `PAGE_STREAMING` | Can stream book pages |
 
 ## Update a user
 
-<Warning>
-Requires **ADMIN** role.
-</Warning>
+<Warning>Requires the **ADMIN** role.</Warning>
+
+`userUpdateDto` is partial. A partial update leaves omitted fields unchanged:
 
 ```typescript
 import { updateUserById } from 'komga-sdk';
 
-const result = await updateUserById({
-  client,
-  path: { id: 'user-123' },
-  body: {
-    roles: ['USER', 'FILE_DOWNLOAD'],
-    sharedLibrariesIds: ['library-1', 'library-2'],
-    labelsAllow: ['family-friendly'],
-    labelExclude: ['adult'],
-  },
-});
-```
-
-### User restrictions
-
-You can restrict user access with:
-
-- **sharedLibrariesIds**: Limit access to specific libraries (empty = all libraries)
-- **labelsAllow**: Only show content with these labels
-- **labelsExclude**: Hide content with these labels
-- **ageRestriction**: Set age rating limits
-
-```typescript
-await updateUserById({
-  client,
-  path: { id: 'user-123' },
-  body: {
-    ageRestriction: {
-      age: 13,
-      restriction: 'ALLOW_ONLY',
+await updateUserById(
+  {
+    id: 'user-123',
+    userUpdateDto: {
+      roles: ['USER', 'FILE_DOWNLOAD'],
+      sharedLibraries: { all: false, libraryIds: ['library-1', 'library-2'] },
+      labelsAllow: ['family-friendly'],
+      labelsExclude: ['adult'],
+      ageRestriction: { age: 13, restriction: 'ALLOW_ONLY' },
     },
   },
-});
+  { client },
+);
 ```
+
+To grant all libraries, send `sharedLibraries: { all: true, libraryIds: [] }`. To clear an age rule, send the required numeric `age` together with `restriction: 'NONE'`.
 
 ## Delete a user
 
-<Warning>
-Requires **ADMIN** role. This action cannot be undone.
-</Warning>
+<Warning>Requires the **ADMIN** role. This action cannot be undone.</Warning>
 
 ```typescript
 import { deleteUserById } from 'komga-sdk';
 
-await deleteUserById({
-  client,
-  path: { id: 'user-123' },
-});
+await deleteUserById({ id: 'user-123' }, { client });
 ```
 
 ## Password management
 
-### Update your own password
+### Update your password
 
 ```typescript
 import { updatePasswordForCurrentUser } from 'komga-sdk';
 
-await updatePasswordForCurrentUser({
-  client,
-  body: {
-    password: 'new-secure-password',
-  },
-});
+await updatePasswordForCurrentUser(
+  { passwordUpdateDto: { password: 'new-secure-password' } },
+  { client },
+);
 ```
 
 ### Update another user's password
 
-<Warning>
-Requires **ADMIN** role.
-</Warning>
+<Warning>Requires the **ADMIN** role.</Warning>
 
 ```typescript
 import { updatePasswordByUserId } from 'komga-sdk';
 
-await updatePasswordByUserId({
-  client,
-  path: { id: 'user-123' },
-  body: {
-    password: 'new-password-for-user',
+await updatePasswordByUserId(
+  {
+    id: 'user-123',
+    passwordUpdateDto: { password: 'new-password-for-user' },
   },
-});
+  { client },
+);
 ```
 
 ## API key management
 
-API keys allow programmatic access without exposing your password. They're useful for automation, scripts, and third-party integrations.
+API keys provide programmatic access without exposing a password. The key value is returned only by the create call; store it in a secret manager immediately and do not log it.
 
 ### List your API keys
 
@@ -176,11 +159,8 @@ API keys allow programmatic access without exposing your password. They're usefu
 import { getApiKeysForCurrentUser } from 'komga-sdk';
 
 const result = await getApiKeysForCurrentUser({ client });
-
-if (result.data) {
-  for (const key of result.data) {
-    console.log(`Key ID: ${key.id}, Comment: ${key.comment}`);
-  }
+for (const key of result.data ?? []) {
+  console.log(`Key ID: ${key.id}, Comment: ${key.comment}, Created: ${key.createdDate}`);
 }
 ```
 
@@ -189,299 +169,219 @@ if (result.data) {
 ```typescript
 import { createApiKeyForCurrentUser } from 'komga-sdk';
 
-const result = await createApiKeyForCurrentUser({
-  client,
-  body: {
-    comment: 'Automation script',
-  },
-});
+const result = await createApiKeyForCurrentUser(
+  { apiKeyRequestDto: { comment: 'Automation script' } },
+  { client },
+);
 
 if (result.data) {
-  // IMPORTANT: Save this key - it won't be shown again!
-  console.log(`API Key: ${result.data.key}`);
-  console.log(`Key ID: ${result.data.id}`);
+  // Save result.data.key now; it is not a password replacement or a retrievable secret.
+  const apiKey = result.data.key;
+  // Persist apiKey in your secret manager; never log or commit it.
 }
 ```
-
-<Warning>
-The API key value is only returned once when created. Store it securely - you cannot retrieve it later.
-</Warning>
 
 ### Delete an API key
 
 ```typescript
 import { deleteApiKeyByKeyId } from 'komga-sdk';
 
-await deleteApiKeyByKeyId({
-  client,
-  path: { keyId: 'key-123' },
-});
+await deleteApiKeyByKeyId({ keyId: 'key-123' }, { client });
 ```
 
-### Using API keys for authentication
+### Use an API key for authentication
 
 ```typescript
-import { createClient } from 'komga-sdk';
+import { createKomgaClient } from 'komga-sdk';
 
-// Use API key instead of username/password
-const client = createClient({
-  baseUrl: 'http://localhost:25600',
-  headers: {
-    'X-API-Key': 'your-api-key-here',
-  },
+const client = createKomgaClient({
+  baseUrl: 'https://komga.example.com',
+  auth: { type: 'apiKey', key: process.env.KOMGA_API_KEY! },
 });
 ```
 
 ## Authentication activity
 
-Monitor login attempts and security events.
+Activity records include `dateTime`, `success`, and optional `ip`, `source`, `userAgent`, `email`, `apiKeyComment`, and `error` fields.
 
-### Get your authentication activity
+### Get your activity
 
 ```typescript
 import { getAuthenticationActivityForCurrentUser } from 'komga-sdk';
 
-const result = await getAuthenticationActivityForCurrentUser({
-  client,
-  query: { 
-    page: 0, 
-    size: 20,
-  },
-});
+const result = await getAuthenticationActivityForCurrentUser(
+  { page: 0, size: 20, sort: ['dateTime,desc'] },
+  { client },
+);
 
+for (const activity of result.data?.content ?? []) {
+  console.log(`${activity.dateTime}: ${activity.success ? 'Success' : 'Failed'} from ${activity.ip ?? 'unknown IP'}`);
+}
+```
+
+### Get all activity
+
+<Warning>Requires the **ADMIN** role.</Warning>
+
+```typescript
+import { getAuthenticationActivity } from 'komga-sdk';
+
+const result = await getAuthenticationActivity(
+  { page: 0, size: 50, sort: ['dateTime,desc'] },
+  { client },
+);
+const failures = (result.data?.content ?? []).filter((activity) => !activity.success);
+console.log(`${failures.length} failed login attempts`);
+```
+
+### Get the latest activity for a user
+
+<Warning>Requires the **ADMIN** role.</Warning>
+
+```typescript
+import { getLatestAuthenticationActivityByUserId } from 'komga-sdk';
+
+const result = await getLatestAuthenticationActivityByUserId({ id: 'user-123' }, { client });
 if (result.data) {
-  for (const activity of result.data.content) {
-    console.log(`${activity.dateTime}: ${activity.success ? 'Success' : 'Failed'}`);
-    console.log(`  IP: ${activity.ip}, Source: ${activity.source}`);
-  }
+  console.log(`Last login: ${result.data.dateTime}`);
+  console.log(`IP: ${result.data.ip ?? 'unknown'}`);
 }
 ```
 
 ## User settings
 
-Store per-user client settings (reader preferences, UI options).
-
-### Get user settings
+User settings are key-to-setting maps. See [Client Settings](/guides/client-settings) for precedence and global defaults; the same map operations are available to the current user:
 
 ```typescript
-import { getUserSettings } from 'komga-sdk';
+import { deleteUserSettings, getUserSettings, saveUserSetting } from 'komga-sdk';
 
-const result = await getUserSettings({ client });
-
-if (result.data) {
-  for (const setting of result.data) {
-    console.log(`${setting.key} = ${setting.value}`);
-  }
+const current = await getUserSettings({ client });
+for (const [key, setting] of Object.entries(current.data ?? {})) {
+  console.log(`${key} = ${setting.value}`);
 }
-```
 
-### Save a user setting
-
-```typescript
-import { saveUserSetting } from 'komga-sdk';
-
-await saveUserSetting({
-  client,
-  body: {
-    key: 'reader.pageFit',
-    value: 'WIDTH',
-  },
-});
-```
-
-### Delete user settings
-
-```typescript
-import { deleteUserSettings } from 'komga-sdk';
-
-await deleteUserSettings({
-  client,
-  body: {
-    keys: ['reader.pageFit', 'reader.background'],
-  },
-});
+await saveUserSetting(
+  { body: { 'reader.pageFit': { value: 'WIDTH' } } },
+  { client },
+);
+await deleteUserSettings(
+  { body: ['reader.pageFit', 'reader.background'] },
+  { client },
+);
 ```
 
 ## Sync points
 
-Clear stored sync points for the current user:
+Delete all sync points, or only those associated with selected API key IDs. Deleting them makes a Kobo or other sync client start from scratch on its next sync:
 
 ```typescript
 import { deleteSyncPointsForCurrentUser } from 'komga-sdk';
 
-await deleteSyncPointsForCurrentUser({ client });
+await deleteSyncPointsForCurrentUser({ key_id: ['key-123'] }, { client });
 ```
 
-### Get all authentication activity
+## Workflows
 
-<Warning>
-Requires **ADMIN** role.
-</Warning>
+### Create a restricted user
+
+Create the account, then use the returned ID for any follow-up restriction change:
+
+```typescript
+import { addUser, updateUserById } from 'komga-sdk';
+
+async function createRestrictedUser(email: string, password: string, libraryIds: string[]) {
+  const created = await addUser(
+    {
+      userCreationDto: {
+        email,
+        password,
+        roles: ['USER', 'PAGE_STREAMING'],
+        sharedLibraries: { all: false, libraryIds },
+        ageRestriction: { age: 13, restriction: 'ALLOW_ONLY' },
+      },
+    },
+    { client },
+  );
+  if (!created.data) return;
+
+  return updateUserById(
+    {
+      id: created.data.id,
+      userUpdateDto: { labelsAllow: ['family-friendly'], labelsExclude: ['adult'] },
+    },
+    { client },
+  );
+}
+```
+
+### Audit failed logins
+
+Group a recent admin activity page by email and flag repeated failures:
 
 ```typescript
 import { getAuthenticationActivity } from 'komga-sdk';
 
-const result = await getAuthenticationActivity({
-  client,
-  query: { 
-    page: 0, 
-    size: 50,
-  },
-});
-
-if (result.data) {
-  // Review failed login attempts
-  const failed = result.data.content.filter(a => !a.success);
-  console.log(`${failed.length} failed login attempts`);
-}
-```
-
-### Get latest activity for a user
-
-<Warning>
-Requires **ADMIN** role.
-</Warning>
-
-```typescript
-import { getLatestAuthenticationActivityByUserId } from 'komga-sdk';
-
-const result = await getLatestAuthenticationActivityByUserId({
-  client,
-  path: { id: 'user-123' },
-});
-
-if (result.data) {
-  console.log(`Last login: ${result.data.dateTime}`);
-  console.log(`IP: ${result.data.ip}`);
-}
-```
-
-## Common workflows
-
-### Create a restricted user
-
-Create a user with limited library access and content restrictions:
-
-```typescript
-async function createRestrictedUser(
-  email: string,
-  password: string,
-  allowedLibraries: string[]
-) {
-  // Create the user
-  const createResult = await addUser({
-    client,
-    body: { email, password, roles: ['USER', 'PAGE_STREAMING'] },
-  });
-
-  if (!createResult.data) {
-    throw new Error('Failed to create user');
-  }
-
-  // Set restrictions
-  await updateUserById({
-    client,
-    path: { id: createResult.data.id },
-    body: {
-      sharedLibrariesIds: allowedLibraries,
-      ageRestriction: {
-        age: 13,
-        restriction: 'ALLOW_ONLY',
-      },
-    },
-  });
-
-  return createResult.data;
-}
-```
-
-### Audit user logins
-
-Review authentication activity for security monitoring:
-
-```typescript
 async function auditRecentLogins() {
-  const result = await getAuthenticationActivity({
-    client,
-    query: { page: 0, size: 100 },
-  });
-
-  if (!result.data) return;
-
-  // Group by user
-  const byUser = new Map<string, typeof result.data.content>();
-  for (const activity of result.data.content) {
-    const email = activity.email ?? 'unknown';
-    if (!byUser.has(email)) {
-      byUser.set(email, []);
-    }
-    byUser.get(email)!.push(activity);
+  const result = await getAuthenticationActivity(
+    { page: 0, size: 100, sort: ['dateTime,desc'] },
+    { client },
+  );
+  const byEmail = new Map<string, number>();
+  for (const activity of result.data?.content ?? []) {
+    if (activity.success) continue;
+    const email = activity.email ?? activity.userId ?? 'unknown';
+    byEmail.set(email, (byEmail.get(email) ?? 0) + 1);
   }
-
-  // Report suspicious activity
-  for (const [email, activities] of byUser) {
-    const failures = activities.filter(a => !a.success);
-    if (failures.length >= 3) {
-      console.warn(`User ${email} has ${failures.length} failed login attempts`);
-    }
-  }
+  return [...byEmail.entries()].filter(([, failures]) => failures >= 3);
 }
 ```
 
-### Rotate API keys
+### Rotate an API key
 
-Safely rotate an API key by creating a new one before deleting the old:
+Create the replacement before deleting the old key so a failed create does not interrupt automation:
 
 ```typescript
-async function rotateApiKey(oldKeyId: string, comment: string) {
-  // Create new key first
-  const newKeyResult = await createApiKeyForCurrentUser({
-    client,
-    body: { comment: `${comment} (rotated)` },
-  });
+import { createApiKeyForCurrentUser, deleteApiKeyByKeyId } from 'komga-sdk';
 
-  if (!newKeyResult.data) {
-    throw new Error('Failed to create new API key');
-  }
+async function rotateApiKey(
+  oldKeyId: string,
+  comment: string,
+  saveSecret: (key: string) => Promise<void>,
+) {
+  const created = await createApiKeyForCurrentUser(
+    { apiKeyRequestDto: { comment: `${comment} (rotated)` } },
+    { client },
+  );
+  if (!created.data) return;
 
-  // Delete old key
-  await deleteApiKeyByKeyId({
-    client,
-    path: { keyId: oldKeyId },
-  });
-
-  return newKeyResult.data;
+  await saveSecret(created.data.key);
+  await deleteApiKeyByKeyId({ keyId: oldKeyId }, { client });
+  return created.data.key;
 }
 ```
 
-## Error handling
+## Handle failures
+
+Generated calls expose HTTP failures in `result.error` and `result.response` instead of throwing by default. A 401 indicates missing/invalid credentials; a 403 indicates a role or restriction denied the operation:
 
 ```typescript
 import { getCurrentUser } from 'komga-sdk';
 
-const result = await getCurrentUser({ client });
-
+const result = await getCurrentUser(undefined, { client });
 if (result.error) {
-  switch (result.response?.status) {
-    case 401:
-      console.error('Not authenticated');
-      break;
-    case 403:
-      console.error('Access denied');
-      break;
-    default:
-      console.error('Error:', result.error);
-  }
+  console.error('User request failed', result.response?.status, result.error);
 }
 ```
+
+Use `unwrap` and `KomgaApiError` when an exception boundary is a better fit; see [Quickstart](/quickstart).
 
 ## Next steps
 
 <CardGroup cols={2}>
   <Card title="Authentication" icon="key" href="/authentication">
-    Learn about authentication methods and setup.
+    Configure Basic Auth, API keys, custom headers, and browser credentials.
   </Card>
-  <Card title="Libraries" icon="book-open" href="/guides/libraries">
-    Manage libraries and their settings.
+  <Card title="Client settings" icon="sliders" href="/guides/client-settings">
+    Manage global and user-specific reader settings.
   </Card>
 </CardGroup>

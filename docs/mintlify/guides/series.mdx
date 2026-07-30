@@ -4,61 +4,200 @@ description: "List and manage series, then drill into books"
 icon: "folder"
 ---
 
-This guide covers series workflows using `SeriesService`.
+These examples use generated Komga API 1.25 operations. Parameters are flat, and `{ client }` is passed as the options argument. Results are non-throwing by default.
 
 ## List series
 
+`getSeries` requires a `seriesSearch` value, even for an unfiltered list:
+
 ```typescript
-import { SeriesService } from 'komga-sdk';
+import { getSeries } from 'komga-sdk';
 
-const service = new SeriesService(client);
-const page = await service.list({ page: 0, size: 20 });
+const result = await getSeries(
+  {
+    page: 0,
+    size: 20,
+    sort: ['metadata.title,asc'],
+    seriesSearch: {},
+  },
+  { client },
+);
 
-console.log(page.totalElements);
+if (result.error) {
+  console.error('Could not list series', result.error);
+} else {
+  console.log(result.data?.totalElements ?? 0);
+}
 ```
 
 ## Search series
 
 ```typescript
-const page = await service.list({
-  search: { fullTextSearch: 'fantasy' },
-  page: 0,
-  size: 20,
-  sort: ['metadata.title,asc'],
-});
+const result = await getSeries(
+  {
+    page: 0,
+    size: 20,
+    sort: ['metadata.title,asc'],
+    seriesSearch: { fullTextSearch: 'fantasy' },
+  },
+  { client },
+);
+
+if (result.error) {
+  console.error('Series search failed', result.error);
+} else {
+  for (const series of result.data?.content ?? []) {
+    console.log(series.metadata.title);
+  }
+}
 ```
+
+### Filters, sorting, and pagination
+
+`seriesSearch` supports `fullTextSearch` or a recursive `condition` tree. Use `allOf`/`anyOf` to combine conditions, and operators such as `is`, `isNot`, `contains`, `beginsWith`, `endsWith`, `isNull`, and `isNotNull`.
+
+```typescript
+const ongoingUnread = await getSeries(
+  {
+    page: 0,
+    size: 24,
+    sort: ['metadata.title,asc'],
+    seriesSearch: {
+      condition: {
+        allOf: [
+          { libraryId: { operator: 'is', value: 'library-123' } },
+          { seriesStatus: { operator: 'is', value: 'ONGOING' } },
+          { readStatus: { operator: 'is', value: 'UNREAD' } },
+          { title: { operator: 'contains', value: 'space' } },
+        ],
+      },
+    },
+  },
+  { client },
+);
+if (ongoingUnread.error) throw ongoingUnread.error;
+```
+
+`page` is zero-based. Set `unpaged: true` for a complete export, and use `totalElements`, `totalPages`, and `number` from the `PageSeriesDto` response to render navigation. Series conditions include `libraryId`, `collectionId`, `seriesStatus`, `readStatus`, `complete`, `oneShot`, `title`, `titleSort`, `releaseDate`, `tag`, `sharingLabel`, `publisher`, `language`, `genre`, `ageRating`, and `author`.
+
+<Tip>
+Pagination and `sort` are flat parameters alongside `seriesSearch`; only the search tree is sent as the request body.
+</Tip>
 
 ## Get a series by ID
 
 ```typescript
-const series = await service.getById('series-123');
-console.log(series.metadata.title);
+import { getSeriesById } from 'komga-sdk';
+
+const result = await getSeriesById({ seriesId: 'series-123' }, { client });
+
+if (result.error) {
+  console.error('Series lookup failed', result.error);
+} else if (result.data) {
+  console.log(result.data.metadata.title);
+}
 ```
 
 ## Update metadata
 
+`updateSeriesMetadata` returns no data on success:
+
+<Warning>
+Updating series metadata requires the **ADMIN** role.
+</Warning>
+
 ```typescript
-await service.updateMetadata('series-123', {
-  status: 'ONGOING',
-  publisher: 'Example Publisher',
-});
+import { updateSeriesMetadata } from 'komga-sdk';
+
+const result = await updateSeriesMetadata(
+  {
+    seriesId: 'series-123',
+    seriesMetadataUpdateDto: {
+      status: 'ONGOING',
+      publisher: 'Example Publisher',
+    },
+  },
+  { client },
+);
+
+if (result.error) {
+  console.error('Series metadata update failed', result.error);
+} else {
+  console.log('Series metadata updated');
+}
 ```
+
+## Metadata reset semantics
+
+`updateSeriesMetadata` is a partial update. Omitted fields remain unchanged; the API contract permits setting a metadata field to `null` to unset it, while an empty array such as `genres: []` clears that collection. Lock flags (`titleLock`, `genresLock`, and similar) are independent and must be changed explicitly. The successful response is `204 No Content`, so fetch the series again when you need the updated DTO.
 
 ## List books in a series
 
+Use the current `getBooks` search endpoint with a `seriesId` condition. The older path-specific operation is deprecated:
+
 ```typescript
-const books = await service.getBooks('series-123', { page: 0, size: 50 });
-console.log(books.totalElements);
+import { getBooks } from 'komga-sdk';
+
+const result = await getBooks(
+  {
+    page: 0,
+    size: 50,
+    sort: ['metadata.numberSort,asc'],
+    bookSearch: {
+      condition: {
+        seriesId: { operator: 'is', value: 'series-123' },
+      },
+    },
+  },
+  { client },
+);
+
+if (result.error) {
+  console.error('Could not list series books', result.error);
+} else {
+  console.log(result.data?.totalElements ?? 0);
+}
 ```
+
+## Mark an entire series read or unread
+
+These operations change read progress for every book in the series and return no data on success:
+
+```typescript
+import { markSeriesAsRead, markSeriesAsUnread } from 'komga-sdk';
+
+const read = await markSeriesAsRead({ seriesId: 'series-123' }, { client });
+if (read.error) throw read.error;
+
+// Later, reset every book in the series:
+const unread = await markSeriesAsUnread({ seriesId: 'series-123' }, { client });
+if (unread.error) throw unread.error;
+```
+
+Use `markBookReadProgress` for a single book when a series-wide change would be too broad.
+
+## Failure modes and permissions
+
+Listing and reading are filtered by the current user's library permissions. Metadata changes, series analysis, and other administrative actions can return `403` when the account lacks `ADMIN`; `401` means the client was not authenticated and `404` means the series is not available. Generated results expose the HTTP status as `result.response?.status` rather than throwing by default.
 
 ## List collections containing a series
 
 ```typescript
-const collections = await service.getCollections('series-123');
-console.log(collections.length);
+import { getCollectionsBySeriesId } from 'komga-sdk';
+
+const result = await getCollectionsBySeriesId({ seriesId: 'series-123' }, { client });
+
+if (result.error) {
+  console.error('Could not list series collections', result.error);
+} else {
+  for (const collection of result.data ?? []) {
+    console.log(collection.name);
+  }
+}
 ```
 
 ## Next steps
 
 - Books guide: [Books](/guides/books)
+- Series discovery: [Series Discovery](/guides/series-discovery)
 - Libraries guide: [Libraries](/guides/libraries)

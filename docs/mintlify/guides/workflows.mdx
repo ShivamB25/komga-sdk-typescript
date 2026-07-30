@@ -1,65 +1,153 @@
 ---
 title: "Workflows"
-description: "End-to-end usage patterns for common tasks"
+description: "Combine generated Komga operations into end-to-end flows"
 icon: "diagram-project"
 ---
 
-These workflows combine multiple SDK calls into practical flows.
+Generated operations compose directly. Each call takes a flat parameter object when needed and `{ client }` in the second argument. Calls return a result union unless you use `unwrap`.
 
-## Update metadata for matching books
+## Find and update matching series
+
+Use `getSeries` with a `seriesSearch` document, then send a flat `seriesMetadataUpdateDto` to `updateSeriesMetadata`:
 
 ```typescript
-import { BookService } from 'komga-sdk';
+import { getSeries, updateSeriesMetadata } from 'komga-sdk';
 
-const service = new BookService(client);
-const page = await service.list({
-  search: { fullTextSearch: 'classic' },
-  page: 0,
-  size: 50,
-});
+const listed = await getSeries(
+  {
+    page: 0,
+    size: 50,
+    seriesSearch: { fullTextSearch: 'classic' },
+  },
+  { client },
+);
 
-for (const book of page.content) {
-  await service.updateMetadata(book.id, {
-    summary: 'Curated collection',
-  });
+if (listed.error) throw listed.error;
+
+for (const series of listed.data?.content ?? []) {
+  const updated = await updateSeriesMetadata(
+    {
+      seriesId: series.id,
+      seriesMetadataUpdateDto: {
+        summary: 'Curated collection',
+      },
+    },
+    { client },
+  );
+  if (updated.error) console.error(series.id, updated.error);
 }
 ```
 
-## Scan a library and list recent books
+`updateSeriesMetadata` succeeds with HTTP 204 and has no response payload. Do not read `updated.data` as a series.
+
+## Find and update matching books
+
+The same pattern works for books. `bookSearch` is the request body while pagination remains flat; `updateBookMetadata` returns `204`, so collect the IDs you changed rather than expecting updated book objects:
 
 ```typescript
-import { LibraryService, BookService } from 'komga-sdk';
+import { getBooks, updateBookMetadata } from 'komga-sdk';
 
-const libraries = await new LibraryService(client).getAll();
-const library = libraries[0];
+const listed = await getBooks(
+  {
+    page: 0,
+    size: 50,
+    sort: ['metadata.title,asc'],
+    bookSearch: { fullTextSearch: 'classic' },
+  },
+  { client },
+);
+if (listed.error) throw listed.error;
 
-await new LibraryService(client).scan(library.id);
-
-const books = await new BookService(client).list({
-  page: 0,
-  size: 20,
-  sort: ['metadata.releaseDate,desc'],
-});
-
-console.log(books.content.map((book) => book.metadata.title));
+const updatedIds: string[] = [];
+for (const book of listed.data?.content ?? []) {
+  const updated = await updateBookMetadata(
+    {
+      bookId: book.id,
+      bookMetadataUpdateDto: { summary: 'Curated collection' },
+    },
+    { client },
+  );
+  if (updated.error) {
+    console.error(`Could not update ${book.id}`, updated.error);
+  } else {
+    updatedIds.push(book.id);
+  }
+}
+console.log(`Updated ${updatedIds.length} books`);
 ```
+
+
+## Scan a library and list recent books
+
+List libraries, submit a scan, then list books with flat pagination and sorting:
+
+```typescript
+import { getLibraries, libraryScan, getBooks } from 'komga-sdk';
+
+const libraries = await getLibraries({ client });
+const library = libraries.data?.[0];
+if (!library) throw new Error('No accessible library');
+
+const scan = await libraryScan(
+  { libraryId: library.id, deep: false },
+  { client },
+);
+if (scan.error) throw scan.error;
+// A scan is accepted asynchronously (HTTP 202); it has no useful data payload.
+
+const books = await getBooks(
+  {
+    page: 0,
+    size: 20,
+    sort: ['metadata.releaseDate,desc'],
+    bookSearch: {},
+  },
+  { client },
+);
+console.log(books.data?.content.map((book) => book.metadata.title) ?? []);
+```
+
+Because a scan is accepted asynchronously, the immediately following list can still show the pre-scan state. Treat the list as a snapshot, and refresh it after your own task-completion signal or a deliberate delay; there is no generated task-progress operation in this SDK.
+
 
 ## Build thumbnail URLs for a UI
 
+Image getters return `Blob | File`, not a URL string. Create object URLs in the application and revoke them when the image leaves the UI:
+
 ```typescript
-import { BookService } from 'komga-sdk';
+import { getBookThumbnail } from 'komga-sdk';
 
-const service = new BookService(client);
-const page = await service.list({ page: 0, size: 20 });
+async function loadThumbnail(bookId: string): Promise<string | undefined> {
+  const result = await getBookThumbnail({ bookId }, { client });
+  if (result.error || !result.data) return undefined;
+  return URL.createObjectURL(result.data);
+}
 
-const thumbnails = page.content.map((book) => ({
-  id: book.id,
-  title: book.metadata.title,
-  thumbnailUrl: service.getThumbnailUrl(book.id),
-}));
+const thumbnailUrl = await loadThumbnail('book-123');
+if (thumbnailUrl) console.log(thumbnailUrl);
+```
+
+## Handle errors at the boundary
+
+Keep non-throwing generated results at lower-level workflow steps, or use `unwrap` at a boundary where the workflow should fail:
+
+```typescript
+import { getLibraries, KomgaApiError, unwrap } from 'komga-sdk';
+
+try {
+  const libraries = unwrap(await getLibraries({ client }));
+  console.log(libraries);
+} catch (error) {
+  if (error instanceof KomgaApiError) {
+    console.error(error.status, error.body);
+  } else {
+    throw error;
+  }
+}
 ```
 
 ## Next steps
 
-- Interceptors: [Interceptors](/interceptors)
-- Error handling: [Errors](/errors)
+- [Authentication](/authentication): configure Basic or API-key credentials.
+- [Troubleshooting](/guides/troubleshooting): diagnose status codes and request failures.
+- [Downloads](/guides/downloads): handle binary book and archive responses.

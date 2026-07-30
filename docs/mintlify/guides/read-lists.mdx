@@ -4,402 +4,308 @@ description: "Create ordered reading lists of individual books"
 icon: "list-ordered"
 ---
 
-Read Lists let you organize books in a specific reading order, perfect for:
+Read Lists organize individual books in a defined sequence. They are useful for:
+
 - Crossover events spanning multiple series
 - Recommended reading orders for complex universes
-- Personal "to-read" queues
-- Curated book club selections
+- Personal “to-read” queues
+- Curated book-club selections
 
-Unlike [Collections](/guides/collections) which group entire series, Read Lists contain individual books in a defined sequence.
+For series-level grouping, use [Collections](/guides/collections). Generated operations return `{ data, error, request, response }`; pass flat parameters first and `{ client }` second. Creating, updating, and deleting a read list requires the **ADMIN** role.
 
 ## List read lists
-
-Get all read lists with pagination:
 
 ```typescript
 import { getReadLists } from 'komga-sdk';
 
-const result = await getReadLists({
-  client,
-  query: { page: 0, size: 20 },
-});
+const result = await getReadLists(
+  {
+    page: 0,
+    size: 20,
+    search: 'Crisis',
+    library_id: ['library-1'],
+  },
+  { client },
+);
 
 if (result.data) {
-  console.log(`Found ${result.data.totalElements} read lists`);
-  for (const readList of result.data.content) {
+  console.log(`Found ${result.data.totalElements ?? 0} read lists`);
+  for (const readList of result.data.content ?? []) {
     console.log(`${readList.name} - ${readList.bookIds.length} books`);
   }
 }
 ```
 
+`search`, `library_id`, `page`, `size`, and `unpaged` remain flat query parameters. Use `unpaged: true` when calculating a complete queue.
+
 ## Get a read list by ID
 
-Retrieve details and the ordered book list:
+A read-list response contains the ordered `bookIds` array:
 
 ```typescript
 import { getReadListById } from 'komga-sdk';
 
-const result = await getReadListById({
-  client,
-  path: { readListId: 'readlist-123' },
-});
-
+const result = await getReadListById({ id: 'readlist-123' }, { client });
 if (result.data) {
-  console.log(`Read List: ${result.data.name}`);
-  console.log(`Books in order: ${result.data.bookIds.length}`);
+  console.log(`${result.data.name}: ${result.data.bookIds.length} books`);
+  console.log(`Required order: ${result.data.ordered}`);
 }
 ```
 
 ## Create a read list
 
-Create a new read list with books in specific order:
+The generated body parameter is `readListCreationDto`. Keep the IDs in the intended order when `ordered` is true:
 
 ```typescript
 import { createReadList } from 'komga-sdk';
 
-const result = await createReadList({
-  client,
-  body: {
-    name: 'Crisis on Infinite Earths Reading Order',
-    summary: 'Complete crossover event reading order',
-    ordered: true, // Books must be read in this sequence
-    bookIds: [
-      'book-001', // Issue #1
-      'book-002', // Issue #2
-      'book-003', // Tie-in: Superman
-      'book-004', // Issue #3
-      // ...
-    ],
+const result = await createReadList(
+  {
+    readListCreationDto: {
+      name: 'Crisis on Infinite Earths Reading Order',
+      summary: 'Complete crossover event reading order',
+      ordered: true,
+      bookIds: [
+        'book-001', // Issue #1
+        'book-002', // Issue #2
+        'book-003', // Superman tie-in
+        'book-004', // Issue #3
+      ],
+    },
   },
-});
+  { client },
+);
 
-if (result.data) {
-  console.log(`Created read list: ${result.data.name}`);
-}
+if (result.data) console.log(`Created read list: ${result.data.name}`);
 ```
 
 <Tip>
-Use `ordered: true` for reading orders where sequence matters. Use `ordered: false` for thematic groupings without a required order.
+Use `ordered: true` for a sequence where next/previous navigation matters. Use `ordered: false` for a thematic grouping where the server does not need to preserve a reading order.
 </Tip>
 
 ## Update a read list
 
-Modify the read list name, summary, or book order:
+`readListUpdateDto` is partial, but `bookIds` is a complete replacement when supplied. Fetch first when inserting one book into an existing order:
 
 ```typescript
 import { updateReadListById } from 'komga-sdk';
 
-const result = await updateReadListById({
-  client,
-  path: { readListId: 'readlist-123' },
-  body: {
-    name: 'Updated Reading Order',
-    summary: 'Revised reading order with additional tie-ins',
-    ordered: true,
-    bookIds: ['book-001', 'book-002', 'book-005', 'book-006'],
+await updateReadListById(
+  {
+    id: 'readlist-123',
+    readListUpdateDto: {
+      name: 'Revised Reading Order',
+      summary: 'Includes the latest tie-ins',
+      ordered: true,
+      bookIds: ['book-001', 'book-002', 'book-005', 'book-006'],
+    },
   },
-});
+  { client },
+);
 ```
 
 ## Delete a read list
 
-Remove a read list (books themselves are not deleted):
+Deleting a read list does not delete its books:
 
 ```typescript
 import { deleteReadListById } from 'komga-sdk';
 
-await deleteReadListById({
-  client,
-  path: { readListId: 'readlist-123' },
-});
+await deleteReadListById({ id: 'readlist-123' }, { client });
 ```
 
 ## Get books in a read list
 
-Retrieve the actual book objects in reading order:
+The path parameter is named `id`. The returned page preserves the read-list order; `unpaged: true` is useful when progress or export code needs every book:
 
 ```typescript
 import { getBooksByReadListId } from 'komga-sdk';
 
-const result = await getBooksByReadListId({
-  client,
-  path: { readListId: 'readlist-123' },
-  query: { page: 0, size: 50 },
-});
+const result = await getBooksByReadListId(
+  { id: 'readlist-123', page: 0, size: 50 },
+  { client },
+);
 
-if (result.data) {
-  // Books are returned in the read list order
-  for (const book of result.data.content) {
-    console.log(`${book.metadata.title} (${book.metadata.number})`);
-  }
+for (const book of result.data?.content ?? []) {
+  console.log(`${book.metadata.title} (${book.metadata.number})`);
 }
 ```
 
 ## Find read lists containing a book
 
-Identify which read lists include a specific book:
+This operation returns an array rather than a paginated response:
 
 ```typescript
 import { getReadListsByBookId } from 'komga-sdk';
 
-const result = await getReadListsByBookId({
-  client,
-  path: { bookId: 'book-123' },
-  query: { page: 0, size: 20 },
-});
-
-if (result.data) {
-  for (const list of result.data.content) {
-    console.log(`${list.name} (${list.bookIds.length} books)`);
-  }
+const result = await getReadListsByBookId({ bookId: 'book-123' }, { client });
+for (const readList of result.data ?? []) {
+  console.log(`${readList.name} (${readList.bookIds.length} books)`);
 }
 ```
 
-## Import ComicRack lists
+## Import a ComicRack list
 
-Use ComicRack `.cbl` lists to build read lists automatically:
+`matchComicRackList` accepts the uploaded `.cbl` file directly. The result contains one request entry per requested book and its candidate matches; inspect these before creating a list:
 
 ```typescript
 import { matchComicRackList } from 'komga-sdk';
 
 const file = new File([cblBlob], 'reading-order.cbl', { type: 'text/xml' });
-
-const result = await matchComicRackList({
-  client,
-  body: { file },
-});
+const result = await matchComicRackList({ file }, { client });
 
 if (result.data) {
-  // result.data contains matches and recommendations
-  console.log(`Matched ${result.data.matches.length} books`);
+  for (const request of result.data.requests) {
+    const bestMatch = request.matches[0];
+    console.log(`${request.request.series.join(', ')} #${request.request.number}: ${bestMatch?.books.length ?? 0} matches`);
+  }
 }
 ```
+
+A missing or ambiguous match is not a successful book selection. Resolve those entries in the UI or by a follow-up search before sending `bookIds` to `createReadList`.
 
 ## Thumbnails
 
-### Get read list thumbnail
-
-Retrieve the thumbnail for a read list:
+Thumbnail reads return binary data. Uploads accept a flat `file` and optional `selected` query value; deleting an upload needs its `thumbnailId`.
 
 ```typescript
-import { getReadListThumbnail } from 'komga-sdk';
+import {
+  addUserUploadedReadListThumbnail,
+  deleteUserUploadedReadListThumbnail,
+  getReadListThumbnail,
+} from 'komga-sdk';
 
-const result = await getReadListThumbnail({
-  client,
-  path: { readListId: 'readlist-123' },
-});
-
-if (result.data) {
-  const thumbnailUrl = URL.createObjectURL(result.data);
-}
-```
-
-### Upload custom thumbnail
-
-Add a custom thumbnail to represent the read list:
-
-```typescript
-import { addUserUploadedReadListThumbnail } from 'komga-sdk';
+const thumbnail = await getReadListThumbnail({ id: 'readlist-123' }, { client });
+if (thumbnail.data) console.log(URL.createObjectURL(thumbnail.data));
 
 const file = new File([imageBlob], 'thumbnail.jpg', { type: 'image/jpeg' });
+await addUserUploadedReadListThumbnail(
+  { id: 'readlist-123', file, selected: true },
+  { client },
+);
 
-await addUserUploadedReadListThumbnail({
-  client,
-  path: { readListId: 'readlist-123' },
-  body: { file },
-});
+await deleteUserUploadedReadListThumbnail(
+  { id: 'readlist-123', thumbnailId: 'thumbnail-456' },
+  { client },
+);
 ```
 
-### Delete custom thumbnail
+## Navigate within a read list
 
-Remove a user-uploaded thumbnail:
+At a boundary the server may return no book. Check `error` first; only treat an undefined `data` value as “end” or “beginning” when the request itself succeeded:
 
 ```typescript
-import { deleteUserUploadedReadListThumbnail } from 'komga-sdk';
+import {
+  getBookSiblingNextInReadList,
+  getBookSiblingPreviousInReadList,
+} from 'komga-sdk';
 
-await deleteUserUploadedReadListThumbnail({
-  client,
-  path: { readListId: 'readlist-123' },
-});
+const next = await getBookSiblingNextInReadList(
+  { id: 'readlist-123', bookId: 'book-001' },
+  { client },
+);
+if (next.error) console.error('Next-book request failed', next.response?.status, next.error);
+else console.log(next.data ? `Next: ${next.data.metadata.title}` : 'End of read list');
+
+const previous = await getBookSiblingPreviousInReadList(
+  { id: 'readlist-123', bookId: 'book-002' },
+  { client },
+);
+if (previous.error) console.error('Previous-book request failed', previous.response?.status, previous.error);
+else console.log(previous.data ? `Previous: ${previous.data.metadata.title}` : 'Beginning of read list');
 ```
 
-## Navigation helpers
-
-Komga provides endpoints to navigate through books in a read list:
-
-### Get next book
-
-```typescript
-import { getBookSiblingNextInReadList } from 'komga-sdk';
-
-const result = await getBookSiblingNextInReadList({
-  client,
-  path: { 
-    readListId: 'readlist-123',
-    bookId: 'book-001' 
-  },
-});
-
-if (result.data) {
-  console.log(`Next: ${result.data.metadata.title}`);
-} else {
-  console.log('End of read list');
-}
-```
-
-### Get previous book
-
-```typescript
-import { getBookSiblingPreviousInReadList } from 'komga-sdk';
-
-const result = await getBookSiblingPreviousInReadList({
-  client,
-  path: { 
-    readListId: 'readlist-123',
-    bookId: 'book-002' 
-  },
-});
-
-if (result.data) {
-  console.log(`Previous: ${result.data.metadata.title}`);
-} else {
-  console.log('Beginning of read list');
-}
-```
-
-## Common workflows
+## Workflows
 
 ### Build a crossover reading order
 
 ```typescript
+import { createReadList } from 'komga-sdk';
+
 async function createCrossoverReadList(eventName: string, bookIds: string[]) {
-  const result = await createReadList({
-    client,
-    body: {
-      name: `${eventName} Reading Order`,
-      summary: `Complete reading order for ${eventName}`,
-      ordered: true,
-      bookIds,
+  return createReadList(
+    {
+      readListCreationDto: {
+        name: `${eventName} Reading Order`,
+        summary: `Complete reading order for ${eventName}`,
+        ordered: true,
+        bookIds,
+      },
     },
-  });
-
-  return result.data;
+    { client },
+  );
 }
 
-// Example: Create a reading order for a major event
-const crisisBooks = [
+await createCrossoverReadList('Infinite Crisis', [
   'book-crisis-01',
-  'book-crisis-02', 
-  'book-superman-tiein-01',
+  'book-crisis-02',
+  'book-superman-tie-in-01',
   'book-crisis-03',
-  'book-batman-tiein-01',
-  'book-crisis-04',
-];
-
-await createCrossoverReadList('Infinite Crisis', crisisBooks);
+  'book-batman-tie-in-01',
+]);
 ```
 
-### Create a "Next Up" read list
+### Create a “Next Up” queue
+
+The current list operation requires `bookSearch`; use a read-status condition rather than the removed top-level `readStatus` body field:
 
 ```typescript
-import { getBooks, createReadList } from 'komga-sdk';
+import { createReadList, getBooks } from 'komga-sdk';
 
-async function createNextUpReadList(userId: string) {
-  // Get books with progress
-  const booksResult = await getBooks({
-    client,
-    body: { 
-      readStatus: 'UNREAD' 
-    },
-    query: { 
-      page: 0, 
+async function createNextUpReadList() {
+  const booksResult = await getBooks(
+    {
+      page: 0,
       size: 20,
-      sort: ['metadata.releaseDate,desc']
+      sort: ['metadata.releaseDate,desc'],
+      bookSearch: {
+        condition: { readStatus: { operator: 'is', value: 'UNREAD' } },
+      },
     },
-  });
-
-  if (!booksResult.data) return;
-
-  const bookIds = booksResult.data.content.map(b => b.id);
-  
-  await createReadList({
-    client,
-    body: {
-      name: 'My Next Reads',
-      summary: 'Recently released books to read',
-      ordered: false,
-      bookIds,
-    },
-  });
-}
-```
-
-### Update progress through a read list
-
-```typescript
-async function getReadingProgress(readListId: string) {
-  // Get all books in the read list
-  const booksResult = await getBooksByReadListId({
-    client,
-    path: { readListId },
-    query: { unpaged: true },
-  });
-
-  if (!booksResult.data) return;
-
-  const books = booksResult.data.content;
-  const totalBooks = books.length;
-  
-  // Count read books
-  const readBooks = books.filter(b => 
-    b.readProgress?.read === true
-  ).length;
-  
-  const progress = {
-    total: totalBooks,
-    read: readBooks,
-    percentage: Math.round((readBooks / totalBooks) * 100),
-  };
-
-  console.log(`Progress: ${progress.read}/${progress.total} (${progress.percentage}%)`);
-  return progress;
-}
-```
-
-### Find read lists containing a book
-
-```typescript
-async function findBookInReadLists(bookId: string) {
-  // Get all read lists
-  const readListsResult = await getReadLists({
-    client,
-    query: { unpaged: true },
-  });
-
-  if (!readListsResult.data) return [];
-
-  // Filter to read lists containing this book
-  const containingReadLists = readListsResult.data.content.filter(
-    list => list.bookIds.includes(bookId)
+    { client },
   );
 
-  console.log(`Book appears in ${containingReadLists.length} read lists`);
-  return containingReadLists;
+  const bookIds = (booksResult.data?.content ?? []).map((book) => book.id);
+  if (bookIds.length === 0) return;
+
+  return createReadList(
+    {
+      readListCreationDto: {
+        name: 'My Next Reads',
+        summary: 'Recently released unread books',
+        ordered: false,
+        bookIds,
+      },
+    },
+    { client },
+  );
 }
 ```
 
-## Comparison: Collections vs Read Lists
+### Calculate progress through a read list
 
-| Feature | Collections | Read Lists |
-|---------|-------------|------------|
-| Contains | Series | Individual books |
-| Ordering | Optional (`ordered` flag) | Optional (`ordered` flag) |
-| Use case | Group related series | Define reading sequences |
-| Example | "Marvel Events" | "Civil War Reading Order" |
-| Navigation | Browse series | Next/previous book helpers |
+Read each book's `readProgress.completed` flag. An absent progress object is unread; do not use the old `read` property:
+
+```typescript
+import { getBooksByReadListId } from 'komga-sdk';
+
+async function getReadingProgress(readListId: string) {
+  const result = await getBooksByReadListId(
+    { id: readListId, unpaged: true },
+    { client },
+  );
+  const books = result.data?.content ?? [];
+  const read = books.filter((book) => book.readProgress?.completed).length;
+  return {
+    total: books.length,
+    read,
+    percentage: books.length === 0 ? 0 : Math.round((read / books.length) * 100),
+  };
+}
+```
 
 ## Next steps
 
-- Learn about [Collections](/guides/collections) for grouping series
-- Explore [Books guide](/guides/books) for managing individual books
-- See [Series guide](/guides/series) for series management
+- Group series with [Collections](/guides/collections).
+- Track completion with [Read Progress](/guides/read-progress).
+- Manage books in the [Books guide](/guides/books).

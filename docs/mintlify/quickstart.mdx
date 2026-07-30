@@ -1,190 +1,198 @@
 ---
 title: "Quickstart"
-description: "Install the SDK, create a client, and make your first request"
+description: "Install komga-sdk, create a client, and make your first typed request"
 icon: "rocket"
 ---
 
-Get up and running with Komga SDK in under 5 minutes.
+Install `komga-sdk` and make a request against a Komga server.
 
 ## Prerequisites
 
 <Check>
-  **Komga server** running and accessible (local or remote)
+  A Komga server that is reachable from your application. The default local server URL is `http://localhost:25600`.
 </Check>
 
 <Check>
-  **Node.js 18+** or a modern browser environment
+  Node.js 18 or newer, a modern browser, or another runtime with Fetch, Web Crypto, `Headers`, `Request`, and `Response` APIs.
 </Check>
 
 <Check>
-  **Valid credentials** (username/password or API key)
+  A Komga username and password or an API key, unless your application supplies its own session headers.
 </Check>
 
 ## Install
 
 <Tabs>
-  <Tab title="bun">
-    ```bash
-    bun add komga-sdk
-    ```
-  </Tab>
-  
   <Tab title="npm">
     ```bash
     npm install komga-sdk
     ```
   </Tab>
-  
   <Tab title="pnpm">
     ```bash
     pnpm add komga-sdk
     ```
   </Tab>
-  
   <Tab title="yarn">
     ```bash
     yarn add komga-sdk
     ```
   </Tab>
+  <Tab title="bun">
+    ```bash
+    bun add komga-sdk
+    ```
+  </Tab>
 </Tabs>
+
+The package is ESM. In a TypeScript project, use a current ESM-capable runtime or compile with `moduleResolution: "bundler"`; [TypeScript reference](/reference/typescript) includes a minimal configuration.
+
+## Configure environment variables
+
+Keep the server URL and credentials out of source control:
+
+```dotenv title=".env"
+KOMGA_URL=http://localhost:25600
+KOMGA_USER=admin@example.com
+KOMGA_PASSWORD=replace-me
+# Or use KOMGA_API_KEY instead of the Basic credentials.
+KOMGA_API_KEY=replace-me
+```
+
+Load these values through your runtime's environment mechanism. Do not expose a long-lived API key or Basic password in a browser bundle; create a server-side boundary when the browser must access a private Komga server.
 
 ## Create a client
 
-<Steps>
-  <Step title="Import and configure">
-    ```typescript
-    import { createKomgaClient } from 'komga-sdk';
+`createKomgaClient` requires a `baseUrl`. Authentication is optional:
 
-    const client = createKomgaClient({
-      baseUrl: 'http://localhost:25600',
-      auth: {
-        type: 'basic',
-        username: 'admin@example.com',
-        password: 'your-password',
-      },
-      timeout: 30000,
-      retry: { limit: 3 },
-    });
-    ```
-  </Step>
-  
-  <Step title="Use a domain service">
-    ```typescript
-    import { LibraryService } from 'komga-sdk';
+```typescript
+import { createKomgaClient } from 'komga-sdk';
 
-    const libraryService = new LibraryService(client);
-    const libraries = await libraryService.getAll();
-    
-    console.log('Your libraries:');
-    libraries.forEach(lib => console.log(`- ${lib.name}`));
-    ```
-  </Step>
-</Steps>
-
-<Note>
-Replace `localhost:25600` with your Komga server address if running remotely.
-</Note>
-
-## Complete example
-
-Here's a full working example:
-
-```typescript title="index.ts"
-import { createKomgaClient, BookService, SeriesService, LibraryService } from 'komga-sdk';
-
-// 1. Create the client
-const client = createKomgaClient({
-  baseUrl: 'http://localhost:25600',
+export const client = createKomgaClient({
+  baseUrl: process.env.KOMGA_URL ?? 'http://localhost:25600',
   auth: {
     type: 'basic',
-    username: 'admin@example.com',
-    password: 'your-password',
+    username: process.env.KOMGA_USER!,
+    password: process.env.KOMGA_PASSWORD!,
   },
 });
-
-// 2. Initialize services
-const bookService = new BookService(client);
-const seriesService = new SeriesService(client);
-const libraryService = new LibraryService(client);
-
-// 3. Fetch data
-async function main() {
-  // List libraries
-  const libraries = await libraryService.getAll();
-  console.log(`Found ${libraries.length} libraries`);
-
-  // List recent books
-  const books = await bookService.list({ 
-    page: 0, 
-    size: 10,
-    sort: ['created,desc'] 
-  });
-  console.log(`Found ${books.totalElements} total books`);
-  
-  // Show first book details
-  if (books.content.length > 0) {
-    const firstBook = books.content[0];
-    console.log(`Latest book: ${firstBook.metadata.title}`);
-  }
-}
-
-main().catch(console.error);
 ```
 
-## Verify it works
+For a production integration, prefer `https://` whenever credentials leave the local machine. The client uses native Fetch and does not configure retries, timeouts, caching, or response validation. Add those concerns in your application or through a custom Fetch implementation when you need them.
 
-Run your script:
+## Make your first request
+
+Generated operation parameters are flat. The client is passed in the optional second argument:
+
+```typescript title="index.ts"
+import { getLibraries } from 'komga-sdk';
+import { client } from './lib/komga.js';
+
+const result = await getLibraries({ client });
+
+if (result.error) {
+  console.error('Komga request failed', result.response?.status, result.error);
+} else {
+  for (const library of result.data ?? []) {
+    console.log(`${library.id}: ${library.name}`);
+  }
+}
+```
+
+A generated request resolves to `{ data, error, request, response }` by default. It does not throw for an HTTP error. Check `error` before reading `data`; `response` can be absent for a network or request-construction failure.
+
+## Query a paginated endpoint
+
+`getBooks` requires a `bookSearch` object and accepts pagination values in the same flat parameter object:
+
+```typescript
+import { getBooks } from 'komga-sdk';
+import { client } from './lib/komga.js';
+
+const result = await getBooks(
+  {
+    page: 0,
+    size: 20,
+    sort: ['metadata.title,asc'],
+    bookSearch: { fullTextSearch: 'manga' },
+  },
+  { client },
+);
+
+if (result.error === undefined) {
+  console.log(`Found ${result.data.totalElements ?? 0} books`);
+  for (const book of result.data.content ?? []) {
+    console.log(book.metadata.title);
+  }
+}
+```
+
+## Browser session example
+
+A browser application that already has a Komga session cookie can ask Fetch to include it:
+
+```typescript
+import { createKomgaClient, getCurrentUser } from 'komga-sdk';
+
+const browserClient = createKomgaClient({
+  baseUrl: 'https://komga.example.com',
+  credentials: 'include',
+});
+
+const session = await getCurrentUser({ 'remember-me': true }, { client: browserClient });
+if (session.error) {
+  console.error('Session is not available', session.response?.status);
+}
+```
+
+The SDK does not implement a login page or token exchange. For cross-origin requests, Komga and the browser must agree on an allowed origin and credentialed CORS policy.
+
+## Use `unwrap` when you want exceptions
+
+`unwrap` is the explicit throwing boundary. It returns generated data or throws `KomgaApiError`:
+
+```typescript
+import { KomgaApiError, getBookById, unwrap } from 'komga-sdk';
+
+try {
+  const book = unwrap(await getBookById({ bookId: 'book-123' }, { client }));
+  console.log(book.metadata.title);
+} catch (error) {
+  if (error instanceof KomgaApiError && error.status === 404) {
+    console.log('Book not found');
+  } else {
+    throw error;
+  }
+}
+```
+
+## Run the example
 
 <Tabs>
-  <Tab title="bun">
-    ```bash
-    bun run index.ts
-    ```
-  </Tab>
-  
-  <Tab title="Node.js + tsx">
+  <Tab title="tsx">
     ```bash
     npx tsx index.ts
     ```
   </Tab>
-  
-  <Tab title="Node.js + ts-node">
+  <Tab title="Bun">
     ```bash
-    npx ts-node index.ts
+    bun run index.ts
     ```
   </Tab>
 </Tabs>
 
-You should see output like:
-
-```
-Found 3 libraries
-Found 1247 total books
-Latest book: One Piece Vol. 1
-```
-
-<Tip>
-If you get authentication errors, double-check your credentials. See [Troubleshooting](/guides/troubleshooting) for common issues.
-</Tip>
+Replace `http://localhost:25600` with the URL of your Komga server. Keep credentials in environment variables or a secrets manager rather than source code.
 
 ## What's next?
 
-<CardGroup cols={2}>
+<CardGroup cols={3}>
   <Card title="Authentication" icon="key" href="/authentication">
-    Learn about API keys and security best practices.
+    Configure Basic Auth, API keys, custom headers, sessions, and browser credentials.
   </Card>
-    Learn about API keys, Bearer tokens, and security best practices.
+  <Card title="Quick reference" icon="bolt" href="/quick-reference">
+    Review flat operation signatures, result handling, and pagination.
   </Card>
-  
-  <Card title="Books Guide" icon="book" href="/guides/books">
-    List, search, and manage books in your library.
-  </Card>
-  
-  <Card title="Pagination" icon="list" href="/pagination">
-    Handle large datasets with pagination and sorting.
-  </Card>
-  
-  <Card title="Error Handling" icon="triangle-exclamation" href="/errors">
-    Gracefully handle API and validation errors.
+  <Card title="Best practices" icon="star" href="/best-practices">
+    Decide where to add application-owned retries, caching, and validation.
   </Card>
 </CardGroup>

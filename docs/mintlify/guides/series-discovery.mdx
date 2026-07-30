@@ -4,25 +4,19 @@ description: "Find new series, view latest additions, and explore your library"
 icon: "compass"
 ---
 
-This guide covers discovery features for finding series, including latest additions, release dates, and navigation helpers.
+These examples use generated Komga API 1.25 operations. Query and path values are flat parameters; `{ client }` is the options argument. Results are non-throwing unless you explicitly add your own throwing boundary.
 
 ## Browse latest series
-
-Get the most recently added series:
 
 ```typescript
 import { getSeriesLatest } from 'komga-sdk';
 
-const result = await getSeriesLatest({
-  client,
-  query: {
-    page: 0,
-    size: 20,
-  },
-});
+const result = await getSeriesLatest({ page: 0, size: 20 }, { client });
 
-if (result.data) {
-  for (const series of result.data.content) {
+if (result.error) {
+  console.error('Could not load latest series', result.error);
+} else {
+  for (const series of result.data?.content ?? []) {
     console.log(`${series.metadata.title} (added: ${series.created})`);
   }
 }
@@ -30,82 +24,93 @@ if (result.data) {
 
 ## Get new series
 
-Retrieve series added since your last visit:
-
 ```typescript
 import { getSeriesNew } from 'komga-sdk';
 
-const result = await getSeriesNew({
-  client,
-  query: {
-    page: 0,
-    size: 20,
-  },
-});
+const result = await getSeriesNew({ page: 0, size: 20 }, { client });
 
-if (result.data) {
-  console.log(`Found ${result.data.totalElements} new series`);
+if (result.error) {
+  console.error('Could not load new series', result.error);
+} else {
+  console.log(`Found ${result.data?.totalElements ?? 0} new series`);
 }
 ```
 
 ## Get updated series
 
-Find series with recent updates:
-
 ```typescript
 import { getSeriesUpdated } from 'komga-sdk';
 
-const result = await getSeriesUpdated({
-  client,
-  query: {
-    page: 0,
-    size: 20,
-  },
-});
+const result = await getSeriesUpdated({ page: 0, size: 20 }, { client });
 
-if (result.data) {
-  for (const series of result.data.content) {
+if (result.error) {
+  console.error('Could not load updated series', result.error);
+} else {
+  for (const series of result.data?.content ?? []) {
     console.log(`${series.metadata.title} (updated: ${series.lastModified})`);
   }
 }
 ```
 
+### Scope discovery results
+
+The latest, new, and updated endpoints accept `library_id` (an array), `deleted`, `oneshot`, `unpaged`, `page`, and `size`. They are already sorted by the server's discovery rule and do not expose a `sort` parameter. `unpaged: true` is useful for a small export but can be expensive for a large library.
+
+```typescript
+const newInLibrary = await getSeriesNew(
+  {
+    library_id: ['library-123'],
+    deleted: false,
+    oneshot: false,
+    page: 0,
+    size: 30,
+  },
+  { client },
+);
+if (newInLibrary.error) throw newInLibrary.error;
+```
+
 ## Get series release dates
 
-Retrieve upcoming release dates:
+`getSeriesReleaseDates` returns an array of ISO date strings, not a paged response:
 
 ```typescript
 import { getSeriesReleaseDates } from 'komga-sdk';
 
-const result = await getSeriesReleaseDates({
-  client,
-  query: {
-    page: 0,
-    size: 50,
-  },
-});
+const result = await getSeriesReleaseDates(undefined, { client });
 
-if (result.data) {
-  for (const release of result.data.content) {
-    console.log(`${release.seriesTitle}: ${release.releaseDate}`);
+if (result.error) {
+  console.error('Could not load release dates', result.error);
+} else {
+  for (const releaseDate of result.data ?? []) {
+    console.log(releaseDate);
   }
 }
 ```
 
+Pass `library_id` or `collection_id` when release dates should be scoped. The response remains an array of ISO date strings, not a `PageSeriesDto`:
+
+```typescript
+const dates = await getSeriesReleaseDates(
+  { library_id: ['library-123'], collection_id: 'collection-123' },
+  { client },
+);
+if (dates.error) throw dates.error;
+```
+
 ## Alphabetical groups
 
-Get series grouped by first letter (useful for A-Z navigation):
+`getSeriesAlphabeticalGroups` accepts the flat `seriesSearch` body parameter and returns group counts:
 
 ```typescript
 import { getSeriesAlphabeticalGroups } from 'komga-sdk';
 
-const result = await getSeriesAlphabeticalGroups({
-  client,
-  body: {}, // Optional filters
-});
+const result = await getSeriesAlphabeticalGroups({ seriesSearch: {} }, { client });
 
-if (result.data) {
-  for (const group of result.data) {
+if (result.error) {
+  console.error('Could not load alphabetical groups', result.error);
+} else {
+  for (const group of result.data ?? []) {
     console.log(`${group.group}: ${group.count} series`);
   }
 }
@@ -113,73 +118,62 @@ if (result.data) {
 
 ## Get series by ID
 
-Retrieve detailed information about a specific series:
-
 ```typescript
 import { getSeriesById } from 'komga-sdk';
 
-const result = await getSeriesById({
-  client,
-  path: { seriesId: 'series-123' },
-});
+const result = await getSeriesById({ seriesId: 'series-123' }, { client });
 
-if (result.data) {
+if (result.error) {
+  console.error('Series lookup failed', result.error);
+} else if (result.data) {
   console.log(`Title: ${result.data.metadata.title}`);
   console.log(`Books: ${result.data.booksCount}`);
   console.log(`Status: ${result.data.metadata.status}`);
 }
 ```
 
-## Get series from collection
+## Get series from a collection
 
-Find all series within a collection:
+`getSeriesByCollectionId` uses `id` for the collection identifier and exposes pagination as flat keys:
 
 ```typescript
 import { getSeriesByCollectionId } from 'komga-sdk';
 
-const result = await getSeriesByCollectionId({
-  client,
-  path: { id: 'collection-123' },
-  query: {
-    page: 0,
-    size: 50,
-  },
-});
+const result = await getSeriesByCollectionId(
+  { id: 'collection-123', page: 0, size: 50 },
+  { client },
+);
 
-if (result.data) {
-  for (const series of result.data.content) {
+if (result.error) {
+  console.error('Could not load collection series', result.error);
+} else {
+  for (const series of result.data?.content ?? []) {
     console.log(series.metadata.title);
   }
 }
 ```
 
-## Navigate book siblings
+`getSeriesByCollectionId` also supports flat filters such as `library_id`, `status`, `read_status`, `publisher`, `language`, `genre`, `tag`, `age_rating`, `release_year`, `deleted`, `complete`, and `author`, in addition to `unpaged`, `page`, and `size`. Use those filters instead of fetching every collection series and filtering locally.
 
-Get the next or previous book in a series:
+## Navigate book siblings
 
 ```typescript
 import { getBookSiblingNext, getBookSiblingPrevious } from 'komga-sdk';
 
-// Get next book
-const nextResult = await getBookSiblingNext({
-  client,
-  path: { bookId: 'book-123' },
-});
-
-if (nextResult.data) {
+const nextResult = await getBookSiblingNext({ bookId: 'book-123' }, { client });
+if (nextResult.error) {
+  console.error('Could not load the next book', nextResult.error);
+} else if (nextResult.data) {
   console.log(`Next: ${nextResult.data.metadata.title}`);
 } else {
   console.log('This is the last book in the series');
 }
 
-// Get previous book
-const prevResult = await getBookSiblingPrevious({
-  client,
-  path: { bookId: 'book-123' },
-});
-
-if (prevResult.data) {
-  console.log(`Previous: ${prevResult.data.metadata.title}`);
+const previousResult = await getBookSiblingPrevious({ bookId: 'book-123' }, { client });
+if (previousResult.error) {
+  console.error('Could not load the previous book', previousResult.error);
+} else if (previousResult.data) {
+  console.log(`Previous: ${previousResult.data.metadata.title}`);
 } else {
   console.log('This is the first book in the series');
 }
@@ -192,16 +186,22 @@ if (prevResult.data) {
 ```typescript
 import { updateSeriesMetadata } from 'komga-sdk';
 
-await updateSeriesMetadata({
-  client,
-  path: { seriesId: 'series-123' },
-  body: {
-    title: 'New Series Title',
-    summary: 'Updated description',
-    status: 'ONGOING',
-    genres: ['Action', 'Adventure'],
+const result = await updateSeriesMetadata(
+  {
+    seriesId: 'series-123',
+    seriesMetadataUpdateDto: {
+      title: 'New Series Title',
+      summary: 'Updated description',
+      status: 'ONGOING',
+      genres: ['Action', 'Adventure'],
+    },
   },
-});
+  { client },
+);
+
+if (result.error) {
+  console.error('Series metadata update failed', result.error);
+}
 ```
 
 ### Refresh metadata
@@ -210,15 +210,13 @@ await updateSeriesMetadata({
 Requires **ADMIN** role or appropriate permissions.
 </Warning>
 
-Trigger a metadata refresh from external sources:
-
 ```typescript
 import { seriesRefreshMetadata } from 'komga-sdk';
 
-await seriesRefreshMetadata({
-  client,
-  path: { seriesId: 'series-123' },
-});
+const result = await seriesRefreshMetadata({ seriesId: 'series-123' }, { client });
+if (result.error) {
+  console.error('Series metadata refresh failed', result.error);
+}
 ```
 
 ### Analyze series
@@ -227,15 +225,13 @@ await seriesRefreshMetadata({
 Requires **ADMIN** role.
 </Warning>
 
-Re-analyze series books for metadata and page information:
-
 ```typescript
 import { seriesAnalyze } from 'komga-sdk';
 
-await seriesAnalyze({
-  client,
-  path: { seriesId: 'series-123' },
-});
+const result = await seriesAnalyze({ seriesId: 'series-123' }, { client });
+if (result.error) {
+  console.error('Series analysis failed', result.error);
+}
 ```
 
 ## Common workflows
@@ -246,21 +242,17 @@ await seriesAnalyze({
 import { getSeriesLatest, getSeriesReleaseDates } from 'komga-sdk';
 
 async function getNewReleasesDashboard() {
-  // Get recently added series
-  const latest = await getSeriesLatest({
-    client,
-    query: { page: 0, size: 10 },
-  });
+  const [latest, releases] = await Promise.all([
+    getSeriesLatest({ page: 0, size: 10 }, { client }),
+    getSeriesReleaseDates(undefined, { client }),
+  ]);
 
-  // Get upcoming releases
-  const releases = await getSeriesReleaseDates({
-    client,
-    query: { page: 0, size: 10 },
-  });
+  if (latest.error) throw latest.error;
+  if (releases.error) throw releases.error;
 
   return {
     recentlyAdded: latest.data?.content ?? [],
-    upcoming: releases.data?.content ?? [],
+    releaseDates: releases.data ?? [],
   };
 }
 ```
@@ -268,41 +260,16 @@ async function getNewReleasesDashboard() {
 ### A-Z navigation
 
 ```typescript
-import { getSeriesAlphabeticalGroups, getSeries } from 'komga-sdk';
+import { getSeriesAlphabeticalGroups } from 'komga-sdk';
 
 async function buildAZNavigator() {
-  // Get group counts
-  const groupsResult = await getSeriesAlphabeticalGroups({
-    client,
-    body: {},
-  });
+  const result = await getSeriesAlphabeticalGroups({ seriesSearch: {} }, { client });
+  if (result.error) throw result.error;
 
-  if (!groupsResult.data) return [];
-
-  // For each letter, get a sample of series
-  const navigator = [];
-  
-  for (const group of groupsResult.data) {
-    const seriesResult = await getSeries({
-      client,
-      body: {
-        fullTextSearch: group.group,
-      },
-      query: {
-        page: 0,
-        size: 5,
-        sort: ['metadata.title,asc'],
-      },
-    });
-
-    navigator.push({
-      letter: group.group,
-      count: group.count,
-      preview: seriesResult.data?.content ?? [],
-    });
-  }
-
-  return navigator;
+  return (result.data ?? []).map((group) => ({
+    letter: group.group,
+    count: group.count,
+  }));
 }
 ```
 
@@ -313,41 +280,35 @@ import { getSeries, getSeriesById } from 'komga-sdk';
 
 class SeriesBrowser {
   private currentPage = 0;
-  private pageSize = 20;
+  private readonly pageSize = 20;
 
   async loadPage(page: number) {
     this.currentPage = page;
-    
-    const result = await getSeries({
-      client,
-      body: {},
-      query: {
-        page: this.currentPage,
+    const result = await getSeries(
+      {
+        page,
         size: this.pageSize,
         sort: ['metadata.title,asc'],
+        seriesSearch: {},
       },
-    });
-
+      { client },
+    );
+    if (result.error) throw result.error;
     return result.data;
   }
 
   async getSeriesDetails(seriesId: string) {
-    const result = await getSeriesById({
-      client,
-      path: { seriesId },
-    });
-
+    const result = await getSeriesById({ seriesId }, { client });
+    if (result.error) throw result.error;
     return result.data;
   }
 
-  async nextPage() {
+  nextPage() {
     return this.loadPage(this.currentPage + 1);
   }
 
-  async prevPage() {
-    if (this.currentPage > 0) {
-      return this.loadPage(this.currentPage - 1);
-    }
+  prevPage() {
+    return this.currentPage > 0 ? this.loadPage(this.currentPage - 1) : undefined;
   }
 }
 ```
@@ -358,38 +319,24 @@ class SeriesBrowser {
 import { getBookSiblingNext, getBookSiblingPrevious } from 'komga-sdk';
 
 class ReadingNavigator {
-  private currentBookId: string;
-
-  constructor(initialBookId: string) {
-    this.currentBookId = initialBookId;
-  }
+  constructor(private currentBookId: string) {}
 
   async next() {
-    const result = await getBookSiblingNext({
-      client,
-      path: { bookId: this.currentBookId },
-    });
+    const result = await getBookSiblingNext({ bookId: this.currentBookId }, { client });
+    if (result.error) throw result.error;
+    if (!result.data) return null;
 
-    if (result.data) {
-      this.currentBookId = result.data.id;
-      return result.data;
-    }
-    
-    return null; // End of series
+    this.currentBookId = result.data.id;
+    return result.data;
   }
 
   async previous() {
-    const result = await getBookSiblingPrevious({
-      client,
-      path: { bookId: this.currentBookId },
-    });
+    const result = await getBookSiblingPrevious({ bookId: this.currentBookId }, { client });
+    if (result.error) throw result.error;
+    if (!result.data) return null;
 
-    if (result.data) {
-      this.currentBookId = result.data.id;
-      return result.data;
-    }
-    
-    return null; // Beginning of series
+    this.currentBookId = result.data.id;
+    return result.data;
   }
 }
 ```
@@ -399,10 +346,7 @@ class ReadingNavigator {
 ```typescript
 import { getSeriesById } from 'komga-sdk';
 
-const result = await getSeriesById({
-  client,
-  path: { seriesId: 'series-123' },
-});
+const result = await getSeriesById({ seriesId: 'series-123' }, { client });
 
 if (result.error) {
   switch (result.response?.status) {
@@ -413,7 +357,7 @@ if (result.error) {
       console.error('Not authenticated');
       break;
     default:
-      console.error('Error fetching series:', result.error);
+      console.error('Error fetching series', result.error);
   }
 }
 ```
@@ -422,17 +366,17 @@ if (result.error) {
 
 <CardGroup cols={2}>
   <Card title="Series" icon="folder" href="/guides/series">
-    Learn about SeriesService for common operations.
+    Learn about generated series operations.
   </Card>
-  
+
   <Card title="Books" icon="book" href="/guides/books">
     Explore book operations and content access.
   </Card>
-  
+
   <Card title="Collections" icon="folder-open" href="/guides/collections">
     Organize series into collections.
   </Card>
-  
+
   <Card title="Libraries" icon="book-open" href="/guides/libraries">
     Manage your library structure.
   </Card>

@@ -1,340 +1,221 @@
 ---
-title: "Domain Services"
-description: "High-level services that wrap API calls with validation"
+title: "Generated API operations"
+description: "Use generated Komga API operations and application-owned domain workflows"
 icon: "boxes"
 ---
 
-Domain services provide a validated, task-focused interface over the raw API functions. They're the recommended way to interact with Komga.
+Komga SDK 1.0 exposes the Komga API as generated operation functions. The functions map directly to the OpenAPI operations and use generated TypeScript types. The SDK no longer includes domain-service classes, handwritten DTO schemas, or service-specific error hierarchies.
 
-## Why use domain services?
+## The 1.0 call shape
 
-<CardGroup cols={2}>
-  <Card title="Automatic Validation" icon="shield-check">
-    All responses are validated against Zod schemas. Invalid data throws immediately.
-  </Card>
-  
-  <Card title="Type Safety" icon="code">
-    Full TypeScript support with proper return types. No manual casting.
-  </Card>
-  
-  <Card title="Simplified API" icon="wand-magic-sparkles">
-    Intuitive method names and parameters. Less boilerplate code.
-  </Card>
-  
-  <Card title="Error Handling" icon="triangle-exclamation">
-    Consistent error types across all operations. Easy to catch and handle.
-  </Card>
-</CardGroup>
-
-## Available services
-
-| Service | Domain | Key Operations |
-|---------|--------|----------------|
-| `BookService` | Individual books | List, get, update metadata, pages, thumbnails |
-| `SeriesService` | Series (grouped books) | List, get, update metadata, get books |
-| `LibraryService` | Libraries (file locations) | List, get, create, update, scan, delete |
-
-<Note>
-For Collections and Read Lists, use [Direct API functions](/direct-api) as they're not yet wrapped in domain services. See the [Collections](/guides/collections) and [Read Lists](/guides/read-lists) guides.
-</Note>
-
-## BookService
-
-Manage individual books in your library.
+Create a client once, then pass it in the operation options. Operation parameters are flat: endpoint inputs are properties of the first argument rather than nested transport-slot objects.
 
 ```typescript
-import { BookService } from 'komga-sdk';
+import { createKomgaClient, getBookById, unwrap } from 'komga-sdk';
 
-const service = new BookService(client);
+const client = createKomgaClient({
+  baseUrl: 'http://localhost:25600',
+  auth: { type: 'basic', username: 'admin', password: 'password' },
+});
+
+const book = unwrap(await getBookById({ bookId: 'book-123' }, { client }));
+console.log(book.metadata.title);
 ```
 
-### Methods
+The default result contains `{ data, error, request, response }`. It does not throw for an API error by default. Use [`unwrap`](/errors) when a call site should throw a `KomgaApiError` instead.
 
-<AccordionGroup>
-  <Accordion title="list(options)" icon="list">
-    List books with pagination and search.
-    
-    ```typescript
-    const books = await service.list({
-      search: { fullTextSearch: 'manga' },
-      page: 0,
-      size: 20,
-      sort: ['metadata.title,asc'],
-    });
-    
-    console.log(books.totalElements); // Total matching books
-    console.log(books.content);       // Current page
-    ```
-    
-    **Parameters:**
-    - `search` - Search filters (fullTextSearch, tags, etc.)
-    - `page` - Page index (0-based)
-    - `size` - Items per page
-    - `sort` - Sort fields and directions
-    - `unpaged` - Return all results (use carefully)
-  </Accordion>
-  
-  <Accordion title="getById(bookId)" icon="book">
-    Get a single book by ID.
-    
-    ```typescript
-    const book = await service.getById('book-123');
-    console.log(book.metadata.title);
-    console.log(book.metadata.summary);
-    ```
-  </Accordion>
-  
-  <Accordion title="updateMetadata(bookId, updates)" icon="pen">
-    Update book metadata.
-    
-    ```typescript
-    await service.updateMetadata('book-123', {
-      title: 'New Title',
-      summary: 'Updated summary',
-      tags: ['favorite', 'manga'],
-    });
-    ```
-  </Accordion>
-  
-  <Accordion title="getPages(bookId)" icon="images">
-    Get all pages in a book.
-    
-    ```typescript
-    const pages = await service.getPages('book-123');
-    console.log(`${pages.length} pages`);
-    pages.forEach((page, i) => {
-      console.log(`Page ${i + 1}: ${page.width}x${page.height}`);
-    });
-    ```
-  </Accordion>
-  
-  <Accordion title="getThumbnailUrl(bookId)" icon="image">
-    Get the thumbnail URL for a book.
-    
-    ```typescript
-    const url = service.getThumbnailUrl('book-123');
-    // /api/v1/books/book-123/thumbnail
-    ```
-  </Accordion>
-  
-  <Accordion title="deleteReadProgress(bookId)" icon="trash">
-    Clear read progress for a book.
-    
-    ```typescript
-    await service.deleteReadProgress('book-123');
-    ```
-  </Accordion>
-</AccordionGroup>
+<Info>
+For an operation with no endpoint parameters, the options object is the only argument. For example, call `getLibraries({ client })`.
+</Info>
 
-## SeriesService
+## Operation families
 
-Manage series (collections of books).
+The generated barrel re-exports operation functions and their generated response and error types. Common operations include:
+
+| Operation | Parameters | Successful data |
+| --- | --- | --- |
+| `getBooks` | `bookSearch`, `page`, `size`, `sort`, `unpaged` | `PageBookDto` |
+| `getBookById` | `bookId` | `BookDto` |
+| `getBookPages` | `bookId` | `PageDto[]` |
+| `getSeriesById` | `seriesId` | `SeriesDto` |
+| `getBooksBySeriesId` | `seriesId`, list parameters | `PageBookDto` |
+| `getLibraries` | none | `LibraryDto[]` |
+| `getLibraryById` | `libraryId` | `LibraryDto` |
+| `getCollections` | `search`, `library_id`, page parameters | `PageCollectionDto` |
+| `getReadLists` | `search`, `library_id`, page parameters | `PageReadListDto` |
+
+The generated types are the source of truth for each operation's parameters and response. The [API Reference](/reference/api-reference) links to the Komga 1.25.0 OpenAPI document used by the generated surface.
+
+## Build a domain workflow in your application
+
+A domain workflow can compose operations without reintroducing a second SDK abstraction:
 
 ```typescript
-import { SeriesService } from 'komga-sdk';
+import { getBooks, getSeriesById } from 'komga-sdk';
 
-const service = new SeriesService(client);
-```
+export async function loadSeriesOverview(seriesId: string) {
+  const seriesResult = await getSeriesById({ seriesId }, { client });
+  if (seriesResult.error) {
+    return { series: undefined, books: undefined, error: seriesResult.error };
+  }
 
-### Methods
-
-<AccordionGroup>
-  <Accordion title="list(options)" icon="list">
-    List series with pagination and search.
-    
-    ```typescript
-    const series = await service.list({
-      search: { fullTextSearch: 'fantasy' },
+  const booksResult = await getBooks(
+    {
+      bookSearch: {},
       page: 0,
       size: 20,
-      sort: ['metadata.title,asc'],
-    });
-    ```
-  </Accordion>
-  
-  <Accordion title="getById(seriesId)" icon="folder">
-    Get a single series by ID.
-    
-    ```typescript
-    const series = await service.getById('series-123');
-    console.log(series.metadata.title);
-    console.log(series.booksCount);
-    ```
-  </Accordion>
-  
-  <Accordion title="updateMetadata(seriesId, updates)" icon="pen">
-    Update series metadata.
-    
-    ```typescript
-    await service.updateMetadata('series-123', {
-      status: 'ONGOING',
-      publisher: 'Example Publisher',
-      genres: ['Fantasy', 'Adventure'],
-    });
-    ```
-  </Accordion>
-  
-  <Accordion title="getBooks(seriesId, options)" icon="books">
-    Get books in a series.
-    
-    ```typescript
-    const books = await service.getBooks('series-123', {
-      page: 0,
-      size: 50,
       sort: ['metadata.number,asc'],
-    });
-    ```
-  </Accordion>
-  
-  <Accordion title="getCollections(seriesId)" icon="folder-tree">
-    Get collections containing this series.
-    
-    ```typescript
-    const collections = await service.getCollections('series-123');
-    collections.forEach(c => console.log(c.name));
-    ```
-  </Accordion>
-</AccordionGroup>
+    },
+    { client },
+  );
 
-## LibraryService
+  if (booksResult.error) {
+    return { series: seriesResult.data, books: undefined, error: booksResult.error };
+  }
 
-Manage libraries (root folders where Komga scans for content).
-
-```typescript
-import { LibraryService } from 'komga-sdk';
-
-const service = new LibraryService(client);
+  return { series: seriesResult.data, books: booksResult.data.content ?? [] };
+}
 ```
 
-### Methods
+Keep application-specific caching, authorization decisions, pagination state, and UI models in the wrapper. Do not silently assume that a successful result has every optional page field populated.
 
-<AccordionGroup>
-  <Accordion title="getAll()" icon="list">
-    Get all libraries.
-    
-    ```typescript
-    const libraries = await service.getAll();
-    libraries.forEach(lib => {
-      console.log(`${lib.name}: ${lib.root}`);
-    });
-    ```
-  </Accordion>
-  
-  <Accordion title="getById(libraryId)" icon="database">
-    Get a single library by ID.
-    
-    ```typescript
-    const library = await service.getById('library-123');
-    console.log(library.name);
-    console.log(library.root);
-    ```
-  </Accordion>
-  
-  <Accordion title="create(payload)" icon="plus">
-    Create a new library.
-    
-    ```typescript
-    const library = await service.create({
-      name: 'Comics',
-      root: '/data/comics',
-      // ... many other options
-    });
-    ```
-    
-    See [Libraries guide](/guides/libraries) for full creation options.
-  </Accordion>
-  
-  <Accordion title="update(libraryId, updates)" icon="pen">
-    Update library settings.
-    
-    ```typescript
-    await service.update('library-123', {
-      name: 'Updated Name',
-    });
-    ```
-  </Accordion>
-  
-  <Accordion title="scan(libraryId)" icon="arrows-rotate">
-    Trigger a library scan.
-    
-    ```typescript
-    await service.scan('library-123');
-    // Scan runs async on server
-    ```
-  </Accordion>
-  
-  <Accordion title="delete(libraryId)" icon="trash">
-    Delete a library.
-    
-    ```typescript
-    await service.delete('library-123');
-    ```
-    
-    <Warning>This permanently removes the library from Komga (files on disk are not deleted).</Warning>
-  </Accordion>
-</AccordionGroup>
+## Common book workflows
 
-## Domain services vs direct API
+Read book details and pages as separate generated operations:
 
-<Tabs>
-  <Tab title="When to use services">
-    **Use domain services when:**
-    - Building application features
-    - You want automatic validation
-    - You prefer a cleaner API
-    - The endpoint is supported by a service
-    
-    ```typescript
-    // Clean, validated, typed
-    const book = await bookService.getById('book-123');
-    console.log(book.metadata.title); // TypeScript knows the shape
-    ```
-  </Tab>
-  
-  <Tab title="When to use direct API">
-    **Use direct API when:**
-    - Endpoint not covered by services (Collections, Read Lists, Users, etc.)
-    - You need full control over the request
-    - You're building custom abstractions
-    - You need access to raw response data
-    
-    ```typescript
-    import { getCollections } from 'komga-sdk';
-    
-    const result = await getCollections({
-      client,
-      query: { page: 0, size: 20 },
-    });
-    
-    if (result.data) {
-      console.log(result.data.content);
-    }
-    ```
-  </Tab>
-</Tabs>
+```typescript
+import { getBookById, getBookPages } from 'komga-sdk';
 
-### Comparison table
+const book = await getBookById({ bookId: 'book-123' }, { client });
+const pages = await getBookPages({ bookId: 'book-123' }, { client });
 
-| Aspect | Domain Services | Direct API |
-|--------|-----------------|------------|
-| Validation | Automatic | Manual |
-| Return type | `BookDto` | `{ data?, error? }` |
-| Error handling | Throws | Returns error object |
-| Coverage | ~60% of API | 100% of API |
-| Boilerplate | Minimal | More verbose |
+if (book.error === undefined && pages.error === undefined) {
+  console.log(`${book.data.metadata.title}: ${pages.data.length} pages`);
+}
+```
+
+Metadata updates use the generated DTO property and return `204 No Content` on success:
+
+```typescript
+import { updateBookMetadata } from 'komga-sdk';
+
+const result = await updateBookMetadata(
+  {
+    bookId: 'book-123',
+    bookMetadataUpdateDto: { title: 'New title' },
+  },
+  { client },
+);
+
+if (result.error) {
+  console.error(result.response?.status, result.error);
+}
+```
+
+Read-progress updates follow the same result contract. Use `page` or `completed` according to the generated `ReadProgressUpdateDto`:
+
+```typescript
+import { markBookReadProgress } from 'komga-sdk';
+
+const result = await markBookReadProgress(
+  {
+    bookId: 'book-123',
+    readProgressUpdateDto: { page: 12 },
+  },
+  { client },
+);
+```
+
+## Series, library, and administrative workflows
+
+Series metadata and library configuration mutations carry permissions documented on the generated operation. For example:
+
+```typescript
+import {
+  getBooksBySeriesId,
+  updateSeriesMetadata,
+  updateLibraryById,
+  libraryScan,
+} from 'komga-sdk';
+
+const books = await getBooksBySeriesId(
+  { seriesId: 'series-123', page: 0, size: 50, sort: ['metadata.number,asc'] },
+  { client },
+);
+
+const metadata = await updateSeriesMetadata(
+  {
+    seriesId: 'series-123',
+    seriesMetadataUpdateDto: { title: 'Updated series' },
+  },
+  { client },
+);
+
+const library = await updateLibraryById(
+  {
+    libraryId: 'library-123',
+    libraryUpdateDto: { name: 'Comics' },
+  },
+  { client },
+);
+
+const scan = await libraryScan({ libraryId: 'library-123', deep: true }, { client });
+```
+
+The generated comments mark operations that require `ADMIN` or another role. A `403` should be surfaced to the operator; do not retry unchanged credentials. Library scans are server-side work and may complete after the operation returns, so track task state through the Komga endpoints or UI rather than treating the request as a synchronous import.
+
+## Collections and read lists
+
+These endpoints are not domain-service methods in 1.0. Call them directly with their generated query names:
+
+```typescript
+import { getCollections, getReadLists } from 'komga-sdk';
+
+const collections = await getCollections(
+  { search: 'favorites', library_id: ['library-123'], page: 0, size: 20 },
+  { client },
+);
+const readLists = await getReadLists({ search: 'to-read', page: 0, size: 20 }, { client });
+```
+
+Use `content ?? []` and inspect `error` before rendering page data. See [Pagination](/pagination) for list iteration and sorting.
+
+## Migration from service wrappers
+
+Replace a service method with an operation import and a client option:
+
+| Previous wrapper call | 1.0 operation call |
+| --- | --- |
+| `service.getById(id)` for a book | `getBookById({ bookId: id }, { client })` |
+| `service.list({ page, size, search })` for books | `getBooks({ page, size, bookSearch: search }, { client })` |
+| `service.getById(id)` for a series | `getSeriesById({ seriesId: id }, { client })` |
+| `service.getAll()` for libraries | `getLibraries({ client })` |
+| `service.getById(id)` for a library | `getLibraryById({ libraryId: id }, { client })` |
+| `service.scan(id)` for a library | `libraryScan({ libraryId: id }, { client })` |
+
+Wrap the new call with `unwrap` only if throwing behavior is preferable. `BookSearch` currently contains `fullTextSearch` and an optional generated `condition`; pass that generated shape directly instead of the former service-layer `search` object.
+
+## What moved to the application
+
+The core SDK intentionally stays close to Fetch and the generated contract:
+
+- Runtime response validation is optional and consumer-owned. See [Runtime validation](/validation).
+- Retries, caching, pagination state, and query-library integration belong in the application layer.
+- Request and response lifecycle hooks are low-level generated-client interceptors. See [Request customization](/interceptors).
+- HTTP failures are represented in the result or converted to `KomgaApiError` by `unwrap`. See [Result handling](/errors).
+
+Use generated operations and types directly; do not instantiate removed service classes or import runtime DTO schemas from the SDK.
 
 ## Next steps
 
 <CardGroup cols={3}>
-  <Card title="Books Guide" icon="book" href="/guides/books">
-    Deep dive into book operations.
+  <Card title="Direct API functions" icon="code" href="/direct-api">
+    Call generated operations with flat parameters.
   </Card>
-  
-  <Card title="Direct API" icon="code" href="/direct-api">
-    Use low-level API functions.
+  <Card title="Pagination" icon="list" href="/pagination">
+    Handle generated page responses and list parameters.
   </Card>
-  
-  <Card title="Validation" icon="shield-check" href="/validation">
-    Understand response validation.
+  <Card title="Configuration" icon="gear" href="/reference/configuration">
+    Configure authentication and Fetch behavior.
   </Card>
 </CardGroup>

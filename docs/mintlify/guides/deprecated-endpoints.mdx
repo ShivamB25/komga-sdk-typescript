@@ -1,99 +1,178 @@
 ---
-title: "Deprecated Endpoints"
-description: "Legacy endpoints and their modern replacements"
+title: "Deprecated endpoints"
+description: "Move legacy Komga endpoint calls to current generated operations"
 icon: "triangle-exclamation"
 ---
 
-These endpoints are deprecated and should be avoided in new integrations. Use the replacements listed below.
+Komga keeps older HTTP routes for compatibility, but new integrations should use the current generated operations. The replacement functions below are exported by `komga-sdk` 1.0 and use flat parameters.
 
 <Warning>
-Deprecated endpoints may be removed in future Komga releases.
+Do not add new code against the legacy routes. Their response shapes and availability can change as Komga removes compatibility endpoints.
 </Warning>
 
-## Deprecated endpoints and replacements
+## Replacement map
 
-| Deprecated | Replacement | Notes |
-|------------|-------------|-------|
-| `getAllBooksDeprecated` | `getBooks` | Use POST `/api/v1/books/list` |
-| `getSeriesDeprecated` | `getSeries` | Use POST `/api/v1/series/list` |
-| `getSeriesAlphabeticalGroupsDeprecated` | `getSeriesAlphabeticalGroups` | Use POST `/api/v1/series/list/alphabetical-groups` |
-| `getAuthorsDeprecated` | `getAuthors` | Use GET `/api/v2/authors` |
-| `updateLibraryByIdDeprecated` | `updateLibraryById` | Use PATCH instead of PUT |
+| Legacy SDK symbol | Legacy HTTP route | Current operation | Current route |
+| --- | --- | --- | --- |
+| `getAllBooksDeprecated` | `GET /api/v1/books` | `getBooks` | `POST /api/v1/books/list` |
+| `getSeriesDeprecated` | `GET /api/v1/series` | `getSeries` | `POST /api/v1/series/list` |
+| `getSeriesAlphabeticalGroupsDeprecated` | `GET /api/v1/series/alphabetical-groups` | `getSeriesAlphabeticalGroups` | `POST /api/v1/series/list/alphabetical-groups` |
+| `getAuthorsDeprecated` | `GET /api/v1/authors` | `getAuthors` | `GET /api/v2/authors` |
+| `updateLibraryByIdDeprecated` | `PUT /api/v1/libraries/{libraryId}` | `updateLibraryById` | `PATCH /api/v1/libraries/{libraryId}` |
 
-## SDK deprecated function imports
+No deprecated SDK function imports are needed. Import the current operation instead.
 
-These functions are still exported for backward compatibility but should be avoided:
+The migration is more than a path change:
 
-```typescript
-import {
-  getAllBooksDeprecated,
-  getSeriesDeprecated,
-  getSeriesAlphabeticalGroupsDeprecated,
-  getAuthorsDeprecated,
-} from 'komga-sdk';
+| Replacement | Request shape | Success shape |
+| --- | --- | --- |
+| `getBooks` | `POST` JSON `bookSearch` plus top-level `page`, `size`, `sort`, and `unpaged` | `PageBookDto` (`content`, `totalElements`, `last`, ...) |
+| `getSeries` | `POST` JSON `seriesSearch` plus the same pagination keys | `PageSeriesDto` |
+| `getSeriesAlphabeticalGroups` | `POST` JSON `seriesSearch`; no pagination argument | The server's alphabetical-group array |
+| `getAuthors` | `GET` query keys including `search`, `role`, `library_id`, `collection_id`, `series_id`, `readlist_id`, and pagination | `PageAuthorDto` |
+| `updateLibraryById` | `PATCH` path `libraryId` plus JSON `libraryUpdateDto` | `204 No Content` |
 
-// Avoid using these in new integrations.
-```
+The generated functions serialize the nested search/update value for you. Do not pass a legacy `{ path, query, body }` object or put pagination inside the search document. For the list operations, `bookSearch` and `seriesSearch` are required even when the search is empty (`{}`).
 
-## Example replacements
 
-### Replace getAllBooksDeprecated
+## Replace the books list call
+
+`getBooks` takes pagination at the top level and the search document as `bookSearch`:
 
 ```typescript
 import { getBooks } from 'komga-sdk';
 
-const result = await getBooks({
-  client,
-  body: {},
-  query: { page: 0, size: 20 },
-});
+const result = await getBooks(
+  {
+    page: 0,
+    size: 20,
+    bookSearch: {
+      fullTextSearch: 'classic',
+    },
+  },
+  { client },
+);
+
+if (!result.error) {
+  for (const book of result.data?.content ?? []) {
+    console.log(book.metadata.title);
+  }
+}
 ```
 
-### Replace getSeriesDeprecated
+## Replace the series list call
+
+`getSeries` uses the same flat pagination shape with a `seriesSearch` document:
 
 ```typescript
 import { getSeries } from 'komga-sdk';
 
-const result = await getSeries({
-  client,
-  body: {},
-  query: { page: 0, size: 20 },
-});
+const result = await getSeries(
+  {
+    page: 0,
+    size: 20,
+    seriesSearch: {
+      fullTextSearch: 'classic',
+    },
+  },
+  { client },
+);
+
+if (!result.error) console.log(result.data?.content ?? []);
 ```
 
-### Replace getAuthorsDeprecated
+Alphabetical groups require only the flat `seriesSearch` parameter:
+
+```typescript
+import { getSeriesAlphabeticalGroups } from 'komga-sdk';
+
+const result = await getSeriesAlphabeticalGroups(
+  { seriesSearch: { fullTextSearch: 'classic' } },
+  { client },
+);
+if (!result.error) console.log(result.data ?? []);
+```
+
+## Replace the authors list call
+
+`getAuthors` is the current v2 operation. Its filters are flat query keys:
+
+
+The v2 operation preserves the useful filters that callers often encoded in the old route, but makes their types explicit. For example, `library_id` accepts an array and the current operation also supports `role`, `readlist_id`, `unpaged`, and `size`:
+
+```typescript
+const filteredAuthors = await getAuthors(
+  {
+    search: 'Tor',
+    role: 'writer',
+    library_id: ['library-123', 'library-456'],
+    readlist_id: 'readlist-123',
+    page: 0,
+    size: 25,
+  },
+  { client },
+);
+```
+
+Treat an empty `content` page as a valid “no matches” result. A `400` usually means a filter or pagination value is invalid; inspect `result.error` and the native response before retrying.
 
 ```typescript
 import { getAuthors } from 'komga-sdk';
 
-const result = await getAuthors({
-  client,
-  query: { page: 0, size: 50 },
-});
+const result = await getAuthors(
+  {
+    search: 'Toriyama',
+    page: 0,
+    size: 50,
+  },
+  { client },
+);
+if (!result.error) console.log(result.data?.content ?? []);
 ```
 
-### Replace updateLibraryByIdDeprecated
+## Replace a library update
+
+The current operation uses `PATCH` and names the body parameter `libraryUpdateDto`:
 
 ```typescript
 import { updateLibraryById } from 'komga-sdk';
 
-await updateLibraryById({
-  client,
-  path: { libraryId: 'library-123' },
-  body: {
-    name: 'Updated Library Name',
+const result = await updateLibraryById(
+  {
+    libraryId: 'library-123',
+    libraryUpdateDto: {
+      name: 'Updated Library Name',
+    },
   },
-});
+  { client },
+);
+
+if (result.error) {
+  console.error(result.response?.status, result.error);
+} else {
+  // The current operation succeeds with HTTP 204 and no response payload.
+  console.log(`Updated (${result.response?.status})`);
+}
 ```
+
+## Migration checklist
+
+1. Replace each legacy route with the current operation in the table.
+2. Move path, query, and body values into the operation's flat parameter object.
+3. Pass `{ client }` as the second argument when the operation has parameters.
+4. Check `result.error` or call `unwrap` for a typed `KomgaApiError`.
+5. Treat `204` responses as successful operations with no `data` payload.
 
 ## Next steps
 
 <CardGroup cols={2}>
   <Card title="Direct API" icon="code" href="/direct-api">
-    Explore low-level API functions.
+    Explore generated operations and response fields.
   </Card>
-  
-  <Card title="Library Maintenance" icon="screwdriver-wrench" href="/guides/library-maintenance">
-    Update libraries with the modern API.
+  <Card title="Library maintenance" icon="screwdriver-wrench" href="/guides/library-maintenance">
+    Scan and update libraries with current operations.
+  </Card>
+  <Card title="Migration" icon="arrow-right-arrow-left" href="/guides/migration">
+    Review SDK 1.0 migration changes.
   </Card>
 </CardGroup>

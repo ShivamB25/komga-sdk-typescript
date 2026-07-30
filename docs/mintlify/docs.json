@@ -3,72 +3,81 @@
   "name": "Komga SDK",
   "theme": "mint",
   "colors": {
-    "primary": "#0D9373"
+    "primary": "#087A5E"
   },
-  "favicon": "/favicon.svg",
   "navigation": {
     "tabs": [
       {
         "tab": "Guides",
         "groups": [
           {
-            "group": "Getting Started",
+            "group": "Get started",
             "pages": [
               "introduction",
               "quickstart",
               "authentication",
-              "quick-reference"
+              "quick-reference",
+              "best-practices",
+              "faq"
             ]
           },
           {
-            "group": "Core Concepts",
+            "group": "Core SDK",
             "pages": [
               "domain-services",
               "direct-api",
               "pagination",
               "validation",
               "errors",
-              "interceptors"
+              "interceptors",
+              "reference/configuration",
+              "reference/typescript",
+              "reference/glossary"
             ]
           },
-{
-            "group": "Domain Guides",
+          {
+            "group": "API guides",
             "pages": [
-            "guides/books",
-            "guides/book-content",
-            "guides/book-discovery",
-            "guides/series",
-            "guides/series-discovery",
-            "guides/libraries",
-            "guides/library-maintenance",
-            "guides/collections",
-            "guides/read-lists",
-            "guides/read-progress",
-            "guides/mihon-sync",
-            "guides/users",
-            "guides/client-settings",
-            "guides/downloads",
-            "guides/metadata-lookups",
-            "guides/thumbnails",
-            "guides/fonts",
-            "guides/admin",
-            "guides/deprecated-endpoints",
-            "guides/workflows"
+              "guides/books",
+              "guides/book-content",
+              "guides/book-discovery",
+              "guides/series",
+              "guides/series-discovery",
+              "guides/libraries",
+              "guides/library-maintenance",
+              "guides/collections",
+              "guides/read-lists",
+              "guides/read-progress",
+              "guides/mihon-sync",
+              "guides/users",
+              "guides/client-settings",
+              "guides/downloads",
+              "guides/metadata-lookups",
+              "guides/fonts",
+              "guides/thumbnails",
+              "guides/admin",
+              "guides/deprecated-endpoints",
+              "guides/workflows",
+              "guides/troubleshooting",
+              "guides/testing",
+              "guides/migration"
+            ]
+          },
+          {
+            "group": "Reference",
+            "pages": [
+              "reference/api-reference"
             ]
           }
         ]
       },
       {
         "tab": "API Reference",
-        "openapi": "https://raw.githubusercontent.com/gotson/komga/refs/heads/master/komga/docs/openapi.json"
-      },
-      {
-        "tab": "TypeDoc",
-        "href": "/api/"
+        "openapi": "https://raw.githubusercontent.com/gotson/komga/1.25.0/komga/docs/openapi.json"
       }
     ]
   },
   "footerSocials": {
-    "github": "https://github.com/gotson/komga"
+    "github": "https://github.com/ShivamB25/komga-sdk-typescript"
   }
 }

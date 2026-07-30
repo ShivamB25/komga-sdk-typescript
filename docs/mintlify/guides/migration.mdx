@@ -1,26 +1,174 @@
 ---
-title: "Migration and deprecations"
-description: "Navigate deprecated endpoints and upgrade paths"
+title: "Migration to SDK 1.0"
+description: "Move integrations to the generated client and structured results"
 icon: "arrows-turn-right"
 ---
 
-Some Komga endpoints are deprecated. Prefer the replacements below.
+SDK 1.0 is a clean cutover from the layered 0.x client. Generated Komga operations are the public API, a client is created per integration, operation parameters are flat, and requests resolve to structured results unless you explicitly call `unwrap`.
 
-| Deprecated endpoint | Replacement | Since |
+## What changed
+
+| 0.x pattern | 1.0 replacement |
+| --- | --- |
+| `createClient(...)` plus service instances | `createKomgaClient({ baseUrl, auth, headers, credentials, fetch })` |
+| `new BookService(client).getById(id)` | `getBookById({ bookId: id }, { client })` |
+| `new SeriesService(client).list(...)` | `getSeries({ seriesSearch, page, size, sort }, { client })` |
+| Service-specific request/response classes | Generated operations and types from the API schema |
+| `{ client, path, query, body }` grouped arguments | One flat operation parameter object, then `{ client }` |
+| SDK-wide retry/cache/validation policy | Native Fetch plus policy code owned by the application |
+| Legacy service/error/interceptor wrappers | `result.error`/`result.response` or explicit `unwrap` at the call site |
+
+Do not carry over the removed service layer, Ky/Zod request wrappers, legacy error classes, or a global interceptor policy. If an integration needs retries, caching, timeout handling, or tracing, wrap `fetch` or the operation in that integration.
+
+## Create a client
+
+```typescript
+import { createKomgaClient } from 'komga-sdk';
+
+const client = createKomgaClient({
+  baseUrl: process.env.KOMGA_URL!,
+  auth: {
+    type: 'apiKey',
+    key: process.env.KOMGA_API_KEY!,
+  },
+});
+```
+
+The supported `auth` variants are API key and Basic Auth. `headers`, `credentials`, and a custom native `fetch` implementation are optional client settings. Do not copy a 0.x Bearer-auth configuration into `auth`: the 1.0 client does not expose a Bearer auth variant.
+
+## Flatten every operation call
+
+In 0.x, a call commonly looked like this:
+
+```typescript
+// 0.x shape — do not copy this into a 1.0 integration.
+await bookService.list({
+  query: { page: 0, size: 20 },
+  body: { fullTextSearch: 'manga' },
+});
+```
+
+In 1.0, the generated names tell you where each value goes. `getBooks` has a required `bookSearch` body value; pagination and sorting remain flat:
+
+```typescript
+import { getBooks } from 'komga-sdk';
+
+const result = await getBooks(
+  {
+    page: 0,
+    size: 20,
+    sort: ['metadata.title,asc'],
+    bookSearch: { fullTextSearch: 'manga' },
+  },
+  { client },
+);
+
+if (result.error) {
+  console.error(result.response?.status, result.error);
+} else {
+  for (const book of result.data?.content ?? []) {
+    console.log(book.metadata.title);
+  }
+}
+```
+
+Path values use their generated names, such as `{ id: 'collection-123' }` for collection operations and `{ bookId: 'book-123' }` for book operations. Request bodies use generated DTO parameter names such as `collectionCreationDto`, `readProgressUpdateDto`, and `userUpdateDto`.
+
+## Endpoint and operation mapping
+
+Use the current generated operation rather than the old route directly:
+
+| 0.x endpoint or call | 1.0 operation | 1.0 parameter mapping |
 | --- | --- | --- |
-| `GET /api/v1/books` | `POST /api/v1/books/list` | 1.19.0 |
-| `GET /api/v1/series` | `POST /api/v1/series/list` | 1.19.0 |
-| `GET /api/v1/series/alphabetical-groups` | `POST /api/v1/series/list/alphabetical-groups` | 1.19.0 |
-| `GET /api/v1/series/{seriesId}/books` | `POST /api/v1/books/list` | 1.19.0 |
-| `GET /api/v1/authors` | `GET /api/v2/authors` | 1.20.0 |
-| `PUT /api/v1/libraries/{libraryId}` | `PATCH /api/v1/libraries/{libraryId}` | 1.3.0 |
+| `GET /api/v1/books` | `getBooks` | `bookSearch`, `page`, `size`, and `sort` are flat; the server endpoint is `POST /api/v1/books/list`. |
+| `GET /api/v1/series` | `getSeries` | `seriesSearch`, `page`, `size`, and `sort` are flat; the server endpoint is `POST /api/v1/series/list`. |
+| `GET /api/v1/series/alphabetical-groups` | `getSeriesAlphabeticalGroups` | Pass `{ seriesSearch }`; the generated endpoint is `POST /api/v1/series/list/alphabetical-groups`. |
+| `GET /api/v1/series/{seriesId}/books` | `getBooks` | Use `bookSearch.condition.seriesId`, not a removed service method; paginate with flat `page`, `size`, and `sort`. |
+| `GET /api/v1/authors` | `getAuthors` | The current operation targets `GET /api/v2/authors`; pass flat filters such as `search`, `series_id`, `page`, and `size`. |
+| `PUT /api/v1/libraries/{libraryId}` | `updateLibraryById` | Pass `{ libraryId, libraryUpdateDto }`; the generated operation uses the current `PATCH` endpoint. |
+| `GET /api/v1/collections/{id}` service call | `getCollectionById` | Pass `{ id }` and `{ client }`. |
+| `GET /api/v1/readlists/{id}` service call | `getReadListById` | Pass `{ id }` and `{ client }`. |
 
-## Practical guidance
+`getBooksBySeriesId` remains generated only for compatibility with the schema and is marked deprecated. New 1.0 code should use `getBooks` with a `seriesId` search condition so filtering and pagination use one current list operation.
 
-- Prefer `list` endpoints with body + query split for search and pagination.
-- Use domain services where available to avoid deprecated endpoints.
+## Handle results and errors
+
+Generated operations resolve to `{ data, error, request, response }` and do not throw for an HTTP error by default. This makes it possible to inspect both the status and the server's error body:
+
+```typescript
+import { KomgaApiError, getCurrentUser, unwrap } from 'komga-sdk';
+
+const result = await getCurrentUser(undefined, { client });
+if (result.error) {
+  console.error('Request failed', result.response?.status, result.error);
+}
+
+try {
+  const user = unwrap(result);
+  console.log(user.email);
+} catch (error) {
+  if (error instanceof KomgaApiError) {
+    console.error(`Komga returned ${error.status}`, error.body);
+  }
+}
+```
+
+Use the structured result for expected failures (for example, an optional lookup). Use `unwrap` as the explicit throwing boundary for a request that must succeed. Successful no-content operations return `data: undefined`; that is not an error.
+
+## Move request policies into application code
+
+SDK 1.0 uses native Fetch and does not configure retries, caching, validation, or timeouts. Supply a custom Fetch implementation when policy belongs at the transport boundary:
+
+```typescript
+const client = createKomgaClient({
+  baseUrl: process.env.KOMGA_URL!,
+  fetch: async (input, init) => {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const response = await fetch(input, init);
+      if (response.status < 500 || attempt === 2) return response;
+    }
+    throw new Error('unreachable');
+  },
+});
+```
+
+Keep policy-specific tests around this Fetch wrapper; the [Testing guide](/guides/testing) shows deterministic native `Response` fixtures.
+
+## Migrate TypeScript imports
+
+Generated request and response types are available from the package's `types` entry point:
+
+```typescript
+import type { BookSearch, ReadProgressUpdateDto } from 'komga-sdk/types';
+
+const search: BookSearch = { fullTextSearch: 'manga' };
+const progress: ReadProgressUpdateDto = { page: 12, completed: false };
+```
+
+Prefer inference from an operation call when a type is used only once. Do not maintain a parallel 0.x request schema: generated DTO fields and operation parameter names are the source of truth.
+
+## Migration checklist
+
+<Steps>
+  <Step title="Create one client instance">
+    Configure `createKomgaClient` with the server URL and the API key or Basic Auth credentials your application owns.
+  </Step>
+  <Step title="Replace service calls">
+    Import generated operations directly and move path, query, and request values into their flat generated names. Pass `{ client }` as the second argument.
+  </Step>
+  <Step title="Update endpoint-specific searches">
+    Replace legacy book/series list routes with `getBooks`/`getSeries`; use `bookSearch.condition.seriesId` for books in a series.
+  </Step>
+  <Step title="Choose result handling">
+    Check `result.error` for non-throwing flows, or pass the result to `unwrap` when the call should raise `KomgaApiError`.
+  </Step>
+  <Step title="Move policies and tests">
+    Put retries, caching, timeouts, and tracing in the custom Fetch or application layer. Inject native Fetch in unit tests and use a Komga instance for integration tests.
+  </Step>
+</Steps>
 
 ## Next steps
 
-- Direct API usage: [Direct API](/direct-api)
-- API reference: [API reference](/reference/api-reference)
+- Start with [Quickstart](/quickstart).
+- Configure authentication in [Authentication](/authentication).
+- Test injected Fetch and structured failures in [Testing](/guides/testing).
