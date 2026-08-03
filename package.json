@@ -39,7 +39,7 @@
     "@hey-api/openapi-ts": "0.99.0",
     "@vitest/coverage-v8": "^4.0.18",
     "typedoc": "^0.28.17",
-    "typescript": "5.9.3",
+    "typescript": "7.0.2",
     "vitest": "^4.0.18"
   },
   "keywords": [
