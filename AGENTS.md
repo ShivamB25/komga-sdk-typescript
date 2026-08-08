@@ -2,7 +2,7 @@
 
 **Komga API:** 1.25.0
 **Package:** 1.0.0
-**Last verified:** 2026-07-30
+**Last verified:** 2026-08-09
 
 ## OVERVIEW
 
