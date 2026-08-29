@@ -1,55 +1,24 @@
 # Mintlify Documentation Setup
 
-## Overview
-This project now includes Stripe-quality documentation using Mintlify, coexisting with TypeDoc API reference.
+## Current site
+- Root: `docs/mintlify/`
+- Config/navigation: `docs/mintlify/docs.json`
+- CLI package: pinned `mint` in the isolated docs package/lockfile
+- API reference: immutable Komga 1.26.3 OpenAPI URL
+- Maintained package/API: komga-sdk 2.0.0 / Komga 1.26.3
 
-## Location
-- Mintlify docs: `docs/mintlify/`
-- TypeDoc output: `docs/api/` (generated)
+Every maintained MDX page needs title and description frontmatter and must appear in `docs.json` navigation. Internal links are root-relative without `.mdx`; every code fence has a language; media needs alt text; the configured primary color must meet WCAG AA.
 
-## Structure
-```
-docs/mintlify/
-├── docs.json              # Mintlify configuration
-├── introduction.mdx       # Landing page
-├── quickstart.mdx         # Getting started
-├── authentication.mdx     # Auth patterns
-├── domain-services.mdx    # Domain services overview
-├── direct-api.mdx         # Direct API usage
-├── pagination.mdx         # Pagination patterns
-├── validation.mdx         # Validation helpers
-├── errors.mdx             # Error handling
-├── interceptors.mdx       # Interceptor usage
-├── guides/                # Domain guides
-│   ├── books.mdx
-│   ├── series.mdx
-│   ├── libraries.mdx
-│   ├── workflows.mdx
-│   ├── troubleshooting.mdx
-│   ├── testing.mdx
-│   └── migration.mdx
-└── reference/             # Reference docs
-    ├── configuration.mdx
-    ├── typescript.mdx
-    ├── api-reference.mdx
-    └── glossary.mdx
-```
-
-## Running Locally
+## Local commands
 ```bash
 cd docs/mintlify
-bun run --bun mint dev
+bun install
+npx --yes node@22 node_modules/mint/index.js validate
+npx --yes node@22 node_modules/mint/index.js broken-links
+npx --yes node@22 node_modules/mint/index.js a11y
+npx --yes node@22 node_modules/mint/index.js dev --port 3000 --no-open
 ```
+The Bun-forced Mint command is not viable on the current workstation because Mint sees Node 26.3.0 and rejects it. Use Node 22. `mint dev` is preview only, never deployment proof.
 
-Server runs at http://localhost:3333
-
-## Key Features
-- Three tabs: Guides, API Reference (OpenAPI), TypeDoc
-- Real code examples from SDK usage patterns
-- Navigation organized by Getting Started, Core Concepts, Guides, Reference
-- Links between Mintlify docs and TypeDoc output
-
-## Notes
-- Mintlify requires Bun runtime (`--bun` flag) to avoid Node version issues
-- TypeDoc generates to `docs/api/` and is linked as a tab in Mintlify
-- OpenAPI spec is loaded directly from Komga's GitHub repository
+## Release sampling
+Open the real local site in Chromium and sample introduction, quickstart, configuration, migration, a deep workflow guide, and at least one generated endpoint page. Verify visible headings/content and browser errors.

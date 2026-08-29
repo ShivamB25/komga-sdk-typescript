@@ -28,6 +28,7 @@ Komga 1.26.3 OpenAPI JSON
         ├─ deterministic generated-type normalization
         ├─ font/* binary parser normalization
         ├─ 204 → undefined normalization
+        ├─ actuator info map-response normalization
         ▼
 src/generated/                 # generator-owned; never hand-edit
         │
@@ -133,6 +134,7 @@ Generation must fail on a checksum mismatch. Never weaken or bypass this check t
 - repairs circular `SearchOperator*` aliases and discriminator literals
 - treats Komga `font/*` responses as binary `Blob` data
 - normalizes successful `204 No Content` data to `undefined`
+- maps `GET /actuator/info` success data from generator-emitted `unknown` to `Record<string, unknown>`
 
 For every Komga or Hey API upgrade:
 
@@ -140,6 +142,17 @@ For every Komga or Hey API upgrade:
 2. Check whether upstream now emits correct types/runtime behavior.
 3. Remove a compatibility patch only when focused tests prove it is obsolete.
 4. If output shape changed, update the structural normalization to fail loudly rather than silently matching the wrong code.
+
+Current Komga 1.26.3 compatibility facts:
+
+- the tagged contract contains **139 paths and 174 operations**
+- nine v2 referential endpoints return `PageString` or `PageInteger`; read values from `data.content`
+- legacy v1 referential routes are deprecated and their regenerated operation names are suffixed; do not add aliases
+- `getAuthors` scope filters are arrays and serialize as repeated query keys
+- `getTags` uses `include: 'SERIES' | 'BOOK' | 'BOTH'`
+- `ItemDto.author` is now optional `ItemAuthorDto`; multi-source setting fields became optional
+- `getBookById` and `getSeriesById` now expose documented `404` error maps
+- the upstream actuator-info schema is an arbitrary JSON object, so the deterministic map-response normalization remains required
 
 ### 5. Regenerate
 
@@ -218,6 +231,18 @@ After the generated contract and tests pass:
 
 Do not publish from a dirty tree or from mutable OpenAPI input.
 
+### 10. Integrate and deliver
+
+Before pushing:
+
+1. `git fetch --prune origin`
+2. inspect remote advancement instead of running an unexamined `git pull`
+3. rebase the local release commit onto the current remote branch when the branch is safe to rewrite
+4. run `bun install` and the complete SDK/docs gates again after the rebase
+5. repeat the Node 18 built-package smoke before pushing
+
+Never rely on gates run before a rebase or dependency update.
+
 ## PUBLIC USAGE
 
 ```ts
@@ -284,20 +309,20 @@ bun update --latest mint
 bun install
 ```
 
-Do not update the root SDK to an incompatible compiler merely because a prerelease is reported as latest. TypeScript remains pinned to 5.9.3 until the Hey API generation stack passes with TypeScript 7.
+TypeScript remains pinned to 5.9.3. The current Hey API generation stack fails under TypeScript 7.0.2 with `Cannot read properties of undefined (reading 'Kind')`; do not accept a compiler bump until `bun run generate` and the complete release gate pass.
 
 ### Docs verification and preview
 
 ```bash
 cd docs/mintlify
 bun install
-bun run --bun mint validate
-bun run --bun mint broken-links
-bun run --bun mint a11y
-bun run --bun mint dev
+npx --yes node@22 node_modules/mint/index.js validate
+npx --yes node@22 node_modules/mint/index.js broken-links
+npx --yes node@22 node_modules/mint/index.js a11y
+npx --yes node@22 node_modules/mint/index.js dev --port 3000 --no-open
 ```
 
-The explicit `--bun` keeps the CLI usable on workstations whose globally selected Node version is newer than Mintlify supports. Prefer an active Node LTS release in CI.
+Mint requires Node 20.17 or newer but rejects Node 26. On the current workstation, Bun reports Node 26.3.0 to the CLI, so `bun run --bun mint ...` also fails. Run the pinned local Mint entry point with Node 22 through `npx`; use an active Node LTS directly in CI.
 
 `mint dev` is a local preview only; it does not publish. Before delivery, open the local site in Chromium and sample the introduction, quickstart, configuration, migration, a deep guide, and at least one generated API endpoint page.
 
@@ -322,10 +347,10 @@ bun run test           # focused unit/integration tests
 bun run test:coverage  # coverage
 bun run build          # dist output
 npm pack --dry-run     # package-content verification
-cd docs/mintlify && bun run --bun mint validate       # Mintlify build validation
-cd docs/mintlify && bun run --bun mint broken-links   # internal link validation
-cd docs/mintlify && bun run --bun mint a11y           # content/color accessibility
-cd docs/mintlify && bun run --bun mint dev            # local preview only
+cd docs/mintlify && npx --yes node@22 node_modules/mint/index.js validate       # Mintlify build validation
+cd docs/mintlify && npx --yes node@22 node_modules/mint/index.js broken-links   # internal link validation
+cd docs/mintlify && npx --yes node@22 node_modules/mint/index.js a11y           # content/color accessibility
+cd docs/mintlify && npx --yes node@22 node_modules/mint/index.js dev --port 3000 --no-open # local preview only
 ```
 
 ## PUBLISHING

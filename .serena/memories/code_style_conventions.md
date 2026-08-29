@@ -1,24 +1,3 @@
-# Code Style & Conventions
+# komga-sdk 2.0.0 code style
 
-## General
-This repo is manually maintained. Follow existing TypeScript patterns in `src/`.
-
-## Naming
-- **Functions**: camelCase (e.g., `getBooks`, `addLibrary`)
-- **Types**: PascalCase (e.g., `BookDto`, `LibraryDto`)
-- **Type Suffixes**:
-  - `*Data` for request data types
-  - `*Errors` for error response types
-  - `*Responses` for success response types
-
-## File Organization
-- Main exports in `src/index.ts`
-- API functions in `src/sdk.gen.ts`
-- Types in `src/types.gen.ts`
-- Client in `src/client/`
-- Core utilities in `src/core/`
-- Domain services in `src/domains/`
-- Validation in `src/validation/`
-- HTTP adapter in `src/http/`
-- Interceptors in `src/interceptors/`
-- Errors in `src/errors/`
+AGENTS.md is the authority for repository conventions. Generated code belongs under `src/generated/` and is never hand-edited. API functions and types live in `src/generated/sdk.gen.ts` and `src/generated/types.gen.ts`; handwritten code is limited to `src/client.ts`, `src/result.ts`, and `src/index.ts`. Keep operations flat: `operation(parameters?, { client })`. The core is Fetch-native with zero runtime dependencies: do not add domain services, Zod mirrors, Ky/Axios, retry or interceptor frameworks, or handwritten DTOs. Use Node ESM `.js` relative specifiers. Keep TypeScript strict, with no `any` or ignore suppressions. Behavior tests use injected Fetch.

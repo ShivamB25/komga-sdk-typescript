@@ -1,19 +1,31 @@
 # Suggested Commands
 
-## TypeScript Check
+## Install and SDK gate
 ```bash
-bun tsc --noEmit
+bun install
+bun run generate
+bun run typecheck
+bun run test
+bun run test:coverage
+bun run build
+npm pack --dry-run
 ```
 
-## Tests
+## Mintlify gate
+Mint rejects Node 26 and Bun currently reports Node 26.3.0, so invoke the pinned local CLI through Node 22:
 ```bash
-bun run test            # Run all tests
-bun run test:watch      # Watch mode
-bun run test:coverage   # With coverage report
+cd docs/mintlify
+bun install
+npx --yes node@22 node_modules/mint/index.js validate
+npx --yes node@22 node_modules/mint/index.js broken-links
+npx --yes node@22 node_modules/mint/index.js a11y
+npx --yes node@22 node_modules/mint/index.js dev --port 3000 --no-open
 ```
 
-## Git Status/Diff
+## Delivery checks
 ```bash
-git status -sb
-git diff
+git fetch --prune origin
+git status --short --branch
+git diff --check
 ```
+After any rebase or dependency change, rerun `bun install`, the full SDK/docs gates, Node 18 ESM subpath imports, and one authenticated built operation.

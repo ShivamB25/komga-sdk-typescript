@@ -1,24 +1,26 @@
 # Task Completion Checklist
 
-## Before Marking a Task Complete
+## Source and contract
+- [ ] Never hand-edit `src/generated/**`; update the pinned spec/config/generator and regenerate.
+- [ ] Preserve flat operation functions, Fetch-native core, empty runtime dependencies, per-instance clients, and non-throwing default results.
+- [ ] Before exported-symbol changes, map references/callers and migrate all call sites with no aliases.
+- [ ] For API updates, compare the tagged OpenAPI documents semantically: paths, operationIds, deprecated flags, security, parameters, request/response media, schemas, binary/text/stream/204 behavior.
+- [ ] Verify exact input SHA-256 bytes and keep generation fail-loudly deterministic.
 
-1. **Type Safety**
-   - [ ] Run `bun tsc --noEmit` and ensure no errors
-   - [ ] No `any` types introduced
-   - [ ] No `@ts-ignore` or `@ts-expect-error`
+## Tests and package
+- [ ] Add behavior coverage only for changed observable contracts using injected Fetch; never mock generated functions or assert source text.
+- [ ] Run `bun run generate`, `bun run typecheck`, `bun run test`, `bun run build`, and `npm pack --dry-run`.
+- [ ] Smoke Node 18 imports for `komga-sdk`, `komga-sdk/client`, and `komga-sdk/types`.
+- [ ] Smoke one built operation with Basic or API-key auth and exact path/query serialization.
 
-2. **Tests**
-   - [ ] Run `bun run test` and ensure all tests pass
-   - [ ] Add tests for new functionality when appropriate
-   - [ ] Run `bun run test:coverage` to verify coverage thresholds
+## Documentation
+- [ ] Update package/Komga versions, counts, changelog, migration notes, README, and maintained Mintlify pages.
+- [ ] Verify every live example against regenerated symbols and call shapes.
+- [ ] Keep every maintained page in `docs.json`; preserve unique workflows, permissions, edge cases, and troubleshooting.
+- [ ] Run Mintlify validate, broken-links, a11y, then browser-sample introduction, quickstart, configuration, migration, a deep guide, and one generated endpoint.
 
-3. **Consistency**
-   - [ ] Follow existing naming conventions
-   - [ ] Keep exports updated in `src/index.ts` and domain barrel files
-
-4. **Validation**
-   - [ ] Update zod schemas when API response shapes change
-   - [ ] Use `.nullish()` for fields that can be null or undefined
-
-5. **Docs (if needed)**
-   - [ ] Update docs/examples when public APIs change
+## Delivery
+- [ ] Fetch remote changes before push; inspect rather than blindly pull.
+- [ ] Rebase only an unpublished local release commit when safe.
+- [ ] Rerun all gates after rebase/dependency changes.
+- [ ] Confirm clean status and pushed remote tip.
