@@ -1,13 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import { createKomgaClient } from './client';
 import {
+  getActuatorInfo,
+  getAuthors,
+  getAuthorsNames,
+  getBookById,
   getBooks,
   getBooksBySeriesId,
   getFontFile,
   getGenres,
+  getSeriesById,
+  getTags,
   markAnnouncementsRead,
 } from './generated/sdk.gen';
-import type { BookSearch, ValidationErrorResponse } from './generated/types.gen';
+import type { BookSearch, PageString, ValidationErrorResponse } from './generated/types.gen';
 
 function captureFetch(response: Response, requests: Request[]): typeof fetch {
   return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
@@ -18,6 +24,29 @@ function captureFetch(response: Response, requests: Request[]): typeof fetch {
 }
 
 describe('generated operation integration', () => {
+
+  it('parses actuator info as a JSON map', async () => {
+    const requests: Request[] = [];
+    const responseBody = { version: '1.26.3', build: { commit: 'test' } };
+    const client = createKomgaClient({
+      baseUrl: 'https://komga.example.test',
+      fetch: captureFetch(
+        new Response(JSON.stringify(responseBody), {
+          headers: { 'content-type': 'application/json' },
+        }),
+        requests,
+      ),
+    });
+
+    const result = await getActuatorInfo({ client });
+    const data: Record<string, unknown> | undefined = result.data;
+
+    expect(data).toEqual(responseBody);
+    expect(requests).toHaveLength(1);
+    expect(requests[0]?.method).toBe('GET');
+    expect(requests[0]?.url).toBe('https://komga.example.test/actuator/info');
+  });
+
   it('serializes a GET path and query exactly and sends the configured API key', async () => {
     const requests: Request[] = [];
     const client = createKomgaClient({
@@ -122,6 +151,108 @@ describe('generated operation integration', () => {
     await expect(requests[0]?.text()).resolves.toBe('["announcement-1","announcement-2"]');
   });
 
+  it('reads content from a v2 PageString response and serializes pagination', async () => {
+    const requests: Request[] = [];
+    const page: PageString = {
+      content: ['Alice', 'Bob'],
+      number: 2,
+      size: 2,
+      totalElements: 6,
+      totalPages: 3,
+    };
+    const client = createKomgaClient({
+      baseUrl: 'https://komga.example.test',
+      fetch: captureFetch(
+        new Response(JSON.stringify(page), { headers: { 'content-type': 'application/json' } }),
+        requests,
+      ),
+    });
+
+    const result = await getAuthorsNames({ page: 2, size: 2 }, { client });
+
+    expect(result.error).toBeUndefined();
+    expect(result.data?.content).toEqual(['Alice', 'Bob']);
+    expect(requests).toHaveLength(1);
+    expect(requests[0]?.url).toBe(
+      'https://komga.example.test/api/v2/authors/names?page=2&size=2',
+    );
+  });
+
+  it('serializes repeated collection, series, and readlist filters for authors', async () => {
+    const requests: Request[] = [];
+    const client = createKomgaClient({
+      baseUrl: 'https://komga.example.test',
+      fetch: captureFetch(
+        new Response('{"content":[]}', { headers: { 'content-type': 'application/json' } }),
+        requests,
+      ),
+    });
+
+    const result = await getAuthors(
+      {
+        collection_id: ['collection/1', 'collection/2'],
+        series_id: ['series/1', 'series/2'],
+        readlist_id: ['readlist/1', 'readlist/2'],
+      },
+      { client },
+    );
+
+    expect(result.error).toBeUndefined();
+    expect(requests).toHaveLength(1);
+    expect(requests[0]?.url).toBe(
+      'https://komga.example.test/api/v2/authors?collection_id=collection%2F1&collection_id=collection%2F2&series_id=series%2F1&series_id=series%2F2&readlist_id=readlist%2F1&readlist_id=readlist%2F2',
+    );
+  });
+
+  it('serializes the BOOK include scope for tags', async () => {
+    const requests: Request[] = [];
+    const client = createKomgaClient({
+      baseUrl: 'https://komga.example.test',
+      fetch: captureFetch(
+        new Response('{"content":[]}', { headers: { 'content-type': 'application/json' } }),
+        requests,
+      ),
+    });
+
+    const result = await getTags({ include: 'BOOK' }, { client });
+
+    expect(result.error).toBeUndefined();
+    expect(requests).toHaveLength(1);
+    expect(requests[0]?.url).toBe('https://komga.example.test/api/v2/tags?include=BOOK');
+  });
+
+  it('preserves the original Response and empty generated errors for missing books and series', async () => {
+    const bookRequests: Request[] = [];
+    const bookResponse = new Response(null, { status: 404, statusText: 'Not Found' });
+    const bookClient = createKomgaClient({
+      baseUrl: 'https://komga.example.test',
+      fetch: captureFetch(bookResponse, bookRequests),
+    });
+
+    const bookResult = await getBookById({ bookId: 'missing-book' }, { client: bookClient });
+
+    expect(bookResult.data).toBeUndefined();
+    expect(bookResult.error).toEqual({});
+    expect(bookResult.response).toBe(bookResponse);
+    expect(bookResult.request?.url).toBe('https://komga.example.test/api/v1/books/missing-book');
+
+    const seriesRequests: Request[] = [];
+    const seriesResponse = new Response(null, { status: 404, statusText: 'Not Found' });
+    const seriesClient = createKomgaClient({
+      baseUrl: 'https://komga.example.test',
+      fetch: captureFetch(seriesResponse, seriesRequests),
+    });
+
+    const seriesResult = await getSeriesById({ seriesId: 'missing-series' }, { client: seriesClient });
+
+    expect(seriesResult.data).toBeUndefined();
+    expect(seriesResult.error).toEqual({});
+    expect(seriesResult.response).toBe(seriesResponse);
+    expect(seriesResult.request?.url).toBe(
+      'https://komga.example.test/api/v1/series/missing-series',
+    );
+  });
+
   it('returns a documented typed error while preserving the original Response', async () => {
     const requests: Request[] = [];
     const errorBody: ValidationErrorResponse = {
@@ -146,7 +277,7 @@ describe('generated operation integration', () => {
     expect(result.error.violations).toEqual(errorBody.violations);
     expect(result.response).toBe(response);
     expect(result.request?.url).toBe(
-      'https://komga.example.test/api/v1/genres?library_id=missing-library',
+      'https://komga.example.test/api/v2/genres?library_id=missing-library',
     );
   });
 });

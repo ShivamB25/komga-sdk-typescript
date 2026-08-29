@@ -206,7 +206,7 @@ async function markBooksAsReadUpTo(seriesId: string, upToNumber: number) {
 
 ### Filter by read status
 
-Read status values are `UNREAD`, `IN_PROGRESS`, and `READ`. Put the condition inside `bookSearch`; the removed top-level `readStatus` body field is not a 1.0 parameter:
+Read status values are `UNREAD`, `IN_PROGRESS`, and `READ`. Put the condition inside `bookSearch`; the removed top-level `readStatus` body field is not a 2.0.0 parameter:
 
 ```typescript
 import { getBooks } from 'komga-sdk';

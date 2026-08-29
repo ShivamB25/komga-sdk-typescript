@@ -1,10 +1,14 @@
 ---
 title: "Metadata lookups"
-description: "Query genres, tags, authors, publishers, languages, and ratings"
+description: "Query referential metadata and series release years"
 icon: "tags"
 ---
 
-Metadata lookup functions return arrays or paginated data. Query parameters are flat generated parameters, and the client is passed in the second options object when parameters are present.
+Metadata lookup operations in the Komga 1.26.3 schema return paginated `PageString`, `PageInteger`, or `PageAuthorDto` data. Query parameters are flat generated parameters, and the client is passed in the second options object when parameters are present.
+
+<Note>
+The generated v2 operations below are the supported referential API. Regeneration keeps deprecated v1 operations as compatibility exports when names collide (for example, `getGenres1`); do not import those suffixed legacy functions.
+</Note>
 
 ## Genres
 
@@ -13,7 +17,7 @@ import { getGenres } from 'komga-sdk';
 
 const result = await getGenres(undefined, { client });
 if (!result.error) {
-  for (const genre of result.data ?? []) console.log(genre);
+  for (const genre of result.data?.content ?? []) console.log(genre);
 }
 ```
 
@@ -25,42 +29,53 @@ const libraryGenres = await getGenres(
   { client },
 );
 const collectionGenres = await getGenres(
-  { collection_id: 'collection-123' },
+  { collection_id: ['collection-123'] },
   { client },
 );
 ```
 
 ### Filter-key reference
 
-Use the generated names exactly as shown below. The underscore names mirror the wire query keys; `library_id` is an array, while `collection_id`, `series_id`, and `readlist_id` are single IDs:
+Use the generated names exactly as shown below. The underscore names mirror the wire query keys, and every scope identifier is an array in the v2 signatures:
 
 | Operation(s) | Library | Collection | Other scope |
 | --- | --- | --- | --- |
-| `getGenres`, `getTags`, `getPublishers`, `getLanguages`, `getAgeRatings`, `getSharingLabels` | `library_id?: string[]` | `collection_id?: string` | — |
-| `getBookTags` | `library_id?: string[]` | — | `series_id?: string`, `readlist_id?: string` |
-| `getSeriesTags` | `library_id?: string` | `collection_id?: string` | — |
-| `getAuthors` | `library_id?: string[]` | `collection_id?: string` | `series_id?: string`, `readlist_id?: string` |
+| `getAgeRatings`, `getGenres`, `getLanguages`, `getPublishers`, `getSeriesReleaseYears`, `getSharingLabels` | `library_id?: string[]` | `collection_id?: string[]` | — |
+| `getTags` | `library_id?: string[]` | `collection_id?: string[]` | `series_id?: string[]`, `readlist_id?: string[]` |
+| `getAuthors`, `getAuthorsNames`, `getAuthorsRoles` | `library_id?: string[]` | `collection_id?: string[]` | `series_id?: string[]`, `readlist_id?: string[]` |
 
-Pass `page`, `size`, `sort`, and optionally `unpaged` only to `getAuthors`; the other lookup operations return arrays. Do not translate these names to camelCase (`libraryId` or `collectionId`)—those keys are not part of the generated signatures.
-
+All of these operations also accept `unpaged`, `page`, and `size`; operations that search string values additionally accept `search`, and author operations expose `role` where generated. They return a page, so read values from `result.data?.content ?? []`. Do not translate these names to camelCase (`libraryId` or `collectionId`)—those keys are not part of the generated signatures.
 
 ## Tags
 
 The tag endpoints use the same flat filter style, with endpoint-specific keys:
 
 ```typescript
-import { getTags, getBookTags, getSeriesTags } from 'komga-sdk';
+import { getTags } from 'komga-sdk';
 
 const [allTags, bookTags, seriesTags] = await Promise.all([
-  getTags({ library_id: ['library-123'] }, { client }),
-  getBookTags({ library_id: ['library-123'] }, { client }),
-  getSeriesTags({ library_id: 'library-123' }, { client }),
+  getTags(
+    { library_id: ['library-123'], include: 'BOTH', unpaged: true },
+    { client },
+  ),
+  getTags(
+    { library_id: ['library-123'], include: 'BOOK', unpaged: true },
+    { client },
+  ),
+  getTags(
+    { library_id: ['library-123'], include: 'SERIES', unpaged: true },
+    { client },
+  ),
 ]);
 
-console.log(allTags.data, bookTags.data, seriesTags.data);
+console.log({
+  all: allTags.data?.content ?? [],
+  books: bookTags.data?.content ?? [],
+  series: seriesTags.data?.content ?? [],
+});
 ```
 
-`getBookTags` also accepts `series_id` and `readlist_id`. `getTags` accepts `collection_id`; `getSeriesTags` accepts `collection_id`.
+`getTags` replaces the deprecated v1 tag routes. Its `include` query value selects `SERIES`, `BOOK`, or `BOTH`; scope IDs (`library_id`, `collection_id`, `series_id`, and `readlist_id`) are arrays. Use the same operation for book-only and series-only lookups rather than importing regenerated legacy functions.
 
 ## Authors
 
@@ -87,19 +102,19 @@ if (!result.error) {
 }
 ```
 
-For autocomplete, use `getAuthorsNames({ search }, { client })`; it returns `string[]`:
+For autocomplete, use `getAuthorsNames({ search }, { client })`; it returns a paginated `PageString`:
 
 ```typescript
 import { getAuthorsNames, getAuthorsRoles } from 'komga-sdk';
 
 const names = await getAuthorsNames({ search: 'Tor' }, { client });
-const roles = await getAuthorsRoles({ client });
-console.log(names.data, roles.data);
+const roles = await getAuthorsRoles(undefined, { client });
+console.log(names.data?.content ?? [], roles.data?.content ?? []);
 ```
 
-## Publishers, languages, ratings, and sharing labels
+## Publishers, languages, ratings, sharing labels, and release years
 
-These endpoints return arrays of strings. `getPublishers`, `getLanguages`, `getAgeRatings`, and `getSharingLabels` accept `library_id?: string[]` and `collection_id?: string`:
+These endpoints return paginated values. `getPublishers`, `getLanguages`, `getAgeRatings`, `getSharingLabels`, and `getSeriesReleaseYears` accept `library_id?: string[]` and `collection_id?: string[]`:
 
 ```typescript
 import {
@@ -107,25 +122,28 @@ import {
   getLanguages,
   getAgeRatings,
   getSharingLabels,
+  getSeriesReleaseYears,
 } from 'komga-sdk';
 
 const filters = { library_id: ['library-123'] };
-const [publishers, languages, ratings, labels] = await Promise.all([
+const [publishers, languages, ratings, labels, releaseYears] = await Promise.all([
   getPublishers(filters, { client }),
   getLanguages(filters, { client }),
   getAgeRatings(filters, { client }),
   getSharingLabels(filters, { client }),
+  getSeriesReleaseYears(filters, { client }),
 ]);
 
 console.log({
-  publishers: publishers.data ?? [],
-  languages: languages.data ?? [],
-  ratings: ratings.data ?? [],
-  labels: labels.data ?? [],
+  publishers: publishers.data?.content ?? [],
+  languages: languages.data?.content ?? [],
+  ratings: ratings.data?.content ?? [],
+  labels: labels.data?.content ?? [],
+  releaseYears: releaseYears.data?.content ?? [],
 });
 ```
 
-Languages use ISO 639-1 codes such as `en`, `ja`, and `fr`.
+Languages use ISO 639-1 codes such as `en`, `ja`, and `fr`. Use `getSeriesReleaseYears` for year values; it replaces the deprecated release-date referential route.
 
 ## Build filter options
 
@@ -150,16 +168,16 @@ async function getFilterOptions(libraryId?: string) {
       getPublishers(filters, { client }),
       getLanguages(filters, { client }),
       getAgeRatings(filters, { client }),
-      getAuthorsRoles({ client }),
+      getAuthorsRoles(filters, { client }),
     ]);
 
   return {
-    genres: genres.data ?? [],
-    tags: tags.data ?? [],
-    publishers: publishers.data ?? [],
-    languages: languages.data ?? [],
-    ageRatings: ageRatings.data ?? [],
-    authorRoles: authorRoles.data ?? [],
+    genres: genres.data?.content ?? [],
+    tags: tags.data?.content ?? [],
+    publishers: publishers.data?.content ?? [],
+    languages: languages.data?.content ?? [],
+    ageRatings: ageRatings.data?.content ?? [],
+    authorRoles: authorRoles.data?.content ?? [],
   };
 }
 ```
@@ -174,11 +192,11 @@ import { getAuthorsNames } from 'komga-sdk';
 async function searchAuthors(search: string): Promise<string[]> {
   if (search.trim().length < 2) return [];
   const result = await getAuthorsNames({ search }, { client });
-  return result.error ? [] : result.data ?? [];
+  return result.error ? [] : result.data?.content ?? [];
 }
 ```
 
-You can also build a lightweight metadata summary for an administration view. The lookup arrays are complete for the selected scope; authors remain paginated, so use `totalElements` rather than `content.length` for the count:
+You can also build a lightweight metadata summary for an administration view. Use `unpaged: true` when each value list must be complete; authors remain paginated, so use `totalElements` rather than `content.length` for the count:
 
 ```typescript
 import {
@@ -189,18 +207,18 @@ import {
 } from 'komga-sdk';
 
 async function getLibrarySummary(libraryId: string) {
-  const filters = { library_id: [libraryId] };
+  const filters = { library_id: [libraryId], unpaged: true };
   const [genres, tags, publishers, authors] = await Promise.all([
     getGenres(filters, { client }),
     getTags(filters, { client }),
     getPublishers(filters, { client }),
-    getAuthors({ ...filters, page: 0, size: 1 }, { client }),
+    getAuthors({ library_id: [libraryId], page: 0, size: 1 }, { client }),
   ]);
 
   return {
-    genreCount: genres.data?.length ?? 0,
-    tagCount: tags.data?.length ?? 0,
-    publisherCount: publishers.data?.length ?? 0,
+    genreCount: genres.data?.content?.length ?? 0,
+    tagCount: tags.data?.content?.length ?? 0,
+    publisherCount: publishers.data?.content?.length ?? 0,
     authorCount: authors.data?.totalElements ?? 0,
   };
 }
@@ -223,7 +241,7 @@ if (result.error) {
 
 try {
   const genres = unwrap(await getGenres(undefined, { client }));
-  console.log(genres);
+  console.log(genres.content ?? []);
 } catch (error) {
   if (error instanceof KomgaApiError) {
     console.error(error.status, error.body);

@@ -1,13 +1,13 @@
 ---
 title: "Introduction"
-description: "Start using the generated TypeScript client for Komga API 1.25.0"
+description: "Start using the generated TypeScript client for Komga API 1.26.3"
 icon: "book-open"
 ---
 
 
 # Komga SDK
 
-`komga-sdk` 1.0 is a generated TypeScript client for the Komga REST API. It targets Komga API **1.25.0**, exposes **165 operations**, and has **zero runtime dependencies**.
+`komga-sdk` 2.0.0 is a generated TypeScript client for the Komga REST API. It targets Komga API **1.26.3**, exposes **174 operations**, and has **zero runtime dependencies**.
 
 The package gives you:
 
@@ -62,7 +62,7 @@ if (book.error === undefined) {
 
 ### Application-owned wrappers
 
-The 1.0 package does not include `BookService`, `SeriesService`, or `LibraryService` classes. If your application wants domain-oriented methods, compose a small repository around generated functions and choose whether it returns `KomgaResult` or calls `unwrap`. This keeps caching, pagination state, and business rules with the application that owns them.
+The 2.0.0 package does not include `BookService`, `SeriesService`, or `LibraryService` classes. If your application wants domain-oriented methods, compose a small repository around generated functions and choose whether it returns `KomgaResult` or calls `unwrap`. This keeps caching, pagination state, and business rules with the application that owns them.
 
 ## Make a request
 
@@ -155,9 +155,9 @@ In a browser, avoid putting long-lived Basic credentials or API keys in a public
 
 ## API coverage
 
-The generated client targets Komga API **1.25.0** with:
+The generated client targets Komga API **1.26.3** with:
 
-- **165 operations**
+- **174 operations**
 - Typed request parameters, response types, and documented error types
 - Deprecated operations represented according to the generated API surface
 - Zero runtime dependencies in the core package

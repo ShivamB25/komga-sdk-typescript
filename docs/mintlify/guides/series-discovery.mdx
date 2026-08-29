@@ -4,7 +4,7 @@ description: "Find new series, view latest additions, and explore your library"
 icon: "compass"
 ---
 
-These examples use generated Komga API 1.25 operations. Query and path values are flat parameters; `{ client }` is the options argument. Results are non-throwing unless you explicitly add your own throwing boundary.
+These examples use generated Komga API 1.26.3 operations. Query and path values are flat parameters; `{ client }` is the options argument. Results are non-throwing unless you explicitly add your own throwing boundary.
 
 ## Browse latest series
 
@@ -70,32 +70,33 @@ const newInLibrary = await getSeriesNew(
 if (newInLibrary.error) throw newInLibrary.error;
 ```
 
-## Get series release dates
+## Get series release years
 
-`getSeriesReleaseDates` returns an array of ISO date strings, not a paged response:
+`getSeriesReleaseYears` returns a paginated `PageString` whose `content` contains release-year values as strings (`string[]`). Read values from `result.data?.content ?? []`:
 
 ```typescript
-import { getSeriesReleaseDates } from 'komga-sdk';
+import { getSeriesReleaseYears } from 'komga-sdk';
 
-const result = await getSeriesReleaseDates(undefined, { client });
+const result = await getSeriesReleaseYears(undefined, { client });
 
 if (result.error) {
-  console.error('Could not load release dates', result.error);
+  console.error('Could not load release years', result.error);
 } else {
-  for (const releaseDate of result.data ?? []) {
-    console.log(releaseDate);
+  for (const releaseYear of result.data?.content ?? []) {
+    console.log(releaseYear);
   }
 }
 ```
 
-Pass `library_id` or `collection_id` when release dates should be scoped. The response remains an array of ISO date strings, not a `PageSeriesDto`:
+Pass `library_id` or `collection_id` when release years should be scoped. Both scope identifiers are arrays in the v2 operation:
 
 ```typescript
-const dates = await getSeriesReleaseDates(
-  { library_id: ['library-123'], collection_id: 'collection-123' },
+const years = await getSeriesReleaseYears(
+  { library_id: ['library-123'], collection_id: ['collection-123'] },
   { client },
 );
-if (dates.error) throw dates.error;
+if (years.error) throw years.error;
+console.log(years.data?.content ?? []);
 ```
 
 ## Alphabetical groups
@@ -239,20 +240,20 @@ if (result.error) {
 ### Build a "New Releases" dashboard
 
 ```typescript
-import { getSeriesLatest, getSeriesReleaseDates } from 'komga-sdk';
+import { getSeriesLatest, getSeriesReleaseYears } from 'komga-sdk';
 
 async function getNewReleasesDashboard() {
-  const [latest, releases] = await Promise.all([
+  const [latest, releaseYears] = await Promise.all([
     getSeriesLatest({ page: 0, size: 10 }, { client }),
-    getSeriesReleaseDates(undefined, { client }),
+    getSeriesReleaseYears({ unpaged: true }, { client }),
   ]);
 
   if (latest.error) throw latest.error;
-  if (releases.error) throw releases.error;
+  if (releaseYears.error) throw releaseYears.error;
 
   return {
     recentlyAdded: latest.data?.content ?? [],
-    releaseDates: releases.data ?? [],
+    releaseYears: releaseYears.data?.content ?? [],
   };
 }
 ```

@@ -1,5 +1,5 @@
 export default {
-  input: 'https://raw.githubusercontent.com/gotson/komga/1.25.0/komga/docs/openapi.json',
+  input: 'https://raw.githubusercontent.com/gotson/komga/1.26.3/komga/docs/openapi.json',
   output: {
     clean: true,
     entryFile: false,

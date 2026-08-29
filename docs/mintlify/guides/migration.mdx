@@ -1,14 +1,14 @@
 ---
-title: "Migration to SDK 1.0"
+title: "Migration to SDK 2.0"
 description: "Move integrations to the generated client and structured results"
 icon: "arrows-turn-right"
 ---
 
-SDK 1.0 is a clean cutover from the layered 0.x client. Generated Komga operations are the public API, a client is created per integration, operation parameters are flat, and requests resolve to structured results unless you explicitly call `unwrap`.
+SDK 2.0 is a breaking referential update from the historical SDK 1.x package. For users skipping versions, this guide also preserves the clean cutover from the historical 0.x service layer. The generated operations in this guide target the Komga 1.26.3 API schema: a client is created per integration, operation parameters are flat, and requests resolve to structured results unless you explicitly call `unwrap`.
 
 ## What changed
 
-| 0.x pattern | 1.0 replacement |
+| Historical 0.x pattern | SDK 2.0 replacement |
 | --- | --- |
 | `createClient(...)` plus service instances | `createKomgaClient({ baseUrl, auth, headers, credentials, fetch })` |
 | `new BookService(client).getById(id)` | `getBookById({ bookId: id }, { client })` |
@@ -34,21 +34,21 @@ const client = createKomgaClient({
 });
 ```
 
-The supported `auth` variants are API key and Basic Auth. `headers`, `credentials`, and a custom native `fetch` implementation are optional client settings. Do not copy a 0.x Bearer-auth configuration into `auth`: the 1.0 client does not expose a Bearer auth variant.
+The supported `auth` variants are API key and Basic Auth. `headers`, `credentials`, and a custom native `fetch` implementation are optional client settings. Do not copy a historical 0.x Bearer-auth configuration into `auth`: the current SDK 2.0 client does not expose a Bearer auth variant.
 
 ## Flatten every operation call
 
-In 0.x, a call commonly looked like this:
+In the historical 0.x client, a call commonly looked like this:
 
 ```typescript
-// 0.x shape — do not copy this into a 1.0 integration.
+// Historical 0.x shape — do not copy this into an SDK 2.0 integration.
 await bookService.list({
   query: { page: 0, size: 20 },
   body: { fullTextSearch: 'manga' },
 });
 ```
 
-In 1.0, the generated names tell you where each value goes. `getBooks` has a required `bookSearch` body value; pagination and sorting remain flat:
+In SDK 2.0, the generated names tell you where each value goes. `getBooks` has a required `bookSearch` body value; pagination and sorting remain flat:
 
 ```typescript
 import { getBooks } from 'komga-sdk';
@@ -78,18 +78,35 @@ Path values use their generated names, such as `{ id: 'collection-123' }` for co
 
 Use the current generated operation rather than the old route directly:
 
-| 0.x endpoint or call | 1.0 operation | 1.0 parameter mapping |
+| Historical 0.x endpoint or call | SDK 2.0 operation | SDK 2.0 parameter mapping |
 | --- | --- | --- |
 | `GET /api/v1/books` | `getBooks` | `bookSearch`, `page`, `size`, and `sort` are flat; the server endpoint is `POST /api/v1/books/list`. |
 | `GET /api/v1/series` | `getSeries` | `seriesSearch`, `page`, `size`, and `sort` are flat; the server endpoint is `POST /api/v1/series/list`. |
 | `GET /api/v1/series/alphabetical-groups` | `getSeriesAlphabeticalGroups` | Pass `{ seriesSearch }`; the generated endpoint is `POST /api/v1/series/list/alphabetical-groups`. |
 | `GET /api/v1/series/{seriesId}/books` | `getBooks` | Use `bookSearch.condition.seriesId`, not a removed service method; paginate with flat `page`, `size`, and `sort`. |
-| `GET /api/v1/authors` | `getAuthors` | The current operation targets `GET /api/v2/authors`; pass flat filters such as `search`, `series_id`, `page`, and `size`. |
+| `GET /api/v1/age-ratings` | `getAgeRatings` | Use flat `library_id?: string[]`, `collection_id?: string[]`, `unpaged`, `page`, and `size`; the current endpoint is `GET /api/v2/age-ratings`. |
+| `GET /api/v1/authors` | `getAuthors` | Use flat `search`, `role`, `library_id?: string[]`, `collection_id?: string[]`, `series_id?: string[]`, `readlist_id?: string[]`, and pagination; the current endpoint is `GET /api/v2/authors`. |
+| `GET /api/v1/authors/names` | `getAuthorsNames` | Use the flat search, scope-array, and pagination keys; the current endpoint is `GET /api/v2/authors/names`. |
+| `GET /api/v1/authors/roles` | `getAuthorsRoles` | Use flat scope-array and pagination keys; the current endpoint is `GET /api/v2/authors/roles`. |
+| `GET /api/v1/genres` | `getGenres` | Use flat `search`, scope-array, and pagination keys; the current endpoint is `GET /api/v2/genres`. |
+| `GET /api/v1/languages` | `getLanguages` | Use flat `search`, scope-array, and pagination keys; the current endpoint is `GET /api/v2/languages`. |
+| `GET /api/v1/publishers` | `getPublishers` | Use flat `search`, scope-array, and pagination keys; the current endpoint is `GET /api/v2/publishers`. |
+| `GET /api/v1/series/release-dates` | `getSeriesReleaseYears` | Replace release-date values with flat scope-array and pagination keys; the current endpoint is `GET /api/v2/series/release-years`. |
+| `GET /api/v1/sharing-labels` | `getSharingLabels` | Use flat `search`, scope-array, and pagination keys; the current endpoint is `GET /api/v2/sharing-labels`. |
+| `GET /api/v1/tags` | `getTags` | Use flat `search`, scope-array, `include?: 'SERIES' | 'BOOK' | 'BOTH'`, and pagination keys; the current endpoint is `GET /api/v2/tags`. |
+| `GET /api/v1/tags/book` | `getTags` | Pass `include: 'BOOK'` with the flat scope-array and pagination keys; the current endpoint is `GET /api/v2/tags`. |
+| `GET /api/v1/tags/series` | `getTags` | Pass `include: 'SERIES'` with the flat scope-array and pagination keys; the current endpoint is `GET /api/v2/tags`. |
 | `PUT /api/v1/libraries/{libraryId}` | `updateLibraryById` | Pass `{ libraryId, libraryUpdateDto }`; the generated operation uses the current `PATCH` endpoint. |
 | `GET /api/v1/collections/{id}` service call | `getCollectionById` | Pass `{ id }` and `{ client }`. |
 | `GET /api/v1/readlists/{id}` service call | `getReadListById` | Pass `{ id }` and `{ client }`. |
 
-`getBooksBySeriesId` remains generated only for compatibility with the schema and is marked deprecated. New 1.0 code should use `getBooks` with a `seriesId` search condition so filtering and pagination use one current list operation.
+All v2 referential list operations return a page. `getAuthors` returns `PageAuthorDto`, `getAgeRatings` returns `PageInteger`, and the other referential value operations return `PageString`; read values from `result.data?.content ?? []`. Scope identifiers use arrays wherever accepted (`library_id`, `collection_id`, `series_id`, and `readlist_id`). The `getTags` `include` value is `SERIES`, `BOOK`, or `BOTH`.
+
+<Note>
+Regeneration retains deprecated v1 exports for compatibility. When a v1 and v2 operation share a generated name, the legacy export receives a suffix such as `getAgeRatings1`, `getAuthorsNames1`, `getAuthorsRoles1`, `getGenres1`, `getLanguages1`, `getPublishers1`, `getSharingLabels1`, or `getTags1`. Other legacy exports retain names such as `getAuthorsDeprecated`, `getBookTags`, `getSeriesTags`, and `getSeriesReleaseDates`. These are not migration targets; do not import them in new code. Use the unsuffixed v2 operations in the table.
+</Note>
+
+`getBooksBySeriesId` remains generated only for compatibility with the schema and is marked deprecated. New SDK 2.0 code should use `getBooks` with a `seriesId` search condition so filtering and pagination use one current list operation.
 
 ## Handle results and errors
 
@@ -117,7 +134,7 @@ Use the structured result for expected failures (for example, an optional lookup
 
 ## Move request policies into application code
 
-SDK 1.0 uses native Fetch and does not configure retries, caching, validation, or timeouts. Supply a custom Fetch implementation when policy belongs at the transport boundary:
+SDK 2.0 uses native Fetch and does not configure retries, caching, validation, or timeouts. Supply a custom Fetch implementation when policy belongs at the transport boundary:
 
 ```typescript
 const client = createKomgaClient({
@@ -145,7 +162,7 @@ const search: BookSearch = { fullTextSearch: 'manga' };
 const progress: ReadProgressUpdateDto = { page: 12, completed: false };
 ```
 
-Prefer inference from an operation call when a type is used only once. Do not maintain a parallel 0.x request schema: generated DTO fields and operation parameter names are the source of truth.
+Prefer inference from an operation call when a type is used only once. Do not maintain a parallel historical 0.x request schema: generated DTO fields and operation parameter names are the source of truth.
 
 ## Migration checklist
 

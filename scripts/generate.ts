@@ -12,8 +12,8 @@ const backupDir = join(rootDir, '.tmp', 'generated.previous');
 const outputDir = join(rootDir, 'src', 'generated');
 
 const KOMGA_SPEC_URL =
-  'https://raw.githubusercontent.com/gotson/komga/1.25.0/komga/docs/openapi.json';
-const KOMGA_SPEC_SHA256 = '5a24d10252fc0932e66ecf8a6d86ea9386522b8aef039a2b7d702799a1f12935';
+  'https://raw.githubusercontent.com/gotson/komga/1.26.3/komga/docs/openapi.json';
+const KOMGA_SPEC_SHA256 = 'bb632844224f3599d70b186e3278334f4ef9765c19069c56dec6c59406be7afe';
 
 const searchOperators: Record<string, string> = {
   SearchOperatorAfter: 'after',
@@ -210,6 +210,7 @@ async function generate(): Promise<void> {
     throw new Error(`Hey API did not generate ${generatedTypes}`);
   }
   await normalizeSearchOperatorTypes(generatedTypes);
+  await normalizeActuatorInfoResponseType(generatedTypes);
   await normalizeGeneratedRuntime(stageDir);
 
   await mkdir(join(rootDir, '.tmp'), { recursive: true });
@@ -281,6 +282,27 @@ async function normalizeSearchOperatorTypes(path: string): Promise<void> {
   await Bun.write(path, source);
 }
 
+async function normalizeActuatorInfoResponseType(path: string): Promise<void> {
+  let source = await readFile(path, 'utf8');
+  source = replaceExactlyOnce(
+    source,
+    `export type GetActuatorInfoResponses = {
+    /**
+     * OK
+     */
+    200: unknown;
+};`,
+    `export type GetActuatorInfoResponses = {
+    /**
+     * OK
+     */
+    200: Record<string, unknown>;
+};`,
+    path,
+  );
+  await Bun.write(path, source);
+}
+
 function replaceExactlyOnce(
   source: string,
   search: string,
@@ -289,10 +311,10 @@ function replaceExactlyOnce(
 ): string {
   const first = source.indexOf(search);
   if (first === -1) {
-    throw new Error(`Generated runtime pattern was not found in ${path}`);
+    throw new Error(`Generated pattern was not found in ${path}`);
   }
   if (source.indexOf(search, first + search.length) !== -1) {
-    throw new Error(`Generated runtime pattern appeared more than once in ${path}`);
+    throw new Error(`Generated pattern appeared more than once in ${path}`);
   }
   return `${source.slice(0, first)}${replacement}${source.slice(first + search.length)}`;
 }

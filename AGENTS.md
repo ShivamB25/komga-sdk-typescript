@@ -1,8 +1,8 @@
 # PROJECT KNOWLEDGE BASE
 
-**Komga API:** 1.25.0
-**Package:** 1.0.0
-**Last verified:** 2026-08-09
+**Komga API:** 1.26.3
+**Package:** 2.0.0
+**Last verified:** 2026-08-29
 
 ## OVERVIEW
 
@@ -18,7 +18,7 @@ The core does not contain domain service classes, handwritten DTO mirrors, Zod, 
 ## ARCHITECTURE
 
 ```text
-Komga 1.25.0 OpenAPI JSON
+Komga 1.26.3 OpenAPI JSON
         │
         ├─ SHA-256 verification
         ├─ SearchOperator schema overlay
@@ -41,7 +41,7 @@ src/generated/                 # generator-owned; never hand-edit
 ```text
 src/
 ├── generated/
-│   ├── sdk.gen.ts             # 165 flat operation functions
+│   ├── sdk.gen.ts             # 174 flat operation functions
 │   ├── types.gen.ts           # DTO, parameter, response, and error types
 │   ├── client.gen.ts          # generated default client (not root-exported)
 │   ├── client/                # generated Fetch client implementation
@@ -159,7 +159,7 @@ bun run generate
 7. restore the previous generated directory if the final rename fails
 8. remove temporary generation artifacts
 
-Expected current result: **130 paths and 165 flat operations**.
+Expected current result: **139 paths and 174 flat operations**.
 
 ### 6. Review the generated API
 
@@ -310,7 +310,7 @@ Production docs deploy automatically after changes reach the connected repositor
 - `responseStyle` and `throwOnError` are per-operation options, not `createKomgaClient` defaults.
 - Binary endpoints must document the generated runtime type actually returned (`Blob`, `string`, stream, or unknown), not assume every file-like response is a `Blob`.
 - Successful `202` responses may carry unknown task data; successful `204` responses return `undefined`.
-- A migration page may show old syntax in a clearly labeled “before” example. Live examples must use SDK 1.0.
+- A migration page may show old syntax in a clearly labeled “before” example. Live examples must use SDK 2.0.0.
 
 
 ## COMMANDS

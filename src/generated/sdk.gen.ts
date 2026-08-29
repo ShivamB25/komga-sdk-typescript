@@ -2,7 +2,7 @@
 
 import { client } from './client.gen.js';
 import { buildClientParams, type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type TDataShape } from './client/index.js';
-import type { AddLibraryErrors, AddLibraryResponses, AddUserErrors, AddUserResponses, AddUserUploadedBookThumbnailErrors, AddUserUploadedBookThumbnailResponses, AddUserUploadedCollectionThumbnailErrors, AddUserUploadedCollectionThumbnailResponses, AddUserUploadedReadListThumbnailErrors, AddUserUploadedReadListThumbnailResponses, AddUserUploadedSeriesThumbnailErrors, AddUserUploadedSeriesThumbnailResponses, AnalyzeTransientBookErrors, AnalyzeTransientBookResponses, ApiKeyRequestDto, BookAnalyzeErrors, BookAnalyzeResponses, BookImportBatchDto, BookMetadataUpdateDto, BookRefreshMetadataErrors, BookRefreshMetadataResponses, BookSearch, BooksRegenerateThumbnailsErrors, BooksRegenerateThumbnailsResponses, ClaimServerErrors, ClaimServerResponses, ClientSettingGlobalUpdateDto, ClientSettingUserUpdateDto, CollectionCreationDto, CollectionUpdateDto, ConvertHeaderSessionToCookieErrors, ConvertHeaderSessionToCookieResponses, CreateApiKeyForCurrentUserErrors, CreateApiKeyForCurrentUserResponses, CreateCollectionErrors, CreateCollectionResponses, CreateOrUpdateKnownPageHashErrors, CreateOrUpdateKnownPageHashResponses, CreateReadListErrors, CreateReadListResponses, DeleteApiKeyByKeyIdErrors, DeleteApiKeyByKeyIdResponses, DeleteBookFileErrors, DeleteBookFileResponses, DeleteBookReadProgressErrors, DeleteBookReadProgressResponses, DeleteCollectionByIdErrors, DeleteCollectionByIdResponses, DeleteDuplicatePagesByPageHashErrors, DeleteDuplicatePagesByPageHashResponses, DeleteGlobalSettingsErrors, DeleteGlobalSettingsResponses, DeleteLibraryByIdErrors, DeleteLibraryByIdResponses, DeleteReadListByIdErrors, DeleteReadListByIdResponses, DeleteSeriesFileErrors, DeleteSeriesFileResponses, DeleteSingleMatchByPageHashErrors, DeleteSingleMatchByPageHashResponses, DeleteSyncPointsForCurrentUserErrors, DeleteSyncPointsForCurrentUserResponses, DeleteUserByIdErrors, DeleteUserByIdResponses, DeleteUserSettingsErrors, DeleteUserSettingsResponses, DeleteUserUploadedBookThumbnailErrors, DeleteUserUploadedBookThumbnailResponses, DeleteUserUploadedCollectionThumbnailErrors, DeleteUserUploadedCollectionThumbnailResponses, DeleteUserUploadedReadListThumbnailErrors, DeleteUserUploadedReadListThumbnailResponses, DeleteUserUploadedSeriesThumbnailErrors, DeleteUserUploadedSeriesThumbnailResponses, DirectoryRequestDto, DownloadBookFile1Errors, DownloadBookFile1Responses, DownloadBookFileErrors, DownloadBookFileResponses, DownloadReadListAsZipErrors, DownloadReadListAsZipResponses, DownloadSeriesAsZipErrors, DownloadSeriesAsZipResponses, EmptyTaskQueueErrors, EmptyTaskQueueResponses, GetActuatorInfoResponses, GetAgeRatingsErrors, GetAgeRatingsResponses, GetAllBooksDeprecatedErrors, GetAllBooksDeprecatedResponses, GetAnnouncementsErrors, GetAnnouncementsResponses, GetApiKeysForCurrentUserErrors, GetApiKeysForCurrentUserResponses, GetAuthenticationActivityErrors, GetAuthenticationActivityForCurrentUserErrors, GetAuthenticationActivityForCurrentUserResponses, GetAuthenticationActivityResponses, GetAuthorsDeprecatedErrors, GetAuthorsDeprecatedResponses, GetAuthorsErrors, GetAuthorsNamesErrors, GetAuthorsNamesResponses, GetAuthorsResponses, GetAuthorsRolesErrors, GetAuthorsRolesResponses, GetBookByIdErrors, GetBookByIdResponses, GetBookEpubResourceErrors, GetBookEpubResourceResponses, GetBookPageByNumberErrors, GetBookPageByNumberResponses, GetBookPageRawByNumberErrors, GetBookPageRawByNumberResponses, GetBookPagesErrors, GetBookPagesResponses, GetBookPageThumbnailByNumberErrors, GetBookPageThumbnailByNumberResponses, GetBookPositionsErrors, GetBookPositionsResponses, GetBookProgressionErrors, GetBookProgressionResponses, GetBooksByReadListIdErrors, GetBooksByReadListIdResponses, GetBooksBySeriesIdErrors, GetBooksBySeriesIdResponses, GetBooksDuplicatesErrors, GetBooksDuplicatesResponses, GetBooksErrors, GetBookSiblingNextErrors, GetBookSiblingNextInReadListErrors, GetBookSiblingNextInReadListResponses, GetBookSiblingNextResponses, GetBookSiblingPreviousErrors, GetBookSiblingPreviousInReadListErrors, GetBookSiblingPreviousInReadListResponses, GetBookSiblingPreviousResponses, GetBooksLatestErrors, GetBooksLatestResponses, GetBooksOnDeckErrors, GetBooksOnDeckResponses, GetBooksResponses, GetBookTagsErrors, GetBookTagsResponses, GetBookThumbnailByIdErrors, GetBookThumbnailByIdResponses, GetBookThumbnailErrors, GetBookThumbnailResponses, GetBookThumbnailsErrors, GetBookThumbnailsResponses, GetBookWebPubManifestDivinaErrors, GetBookWebPubManifestDivinaResponses, GetBookWebPubManifestEpubErrors, GetBookWebPubManifestEpubResponses, GetBookWebPubManifestErrors, GetBookWebPubManifestPdfErrors, GetBookWebPubManifestPdfResponses, GetBookWebPubManifestResponses, GetClaimStatusErrors, GetClaimStatusResponses, GetCollectionByIdErrors, GetCollectionByIdResponses, GetCollectionsBySeriesIdErrors, GetCollectionsBySeriesIdResponses, GetCollectionsErrors, GetCollectionsResponses, GetCollectionThumbnailByIdErrors, GetCollectionThumbnailByIdResponses, GetCollectionThumbnailErrors, GetCollectionThumbnailResponses, GetCollectionThumbnailsErrors, GetCollectionThumbnailsResponses, GetCurrentUserErrors, GetCurrentUserResponses, GetDirectoryListingErrors, GetDirectoryListingResponses, GetFontFamilyAsCssErrors, GetFontFamilyAsCssResponses, GetFontFileErrors, GetFontFileResponses, GetFontsErrors, GetFontsResponses, GetGenresErrors, GetGenresResponses, GetGlobalSettingsErrors, GetGlobalSettingsResponses, GetHistoricalEventsErrors, GetHistoricalEventsResponses, GetKnownPageHashesErrors, GetKnownPageHashesResponses, GetKnownPageHashThumbnailErrors, GetKnownPageHashThumbnailResponses, GetLanguagesErrors, GetLanguagesResponses, GetLatestAuthenticationActivityByUserIdErrors, GetLatestAuthenticationActivityByUserIdResponses, GetLibrariesErrors, GetLibrariesResponses, GetLibraryByIdErrors, GetLibraryByIdResponses, GetMihonReadProgressByReadListIdErrors, GetMihonReadProgressByReadListIdResponses, GetMihonReadProgressBySeriesIdErrors, GetMihonReadProgressBySeriesIdResponses, GetOAuth2ProvidersErrors, GetOAuth2ProvidersResponses, GetPageByTransientBookIdErrors, GetPageByTransientBookIdResponses, GetPageHashMatchesErrors, GetPageHashMatchesResponses, GetPublishersErrors, GetPublishersResponses, GetReadListByIdErrors, GetReadListByIdResponses, GetReadListsByBookIdErrors, GetReadListsByBookIdResponses, GetReadListsErrors, GetReadListsResponses, GetReadListThumbnailByIdErrors, GetReadListThumbnailByIdResponses, GetReadListThumbnailErrors, GetReadListThumbnailResponses, GetReadListThumbnailsErrors, GetReadListThumbnailsResponses, GetReleasesErrors, GetReleasesResponses, GetSeriesAlphabeticalGroupsDeprecatedErrors, GetSeriesAlphabeticalGroupsDeprecatedResponses, GetSeriesAlphabeticalGroupsErrors, GetSeriesAlphabeticalGroupsResponses, GetSeriesByCollectionIdErrors, GetSeriesByCollectionIdResponses, GetSeriesByIdErrors, GetSeriesByIdResponses, GetSeriesDeprecatedErrors, GetSeriesDeprecatedResponses, GetSeriesErrors, GetSeriesLatestErrors, GetSeriesLatestResponses, GetSeriesNewErrors, GetSeriesNewResponses, GetSeriesReleaseDatesErrors, GetSeriesReleaseDatesResponses, GetSeriesResponses, GetSeriesTagsErrors, GetSeriesTagsResponses, GetSeriesThumbnailByIdErrors, GetSeriesThumbnailByIdResponses, GetSeriesThumbnailErrors, GetSeriesThumbnailResponses, GetSeriesThumbnailsErrors, GetSeriesThumbnailsResponses, GetSeriesUpdatedErrors, GetSeriesUpdatedResponses, GetServerSettingsErrors, GetServerSettingsResponses, GetSharingLabelsErrors, GetSharingLabelsResponses, GetTagsErrors, GetTagsResponses, GetUnknownPageHashesErrors, GetUnknownPageHashesResponses, GetUnknownPageHashThumbnailErrors, GetUnknownPageHashThumbnailResponses, GetUsersErrors, GetUserSettingsErrors, GetUserSettingsResponses, GetUsersResponses, ImportBooksErrors, ImportBooksResponses, LibraryAnalyzeErrors, LibraryAnalyzeResponses, LibraryCreationDto, LibraryEmptyTrashErrors, LibraryEmptyTrashResponses, LibraryRefreshMetadataErrors, LibraryRefreshMetadataResponses, LibraryScanErrors, LibraryScanResponses, LibraryUpdateDto, MarkAnnouncementsReadErrors, MarkAnnouncementsReadResponses, MarkBookReadProgressErrors, MarkBookReadProgressResponses, MarkBookThumbnailSelectedErrors, MarkBookThumbnailSelectedResponses, MarkCollectionThumbnailSelectedErrors, MarkCollectionThumbnailSelectedResponses, MarkReadListThumbnailSelectedErrors, MarkReadListThumbnailSelectedResponses, MarkSeriesAsReadErrors, MarkSeriesAsReadResponses, MarkSeriesAsUnreadErrors, MarkSeriesAsUnreadResponses, MarkSeriesThumbnailSelectedErrors, MarkSeriesThumbnailSelectedResponses, MatchComicRackListErrors, MatchComicRackListResponses, MediaType, PageHashCreationDto, PageHashMatchDto, PasswordUpdateDto, PostLogout1Responses, PostLogoutResponses, R2Progression, ReadListCreationDto, ReadListUpdateDto, ReadProgressUpdateDto, SaveGlobalSettingErrors, SaveGlobalSettingResponses, SaveUserSettingErrors, SaveUserSettingResponses, ScanRequestDto, ScanTransientBooksErrors, ScanTransientBooksResponses, SeriesAnalyzeErrors, SeriesAnalyzeResponses, SeriesMetadataUpdateDto, SeriesRefreshMetadataErrors, SeriesRefreshMetadataResponses, SeriesSearch, SettingsUpdateDto, TachiyomiReadProgressUpdateDto, TachiyomiReadProgressUpdateV2Dto, UpdateBookMetadataByBatchErrors, UpdateBookMetadataByBatchResponses, UpdateBookMetadataErrors, UpdateBookMetadataResponses, UpdateBookProgressionErrors, UpdateBookProgressionResponses, UpdateCollectionByIdErrors, UpdateCollectionByIdResponses, UpdateLibraryByIdDeprecatedErrors, UpdateLibraryByIdDeprecatedResponses, UpdateLibraryByIdErrors, UpdateLibraryByIdResponses, UpdateMihonReadProgressByReadListIdErrors, UpdateMihonReadProgressByReadListIdResponses, UpdateMihonReadProgressBySeriesIdErrors, UpdateMihonReadProgressBySeriesIdResponses, UpdatePasswordByUserIdErrors, UpdatePasswordByUserIdResponses, UpdatePasswordForCurrentUserErrors, UpdatePasswordForCurrentUserResponses, UpdateReadListByIdErrors, UpdateReadListByIdResponses, UpdateSeriesMetadataErrors, UpdateSeriesMetadataResponses, UpdateServerSettingsErrors, UpdateServerSettingsResponses, UpdateUserByIdErrors, UpdateUserByIdResponses, UserCreationDto, UserUpdateDto } from './types.gen.js';
+import type { AddLibraryErrors, AddLibraryResponses, AddUserErrors, AddUserResponses, AddUserUploadedBookThumbnailErrors, AddUserUploadedBookThumbnailResponses, AddUserUploadedCollectionThumbnailErrors, AddUserUploadedCollectionThumbnailResponses, AddUserUploadedReadListThumbnailErrors, AddUserUploadedReadListThumbnailResponses, AddUserUploadedSeriesThumbnailErrors, AddUserUploadedSeriesThumbnailResponses, AnalyzeTransientBookErrors, AnalyzeTransientBookResponses, ApiKeyRequestDto, BookAnalyzeErrors, BookAnalyzeResponses, BookImportBatchDto, BookMetadataUpdateDto, BookRefreshMetadataErrors, BookRefreshMetadataResponses, BookSearch, BooksRegenerateThumbnailsErrors, BooksRegenerateThumbnailsResponses, ClaimServerErrors, ClaimServerResponses, ClientSettingGlobalUpdateDto, ClientSettingUserUpdateDto, CollectionCreationDto, CollectionUpdateDto, ConvertHeaderSessionToCookieErrors, ConvertHeaderSessionToCookieResponses, CreateApiKeyForCurrentUserErrors, CreateApiKeyForCurrentUserResponses, CreateCollectionErrors, CreateCollectionResponses, CreateOrUpdateKnownPageHashErrors, CreateOrUpdateKnownPageHashResponses, CreateReadListErrors, CreateReadListResponses, DeleteApiKeyByKeyIdErrors, DeleteApiKeyByKeyIdResponses, DeleteBookFileErrors, DeleteBookFileResponses, DeleteBookReadProgressErrors, DeleteBookReadProgressResponses, DeleteCollectionByIdErrors, DeleteCollectionByIdResponses, DeleteDuplicatePagesByPageHashErrors, DeleteDuplicatePagesByPageHashResponses, DeleteGlobalSettingsErrors, DeleteGlobalSettingsResponses, DeleteLibraryByIdErrors, DeleteLibraryByIdResponses, DeleteReadListByIdErrors, DeleteReadListByIdResponses, DeleteSeriesFileErrors, DeleteSeriesFileResponses, DeleteSingleMatchByPageHashErrors, DeleteSingleMatchByPageHashResponses, DeleteSyncPointsForCurrentUserErrors, DeleteSyncPointsForCurrentUserResponses, DeleteUserByIdErrors, DeleteUserByIdResponses, DeleteUserSettingsErrors, DeleteUserSettingsResponses, DeleteUserUploadedBookThumbnailErrors, DeleteUserUploadedBookThumbnailResponses, DeleteUserUploadedCollectionThumbnailErrors, DeleteUserUploadedCollectionThumbnailResponses, DeleteUserUploadedReadListThumbnailErrors, DeleteUserUploadedReadListThumbnailResponses, DeleteUserUploadedSeriesThumbnailErrors, DeleteUserUploadedSeriesThumbnailResponses, DirectoryRequestDto, DownloadBookFile1Errors, DownloadBookFile1Responses, DownloadBookFileErrors, DownloadBookFileResponses, DownloadReadListAsZipErrors, DownloadReadListAsZipResponses, DownloadSeriesAsZipErrors, DownloadSeriesAsZipResponses, EmptyTaskQueueErrors, EmptyTaskQueueResponses, GetActuatorInfoResponses, GetAgeRatings1Errors, GetAgeRatings1Responses, GetAgeRatingsErrors, GetAgeRatingsResponses, GetAllBooksDeprecatedErrors, GetAllBooksDeprecatedResponses, GetAnnouncementsErrors, GetAnnouncementsResponses, GetApiKeysForCurrentUserErrors, GetApiKeysForCurrentUserResponses, GetAuthenticationActivityErrors, GetAuthenticationActivityForCurrentUserErrors, GetAuthenticationActivityForCurrentUserResponses, GetAuthenticationActivityResponses, GetAuthorsDeprecatedErrors, GetAuthorsDeprecatedResponses, GetAuthorsErrors, GetAuthorsNames1Errors, GetAuthorsNames1Responses, GetAuthorsNamesErrors, GetAuthorsNamesResponses, GetAuthorsResponses, GetAuthorsRoles1Errors, GetAuthorsRoles1Responses, GetAuthorsRolesErrors, GetAuthorsRolesResponses, GetBookByIdErrors, GetBookByIdResponses, GetBookEpubResourceErrors, GetBookEpubResourceResponses, GetBookPageByNumberErrors, GetBookPageByNumberResponses, GetBookPageRawByNumberErrors, GetBookPageRawByNumberResponses, GetBookPagesErrors, GetBookPagesResponses, GetBookPageThumbnailByNumberErrors, GetBookPageThumbnailByNumberResponses, GetBookPositionsErrors, GetBookPositionsResponses, GetBookProgressionErrors, GetBookProgressionResponses, GetBooksByReadListIdErrors, GetBooksByReadListIdResponses, GetBooksBySeriesIdErrors, GetBooksBySeriesIdResponses, GetBooksDuplicatesErrors, GetBooksDuplicatesResponses, GetBooksErrors, GetBookSiblingNextErrors, GetBookSiblingNextInReadListErrors, GetBookSiblingNextInReadListResponses, GetBookSiblingNextResponses, GetBookSiblingPreviousErrors, GetBookSiblingPreviousInReadListErrors, GetBookSiblingPreviousInReadListResponses, GetBookSiblingPreviousResponses, GetBooksLatestErrors, GetBooksLatestResponses, GetBooksOnDeckErrors, GetBooksOnDeckResponses, GetBooksResponses, GetBookTagsErrors, GetBookTagsResponses, GetBookThumbnailByIdErrors, GetBookThumbnailByIdResponses, GetBookThumbnailErrors, GetBookThumbnailResponses, GetBookThumbnailsErrors, GetBookThumbnailsResponses, GetBookWebPubManifestDivinaErrors, GetBookWebPubManifestDivinaResponses, GetBookWebPubManifestEpubErrors, GetBookWebPubManifestEpubResponses, GetBookWebPubManifestErrors, GetBookWebPubManifestPdfErrors, GetBookWebPubManifestPdfResponses, GetBookWebPubManifestResponses, GetClaimStatusErrors, GetClaimStatusResponses, GetCollectionByIdErrors, GetCollectionByIdResponses, GetCollectionsBySeriesIdErrors, GetCollectionsBySeriesIdResponses, GetCollectionsErrors, GetCollectionsResponses, GetCollectionThumbnailByIdErrors, GetCollectionThumbnailByIdResponses, GetCollectionThumbnailErrors, GetCollectionThumbnailResponses, GetCollectionThumbnailsErrors, GetCollectionThumbnailsResponses, GetCurrentUserErrors, GetCurrentUserResponses, GetDirectoryListingErrors, GetDirectoryListingResponses, GetFontFamilyAsCssErrors, GetFontFamilyAsCssResponses, GetFontFileErrors, GetFontFileResponses, GetFontsErrors, GetFontsResponses, GetGenres1Errors, GetGenres1Responses, GetGenresErrors, GetGenresResponses, GetGlobalSettingsErrors, GetGlobalSettingsResponses, GetHistoricalEventsErrors, GetHistoricalEventsResponses, GetKnownPageHashesErrors, GetKnownPageHashesResponses, GetKnownPageHashThumbnailErrors, GetKnownPageHashThumbnailResponses, GetLanguages1Errors, GetLanguages1Responses, GetLanguagesErrors, GetLanguagesResponses, GetLatestAuthenticationActivityByUserIdErrors, GetLatestAuthenticationActivityByUserIdResponses, GetLibrariesErrors, GetLibrariesResponses, GetLibraryByIdErrors, GetLibraryByIdResponses, GetMihonReadProgressByReadListIdErrors, GetMihonReadProgressByReadListIdResponses, GetMihonReadProgressBySeriesIdErrors, GetMihonReadProgressBySeriesIdResponses, GetOAuth2ProvidersErrors, GetOAuth2ProvidersResponses, GetPageByTransientBookIdErrors, GetPageByTransientBookIdResponses, GetPageHashMatchesErrors, GetPageHashMatchesResponses, GetPublishers1Errors, GetPublishers1Responses, GetPublishersErrors, GetPublishersResponses, GetReadListByIdErrors, GetReadListByIdResponses, GetReadListsByBookIdErrors, GetReadListsByBookIdResponses, GetReadListsErrors, GetReadListsResponses, GetReadListThumbnailByIdErrors, GetReadListThumbnailByIdResponses, GetReadListThumbnailErrors, GetReadListThumbnailResponses, GetReadListThumbnailsErrors, GetReadListThumbnailsResponses, GetReleasesErrors, GetReleasesResponses, GetSeriesAlphabeticalGroupsDeprecatedErrors, GetSeriesAlphabeticalGroupsDeprecatedResponses, GetSeriesAlphabeticalGroupsErrors, GetSeriesAlphabeticalGroupsResponses, GetSeriesByCollectionIdErrors, GetSeriesByCollectionIdResponses, GetSeriesByIdErrors, GetSeriesByIdResponses, GetSeriesDeprecatedErrors, GetSeriesDeprecatedResponses, GetSeriesErrors, GetSeriesLatestErrors, GetSeriesLatestResponses, GetSeriesNewErrors, GetSeriesNewResponses, GetSeriesReleaseDatesErrors, GetSeriesReleaseDatesResponses, GetSeriesReleaseYearsErrors, GetSeriesReleaseYearsResponses, GetSeriesResponses, GetSeriesTagsErrors, GetSeriesTagsResponses, GetSeriesThumbnailByIdErrors, GetSeriesThumbnailByIdResponses, GetSeriesThumbnailErrors, GetSeriesThumbnailResponses, GetSeriesThumbnailsErrors, GetSeriesThumbnailsResponses, GetSeriesUpdatedErrors, GetSeriesUpdatedResponses, GetServerSettingsErrors, GetServerSettingsResponses, GetSharingLabels1Errors, GetSharingLabels1Responses, GetSharingLabelsErrors, GetSharingLabelsResponses, GetTags1Errors, GetTags1Responses, GetTagsErrors, GetTagsResponses, GetUnknownPageHashesErrors, GetUnknownPageHashesResponses, GetUnknownPageHashThumbnailErrors, GetUnknownPageHashThumbnailResponses, GetUsersErrors, GetUserSettingsErrors, GetUserSettingsResponses, GetUsersResponses, ImportBooksErrors, ImportBooksResponses, LibraryAnalyzeErrors, LibraryAnalyzeResponses, LibraryCreationDto, LibraryEmptyTrashErrors, LibraryEmptyTrashResponses, LibraryRefreshMetadataErrors, LibraryRefreshMetadataResponses, LibraryScanErrors, LibraryScanResponses, LibraryUpdateDto, MarkAnnouncementsReadErrors, MarkAnnouncementsReadResponses, MarkBookReadProgressErrors, MarkBookReadProgressResponses, MarkBookThumbnailSelectedErrors, MarkBookThumbnailSelectedResponses, MarkCollectionThumbnailSelectedErrors, MarkCollectionThumbnailSelectedResponses, MarkReadListThumbnailSelectedErrors, MarkReadListThumbnailSelectedResponses, MarkSeriesAsReadErrors, MarkSeriesAsReadResponses, MarkSeriesAsUnreadErrors, MarkSeriesAsUnreadResponses, MarkSeriesThumbnailSelectedErrors, MarkSeriesThumbnailSelectedResponses, MatchComicRackListErrors, MatchComicRackListResponses, MediaType, PageHashCreationDto, PageHashMatchDto, PasswordUpdateDto, PostLogout1Responses, PostLogoutResponses, R2Progression, ReadListCreationDto, ReadListUpdateDto, ReadProgressUpdateDto, SaveGlobalSettingErrors, SaveGlobalSettingResponses, SaveUserSettingErrors, SaveUserSettingResponses, ScanRequestDto, ScanTransientBooksErrors, ScanTransientBooksResponses, SeriesAnalyzeErrors, SeriesAnalyzeResponses, SeriesMetadataUpdateDto, SeriesRefreshMetadataErrors, SeriesRefreshMetadataResponses, SeriesSearch, SettingsUpdateDto, TachiyomiReadProgressUpdateDto, TachiyomiReadProgressUpdateV2Dto, UpdateBookMetadataByBatchErrors, UpdateBookMetadataByBatchResponses, UpdateBookMetadataErrors, UpdateBookMetadataResponses, UpdateBookProgressionErrors, UpdateBookProgressionResponses, UpdateCollectionByIdErrors, UpdateCollectionByIdResponses, UpdateLibraryByIdDeprecatedErrors, UpdateLibraryByIdDeprecatedResponses, UpdateLibraryByIdErrors, UpdateLibraryByIdResponses, UpdateMihonReadProgressByReadListIdErrors, UpdateMihonReadProgressByReadListIdResponses, UpdateMihonReadProgressBySeriesIdErrors, UpdateMihonReadProgressBySeriesIdResponses, UpdatePasswordByUserIdErrors, UpdatePasswordByUserIdResponses, UpdatePasswordForCurrentUserErrors, UpdatePasswordForCurrentUserResponses, UpdateReadListByIdErrors, UpdateReadListByIdResponses, UpdateSeriesMetadataErrors, UpdateSeriesMetadataResponses, UpdateServerSettingsErrors, UpdateServerSettingsResponses, UpdateUserByIdErrors, UpdateUserByIdResponses, UserCreationDto, UserUpdateDto } from './types.gen.js';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -54,14 +54,16 @@ export const postLogout1 = <ThrowOnError extends boolean = false>(options?: Opti
 /**
  * List age ratings
  *
- * Can be filtered by various criteria
+ * Use GET /v2/age-ratings instead. Deprecated since 1.26.0
+ *
+ * @deprecated
  */
-export const getAgeRatings = <ThrowOnError extends boolean = false>(parameters?: {
+export const getAgeRatings1 = <ThrowOnError extends boolean = false>(parameters?: {
     library_id?: Array<string>;
     collection_id?: string;
-}, options?: Options<never, ThrowOnError>): RequestResult<GetAgeRatingsResponses, GetAgeRatingsErrors, ThrowOnError> => {
+}, options?: Options<never, ThrowOnError>): RequestResult<GetAgeRatings1Responses, GetAgeRatings1Errors, ThrowOnError> => {
     const params = buildClientParams([parameters], [{ args: [{ in: 'query', key: 'library_id' }, { in: 'query', key: 'collection_id' }] }]);
-    return (options?.client ?? client).get<GetAgeRatingsResponses, GetAgeRatingsErrors, ThrowOnError>({
+    return (options?.client ?? client).get<GetAgeRatings1Responses, GetAgeRatings1Errors, ThrowOnError>({
         security: [{ scheme: 'basic', type: 'http' }, { name: 'X-API-Key', type: 'apiKey' }],
         url: '/api/v1/age-ratings',
         ...options,
@@ -131,12 +133,16 @@ export const getAuthorsDeprecated = <ThrowOnError extends boolean = false>(param
 
 /**
  * List authors' names
+ *
+ * Use GET /v2/authors/names instead. Deprecated since 1.26.0
+ *
+ * @deprecated
  */
-export const getAuthorsNames = <ThrowOnError extends boolean = false>(parameters?: {
+export const getAuthorsNames1 = <ThrowOnError extends boolean = false>(parameters?: {
     search?: string;
-}, options?: Options<never, ThrowOnError>): RequestResult<GetAuthorsNamesResponses, GetAuthorsNamesErrors, ThrowOnError> => {
+}, options?: Options<never, ThrowOnError>): RequestResult<GetAuthorsNames1Responses, GetAuthorsNames1Errors, ThrowOnError> => {
     const params = buildClientParams([parameters], [{ args: [{ in: 'query', key: 'search' }] }]);
-    return (options?.client ?? client).get<GetAuthorsNamesResponses, GetAuthorsNamesErrors, ThrowOnError>({
+    return (options?.client ?? client).get<GetAuthorsNames1Responses, GetAuthorsNames1Errors, ThrowOnError>({
         security: [{ scheme: 'basic', type: 'http' }, { name: 'X-API-Key', type: 'apiKey' }],
         url: '/api/v1/authors/names',
         ...options,
@@ -146,8 +152,12 @@ export const getAuthorsNames = <ThrowOnError extends boolean = false>(parameters
 
 /**
  * List authors' roles
+ *
+ * Use GET /v2/authors/roles instead. Deprecated since 1.26.0
+ *
+ * @deprecated
  */
-export const getAuthorsRoles = <ThrowOnError extends boolean = false>(options?: Options<never, ThrowOnError>): RequestResult<GetAuthorsRolesResponses, GetAuthorsRolesErrors, ThrowOnError> => (options?.client ?? client).get<GetAuthorsRolesResponses, GetAuthorsRolesErrors, ThrowOnError>({
+export const getAuthorsRoles1 = <ThrowOnError extends boolean = false>(options?: Options<never, ThrowOnError>): RequestResult<GetAuthorsRoles1Responses, GetAuthorsRoles1Errors, ThrowOnError> => (options?.client ?? client).get<GetAuthorsRoles1Responses, GetAuthorsRoles1Errors, ThrowOnError>({
     security: [{ scheme: 'basic', type: 'http' }, { name: 'X-API-Key', type: 'apiKey' }],
     url: '/api/v1/authors/roles',
     ...options
@@ -1368,14 +1378,16 @@ export const getFontFile = <ThrowOnError extends boolean = false>(parameters: {
 /**
  * List genres
  *
- * Can be filtered by various criteria
+ * Use GET /v2/genres instead. Deprecated since 1.26.0
+ *
+ * @deprecated
  */
-export const getGenres = <ThrowOnError extends boolean = false>(parameters?: {
+export const getGenres1 = <ThrowOnError extends boolean = false>(parameters?: {
     library_id?: Array<string>;
     collection_id?: string;
-}, options?: Options<never, ThrowOnError>): RequestResult<GetGenresResponses, GetGenresErrors, ThrowOnError> => {
+}, options?: Options<never, ThrowOnError>): RequestResult<GetGenres1Responses, GetGenres1Errors, ThrowOnError> => {
     const params = buildClientParams([parameters], [{ args: [{ in: 'query', key: 'library_id' }, { in: 'query', key: 'collection_id' }] }]);
-    return (options?.client ?? client).get<GetGenresResponses, GetGenresErrors, ThrowOnError>({
+    return (options?.client ?? client).get<GetGenres1Responses, GetGenres1Errors, ThrowOnError>({
         security: [{ scheme: 'basic', type: 'http' }, { name: 'X-API-Key', type: 'apiKey' }],
         url: '/api/v1/genres',
         ...options,
@@ -1409,14 +1421,16 @@ export const getHistoricalEvents = <ThrowOnError extends boolean = false>(parame
 /**
  * List languages
  *
- * Can be filtered by various criteria
+ * Use GET /v2/languages instead. Deprecated since 1.26.0
+ *
+ * @deprecated
  */
-export const getLanguages = <ThrowOnError extends boolean = false>(parameters?: {
+export const getLanguages1 = <ThrowOnError extends boolean = false>(parameters?: {
     library_id?: Array<string>;
     collection_id?: string;
-}, options?: Options<never, ThrowOnError>): RequestResult<GetLanguagesResponses, GetLanguagesErrors, ThrowOnError> => {
+}, options?: Options<never, ThrowOnError>): RequestResult<GetLanguages1Responses, GetLanguages1Errors, ThrowOnError> => {
     const params = buildClientParams([parameters], [{ args: [{ in: 'query', key: 'library_id' }, { in: 'query', key: 'collection_id' }] }]);
-    return (options?.client ?? client).get<GetLanguagesResponses, GetLanguagesErrors, ThrowOnError>({
+    return (options?.client ?? client).get<GetLanguages1Responses, GetLanguages1Errors, ThrowOnError>({
         security: [{ scheme: 'basic', type: 'http' }, { name: 'X-API-Key', type: 'apiKey' }],
         url: '/api/v1/languages',
         ...options,
@@ -1799,14 +1813,16 @@ export const getKnownPageHashThumbnail = <ThrowOnError extends boolean = false>(
 /**
  * List publishers
  *
- * Can be filtered by various criteria
+ * Use GET /v2/publishers instead. Deprecated since 1.26.0
+ *
+ * @deprecated
  */
-export const getPublishers = <ThrowOnError extends boolean = false>(parameters?: {
+export const getPublishers1 = <ThrowOnError extends boolean = false>(parameters?: {
     library_id?: Array<string>;
     collection_id?: string;
-}, options?: Options<never, ThrowOnError>): RequestResult<GetPublishersResponses, GetPublishersErrors, ThrowOnError> => {
+}, options?: Options<never, ThrowOnError>): RequestResult<GetPublishers1Responses, GetPublishers1Errors, ThrowOnError> => {
     const params = buildClientParams([parameters], [{ args: [{ in: 'query', key: 'library_id' }, { in: 'query', key: 'collection_id' }] }]);
-    return (options?.client ?? client).get<GetPublishersResponses, GetPublishersErrors, ThrowOnError>({
+    return (options?.client ?? client).get<GetPublishers1Responses, GetPublishers1Errors, ThrowOnError>({
         security: [{ scheme: 'basic', type: 'http' }, { name: 'X-API-Key', type: 'apiKey' }],
         url: '/api/v1/publishers',
         ...options,
@@ -2414,7 +2430,9 @@ export const getSeriesNew = <ThrowOnError extends boolean = false>(parameters?: 
 /**
  * List series release dates
  *
- * Can be filtered by various criteria
+ * Use GET /v2/series/release-years instead. Deprecated since 1.26.0
+ *
+ * @deprecated
  */
 export const getSeriesReleaseDates = <ThrowOnError extends boolean = false>(parameters?: {
     library_id?: Array<string>;
@@ -2805,14 +2823,16 @@ export const updateServerSettings = <ThrowOnError extends boolean = false>(param
 /**
  * List sharing labels
  *
- * Can be filtered by various criteria
+ * Use GET /v2/sharing-labels instead. Deprecated since 1.26.0
+ *
+ * @deprecated
  */
-export const getSharingLabels = <ThrowOnError extends boolean = false>(parameters?: {
+export const getSharingLabels1 = <ThrowOnError extends boolean = false>(parameters?: {
     library_id?: Array<string>;
     collection_id?: string;
-}, options?: Options<never, ThrowOnError>): RequestResult<GetSharingLabelsResponses, GetSharingLabelsErrors, ThrowOnError> => {
+}, options?: Options<never, ThrowOnError>): RequestResult<GetSharingLabels1Responses, GetSharingLabels1Errors, ThrowOnError> => {
     const params = buildClientParams([parameters], [{ args: [{ in: 'query', key: 'library_id' }, { in: 'query', key: 'collection_id' }] }]);
-    return (options?.client ?? client).get<GetSharingLabelsResponses, GetSharingLabelsErrors, ThrowOnError>({
+    return (options?.client ?? client).get<GetSharingLabels1Responses, GetSharingLabels1Errors, ThrowOnError>({
         security: [{ scheme: 'basic', type: 'http' }, { name: 'X-API-Key', type: 'apiKey' }],
         url: '/api/v1/sharing-labels',
         ...options,
@@ -2840,14 +2860,16 @@ export const deleteSyncPointsForCurrentUser = <ThrowOnError extends boolean = fa
 /**
  * List tags
  *
- * Can be filtered by various criteria
+ * Use GET /v2/tags instead. Deprecated since 1.26.0
+ *
+ * @deprecated
  */
-export const getTags = <ThrowOnError extends boolean = false>(parameters?: {
+export const getTags1 = <ThrowOnError extends boolean = false>(parameters?: {
     library_id?: Array<string>;
     collection_id?: string;
-}, options?: Options<never, ThrowOnError>): RequestResult<GetTagsResponses, GetTagsErrors, ThrowOnError> => {
+}, options?: Options<never, ThrowOnError>): RequestResult<GetTags1Responses, GetTags1Errors, ThrowOnError> => {
     const params = buildClientParams([parameters], [{ args: [{ in: 'query', key: 'library_id' }, { in: 'query', key: 'collection_id' }] }]);
-    return (options?.client ?? client).get<GetTagsResponses, GetTagsErrors, ThrowOnError>({
+    return (options?.client ?? client).get<GetTags1Responses, GetTags1Errors, ThrowOnError>({
         security: [{ scheme: 'basic', type: 'http' }, { name: 'X-API-Key', type: 'apiKey' }],
         url: '/api/v1/tags',
         ...options,
@@ -2858,7 +2880,9 @@ export const getTags = <ThrowOnError extends boolean = false>(parameters?: {
 /**
  * List book tags
  *
- * Can be filtered by various criteria
+ * Use GET /v2/tags instead. Deprecated since 1.26.0
+ *
+ * @deprecated
  */
 export const getBookTags = <ThrowOnError extends boolean = false>(parameters?: {
     series_id?: string;
@@ -2881,7 +2905,9 @@ export const getBookTags = <ThrowOnError extends boolean = false>(parameters?: {
 /**
  * List series tags
  *
- * Can be filtered by various criteria
+ * Use GET /v2/tags instead. Deprecated since 1.26.0
+ *
+ * @deprecated
  */
 export const getSeriesTags = <ThrowOnError extends boolean = false>(parameters?: {
     library_id?: string;
@@ -2969,6 +2995,33 @@ export const getPageByTransientBookId = <ThrowOnError extends boolean = false>(p
 };
 
 /**
+ * List age ratings
+ *
+ * Can be filtered by various criteria
+ */
+export const getAgeRatings = <ThrowOnError extends boolean = false>(parameters?: {
+    library_id?: Array<string>;
+    collection_id?: Array<string>;
+    unpaged?: boolean;
+    page?: number;
+    size?: number;
+}, options?: Options<never, ThrowOnError>): RequestResult<GetAgeRatingsResponses, GetAgeRatingsErrors, ThrowOnError> => {
+    const params = buildClientParams([parameters], [{ args: [
+                { in: 'query', key: 'library_id' },
+                { in: 'query', key: 'collection_id' },
+                { in: 'query', key: 'unpaged' },
+                { in: 'query', key: 'page' },
+                { in: 'query', key: 'size' }
+            ] }]);
+    return (options?.client ?? client).get<GetAgeRatingsResponses, GetAgeRatingsErrors, ThrowOnError>({
+        security: [{ scheme: 'basic', type: 'http' }, { name: 'X-API-Key', type: 'apiKey' }],
+        url: '/api/v2/age-ratings',
+        ...options,
+        ...params
+    });
+};
+
+/**
  * List authors
  *
  * Can be filtered by various criteria
@@ -2977,9 +3030,9 @@ export const getAuthors = <ThrowOnError extends boolean = false>(parameters?: {
     search?: string;
     role?: string;
     library_id?: Array<string>;
-    collection_id?: string;
-    series_id?: string;
-    readlist_id?: string;
+    collection_id?: Array<string>;
+    series_id?: Array<string>;
+    readlist_id?: Array<string>;
     unpaged?: boolean;
     page?: number;
     size?: number;
@@ -2998,6 +3051,186 @@ export const getAuthors = <ThrowOnError extends boolean = false>(parameters?: {
     return (options?.client ?? client).get<GetAuthorsResponses, GetAuthorsErrors, ThrowOnError>({
         security: [{ scheme: 'basic', type: 'http' }, { name: 'X-API-Key', type: 'apiKey' }],
         url: '/api/v2/authors',
+        ...options,
+        ...params
+    });
+};
+
+/**
+ * List authors names
+ *
+ * Can be filtered by various criteria
+ */
+export const getAuthorsNames = <ThrowOnError extends boolean = false>(parameters?: {
+    search?: string;
+    role?: string;
+    library_id?: Array<string>;
+    collection_id?: Array<string>;
+    series_id?: Array<string>;
+    readlist_id?: Array<string>;
+    unpaged?: boolean;
+    page?: number;
+    size?: number;
+}, options?: Options<never, ThrowOnError>): RequestResult<GetAuthorsNamesResponses, GetAuthorsNamesErrors, ThrowOnError> => {
+    const params = buildClientParams([parameters], [{ args: [
+                { in: 'query', key: 'search' },
+                { in: 'query', key: 'role' },
+                { in: 'query', key: 'library_id' },
+                { in: 'query', key: 'collection_id' },
+                { in: 'query', key: 'series_id' },
+                { in: 'query', key: 'readlist_id' },
+                { in: 'query', key: 'unpaged' },
+                { in: 'query', key: 'page' },
+                { in: 'query', key: 'size' }
+            ] }]);
+    return (options?.client ?? client).get<GetAuthorsNamesResponses, GetAuthorsNamesErrors, ThrowOnError>({
+        security: [{ scheme: 'basic', type: 'http' }, { name: 'X-API-Key', type: 'apiKey' }],
+        url: '/api/v2/authors/names',
+        ...options,
+        ...params
+    });
+};
+
+/**
+ * List authors roles
+ *
+ * Can be filtered by various criteria
+ */
+export const getAuthorsRoles = <ThrowOnError extends boolean = false>(parameters?: {
+    library_id?: Array<string>;
+    collection_id?: Array<string>;
+    series_id?: Array<string>;
+    readlist_id?: Array<string>;
+    unpaged?: boolean;
+    page?: number;
+    size?: number;
+}, options?: Options<never, ThrowOnError>): RequestResult<GetAuthorsRolesResponses, GetAuthorsRolesErrors, ThrowOnError> => {
+    const params = buildClientParams([parameters], [{ args: [
+                { in: 'query', key: 'library_id' },
+                { in: 'query', key: 'collection_id' },
+                { in: 'query', key: 'series_id' },
+                { in: 'query', key: 'readlist_id' },
+                { in: 'query', key: 'unpaged' },
+                { in: 'query', key: 'page' },
+                { in: 'query', key: 'size' }
+            ] }]);
+    return (options?.client ?? client).get<GetAuthorsRolesResponses, GetAuthorsRolesErrors, ThrowOnError>({
+        security: [{ scheme: 'basic', type: 'http' }, { name: 'X-API-Key', type: 'apiKey' }],
+        url: '/api/v2/authors/roles',
+        ...options,
+        ...params
+    });
+};
+
+/**
+ * List genres
+ *
+ * Can be filtered by various criteria
+ */
+export const getGenres = <ThrowOnError extends boolean = false>(parameters?: {
+    search?: string;
+    library_id?: Array<string>;
+    collection_id?: Array<string>;
+    unpaged?: boolean;
+    page?: number;
+    size?: number;
+}, options?: Options<never, ThrowOnError>): RequestResult<GetGenresResponses, GetGenresErrors, ThrowOnError> => {
+    const params = buildClientParams([parameters], [{ args: [
+                { in: 'query', key: 'search' },
+                { in: 'query', key: 'library_id' },
+                { in: 'query', key: 'collection_id' },
+                { in: 'query', key: 'unpaged' },
+                { in: 'query', key: 'page' },
+                { in: 'query', key: 'size' }
+            ] }]);
+    return (options?.client ?? client).get<GetGenresResponses, GetGenresErrors, ThrowOnError>({
+        security: [{ scheme: 'basic', type: 'http' }, { name: 'X-API-Key', type: 'apiKey' }],
+        url: '/api/v2/genres',
+        ...options,
+        ...params
+    });
+};
+
+/**
+ * List languages
+ *
+ * Can be filtered by various criteria
+ */
+export const getLanguages = <ThrowOnError extends boolean = false>(parameters?: {
+    search?: string;
+    library_id?: Array<string>;
+    collection_id?: Array<string>;
+    unpaged?: boolean;
+    page?: number;
+    size?: number;
+}, options?: Options<never, ThrowOnError>): RequestResult<GetLanguagesResponses, GetLanguagesErrors, ThrowOnError> => {
+    const params = buildClientParams([parameters], [{ args: [
+                { in: 'query', key: 'search' },
+                { in: 'query', key: 'library_id' },
+                { in: 'query', key: 'collection_id' },
+                { in: 'query', key: 'unpaged' },
+                { in: 'query', key: 'page' },
+                { in: 'query', key: 'size' }
+            ] }]);
+    return (options?.client ?? client).get<GetLanguagesResponses, GetLanguagesErrors, ThrowOnError>({
+        security: [{ scheme: 'basic', type: 'http' }, { name: 'X-API-Key', type: 'apiKey' }],
+        url: '/api/v2/languages',
+        ...options,
+        ...params
+    });
+};
+
+/**
+ * List publishers
+ *
+ * Can be filtered by various criteria
+ */
+export const getPublishers = <ThrowOnError extends boolean = false>(parameters?: {
+    search?: string;
+    library_id?: Array<string>;
+    collection_id?: Array<string>;
+    unpaged?: boolean;
+    page?: number;
+    size?: number;
+}, options?: Options<never, ThrowOnError>): RequestResult<GetPublishersResponses, GetPublishersErrors, ThrowOnError> => {
+    const params = buildClientParams([parameters], [{ args: [
+                { in: 'query', key: 'search' },
+                { in: 'query', key: 'library_id' },
+                { in: 'query', key: 'collection_id' },
+                { in: 'query', key: 'unpaged' },
+                { in: 'query', key: 'page' },
+                { in: 'query', key: 'size' }
+            ] }]);
+    return (options?.client ?? client).get<GetPublishersResponses, GetPublishersErrors, ThrowOnError>({
+        security: [{ scheme: 'basic', type: 'http' }, { name: 'X-API-Key', type: 'apiKey' }],
+        url: '/api/v2/publishers',
+        ...options,
+        ...params
+    });
+};
+
+/**
+ * List series release years
+ *
+ * Can be filtered by various criteria
+ */
+export const getSeriesReleaseYears = <ThrowOnError extends boolean = false>(parameters?: {
+    library_id?: Array<string>;
+    collection_id?: Array<string>;
+    unpaged?: boolean;
+    page?: number;
+    size?: number;
+}, options?: Options<never, ThrowOnError>): RequestResult<GetSeriesReleaseYearsResponses, GetSeriesReleaseYearsErrors, ThrowOnError> => {
+    const params = buildClientParams([parameters], [{ args: [
+                { in: 'query', key: 'library_id' },
+                { in: 'query', key: 'collection_id' },
+                { in: 'query', key: 'unpaged' },
+                { in: 'query', key: 'page' },
+                { in: 'query', key: 'size' }
+            ] }]);
+    return (options?.client ?? client).get<GetSeriesReleaseYearsResponses, GetSeriesReleaseYearsErrors, ThrowOnError>({
+        security: [{ scheme: 'basic', type: 'http' }, { name: 'X-API-Key', type: 'apiKey' }],
+        url: '/api/v2/series/release-years',
         ...options,
         ...params
     });
@@ -3040,6 +3273,70 @@ export const updateMihonReadProgressBySeriesId = <ThrowOnError extends boolean =
             ...options?.headers,
             ...params.headers
         }
+    });
+};
+
+/**
+ * List sharing labels
+ *
+ * Can be filtered by various criteria
+ */
+export const getSharingLabels = <ThrowOnError extends boolean = false>(parameters?: {
+    search?: string;
+    library_id?: Array<string>;
+    collection_id?: Array<string>;
+    unpaged?: boolean;
+    page?: number;
+    size?: number;
+}, options?: Options<never, ThrowOnError>): RequestResult<GetSharingLabelsResponses, GetSharingLabelsErrors, ThrowOnError> => {
+    const params = buildClientParams([parameters], [{ args: [
+                { in: 'query', key: 'search' },
+                { in: 'query', key: 'library_id' },
+                { in: 'query', key: 'collection_id' },
+                { in: 'query', key: 'unpaged' },
+                { in: 'query', key: 'page' },
+                { in: 'query', key: 'size' }
+            ] }]);
+    return (options?.client ?? client).get<GetSharingLabelsResponses, GetSharingLabelsErrors, ThrowOnError>({
+        security: [{ scheme: 'basic', type: 'http' }, { name: 'X-API-Key', type: 'apiKey' }],
+        url: '/api/v2/sharing-labels',
+        ...options,
+        ...params
+    });
+};
+
+/**
+ * List tags
+ *
+ * Can be filtered by various criteria
+ */
+export const getTags = <ThrowOnError extends boolean = false>(parameters?: {
+    search?: string;
+    library_id?: Array<string>;
+    collection_id?: Array<string>;
+    series_id?: Array<string>;
+    readlist_id?: Array<string>;
+    include?: 'SERIES' | 'BOOK' | 'BOTH';
+    unpaged?: boolean;
+    page?: number;
+    size?: number;
+}, options?: Options<never, ThrowOnError>): RequestResult<GetTagsResponses, GetTagsErrors, ThrowOnError> => {
+    const params = buildClientParams([parameters], [{ args: [
+                { in: 'query', key: 'search' },
+                { in: 'query', key: 'library_id' },
+                { in: 'query', key: 'collection_id' },
+                { in: 'query', key: 'series_id' },
+                { in: 'query', key: 'readlist_id' },
+                { in: 'query', key: 'include' },
+                { in: 'query', key: 'unpaged' },
+                { in: 'query', key: 'page' },
+                { in: 'query', key: 'size' }
+            ] }]);
+    return (options?.client ?? client).get<GetTagsResponses, GetTagsErrors, ThrowOnError>({
+        security: [{ scheme: 'basic', type: 'http' }, { name: 'X-API-Key', type: 'apiKey' }],
+        url: '/api/v2/tags',
+        ...options,
+        ...params
     });
 };
 

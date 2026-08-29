@@ -1,103 +1,66 @@
 # Komga SDK
 
-A TypeScript SDK for the [Komga](https://komga.org/) media server API. It provides a type-safe client, Zod validation, and high-level domain services.
+TypeScript bindings for the Komga media server API.
 
-## Documentation
+- **SDK version:** `2.0.0`
+- **Komga API version:** `1.26.3`
+- **Zero runtime dependencies.** The SDK uses the platform Fetch API and standard Web APIs.
 
-We provide multiple documentation formats:
-
-### Mintlify Docs (Recommended)
-Stripe-quality usage documentation with interactive API reference.
-- Deployed: https://routrtechnologiesllc.mintlify.app/
-- Location: `docs/mintlify/`
-- Local preview: `cd docs/mintlify && bun run --bun mint dev`
-- Structure:
-  - **Guides**: Getting Started, Core Concepts, Domain Guides, Operations
-  - **API Reference**: Auto-generated from Komga OpenAPI spec
-  - **TypeDoc**: Links to TypeScript SDK reference
-
-### Markdown Docs
-Traditional markdown documentation for quick reference.
-- Start here: `docs/getting-started.md`
-- Domain Services: `docs/domain-services.md`
-- Pagination & Search: `docs/pagination-search.md`
-- Interceptors: `docs/interceptors.md`
-- Validation: `docs/validation.md`
-- Configuration: `docs/configuration.md`
-- Errors (full reference): `src/errors/README.md`
-- Testing: `docs/testing.md`
-- Troubleshooting: `docs/troubleshooting.md`
-- Migration / Deprecations: `docs/migration.md`
-- API Reference (TypeDoc): `docs/api-reference.md`
-
-## Table of Contents
-
-- Documentation (Mintlify + Markdown)
-- Installation
-- Quick Start
-- Requirements
-- Authentication
-- Domain Services
-- Direct API Functions
-- Pagination & Search
-- Interceptors
-- Error Handling
-- Validation
-- Configuration
-- API Reference
-- API Coverage
-- TypeScript
-- Changelog
-- Contributing
-- License
+Version 2.0.0 exposes the generated API operations directly. Each operation and generated
+DTO/error type is available from the package root.
 
 ## Installation
 
 ```bash
-# Using bun
-bun add komga-sdk
-
-# Using npm
 npm install komga-sdk
+```
 
-# Using pnpm
+The package can also be installed with Bun or pnpm:
+
+```bash
+bun add komga-sdk
 pnpm add komga-sdk
 ```
 
-## Quick Start
+## Requirements
+
+Use Node.js 18 or newer, or a browser/runtime that provides `fetch`, `Request`, `Response`,
+`Headers`, and `TextEncoder`. Binary operations additionally use the platform `Blob`/`File`
+APIs.
+
+## Quick start
 
 ```typescript
-import { createKomgaClient, BookService } from 'komga-sdk';
+import { createKomgaClient, getBookById, unwrap } from 'komga-sdk';
 
 const client = createKomgaClient({
   baseUrl: 'http://localhost:25600',
   auth: {
     type: 'basic',
-    username: 'admin@example.com',
+    username: 'admin',
     password: 'your-password',
   },
-  timeout: 30000,
-  retry: { limit: 3 },
-  debug: false,
 });
 
-const bookService = new BookService(client);
-const book = await bookService.getById('book-123');
+const book = unwrap(
+  await getBookById({ bookId: 'book-123' }, { client }),
+);
+
 console.log(book.metadata.title);
 ```
 
-## Requirements
+`createKomgaClient` returns an isolated client. Pass that client explicitly to each generated
+operation instead of relying on shared configuration.
 
-- Komga API version: 1.24.1
-- Runtime with Fetch and Web Crypto (e.g. Node 18+ or modern browsers)
+## Client and authentication
 
-## Authentication
+`createKomgaClient` accepts a required `baseUrl` and optional authentication:
+
+### HTTP Basic authentication
 
 ```typescript
-import { createKomgaClient } from 'komga-sdk';
-
 const client = createKomgaClient({
-  baseUrl: 'http://localhost:25600',
+  baseUrl: 'https://komga.example.com',
   auth: {
     type: 'basic',
     username: 'user@example.com',
@@ -106,11 +69,13 @@ const client = createKomgaClient({
 });
 ```
 
-API key authentication:
+Use HTTPS whenever Basic credentials are sent.
+
+### API-key authentication
 
 ```typescript
 const client = createKomgaClient({
-  baseUrl: 'http://localhost:25600',
+  baseUrl: 'https://komga.example.com',
   auth: {
     type: 'apiKey',
     key: 'your-api-key',
@@ -118,206 +83,256 @@ const client = createKomgaClient({
 });
 ```
 
+The factory overwrites only the authentication header owned by the configured auth mode: `apiKey`
+sets `X-API-Key`, while `basic` sets `Authorization`. A caller-supplied inactive authentication
+header is not automatically removed. Do not supply conflicting authentication headers; let the
+configured auth mode provide authentication.
 
-## Domain Services
-
-Use domain services for validated, high-level operations:
+Fetch options are passed through the client options:
 
 ```typescript
-import { BookService, SeriesService, LibraryService, CollectionService, ReadListService, UserService, SettingsService } from 'komga-sdk';
-
-const bookService = new BookService(client);
-const seriesService = new SeriesService(client);
-const libraryService = new LibraryService(client);
-const collectionService = new CollectionService(client);
-const readListService = new ReadListService(client);
-const userService = new UserService(client);
-const settingsService = new SettingsService(client);
-
-const books = await bookService.list({ page: 0, size: 20 });
-const series = await seriesService.getById('series-123');
-const libraries = await libraryService.getAll();
-const collections = await collectionService.getAll();
-const readLists = await readListService.getAll();
-const users = await userService.getAll();
-const settings = await settingsService.get();
-const seriesService = new SeriesService(client);
-const libraryService = new LibraryService(client);
-
-const books = await bookService.list({ page: 0, size: 20 });
-const series = await seriesService.getById('series-123');
-const libraries = await libraryService.getAll();
+const client = createKomgaClient({
+  baseUrl: 'https://komga.example.com',
+  auth: {
+    type: 'apiKey',
+    key: 'your-api-key',
+  },
+  credentials: 'include',
+  headers: { 'X-Client-Name': 'my-reader' },
+  fetch: globalThis.fetch,
+});
 ```
 
-More examples: `docs/domain-services.md`.
+`credentials` is the native Fetch credentials mode. Supply `fetch` when a runtime or test
+needs a custom Fetch implementation. Authentication is optional for public or otherwise
+unauthenticated requests.
 
-## Direct API Functions
+## Generated operations
 
-Use direct API functions for low-level access:
+Operations use flat, generated parameter objects. When an operation has parameters, pass those
+parameters first and a per-call options object second. Put the client in the second object:
 
 ```typescript
-import { createKomgaClient, getBookById } from 'komga-sdk';
+import { getBookById } from 'komga-sdk';
 
-const client = createKomgaClient({
-  baseUrl: 'http://localhost:25600',
-  auth: { type: 'basic', username: 'admin', password: 'password' },
-});
+const result = await getBookById(
+  { bookId: 'book-123' },
+  { client },
+);
+```
 
-const result = await getBookById({
-  client,
-  path: { bookId: 'book-123' },
-});
+An operation with no parameters takes the options object as its only argument:
 
-if (result.data) {
+```typescript
+import { getLibraries } from 'komga-sdk';
+
+const libraries = await getLibraries({ client });
+```
+
+Parameter names and types come from the generated declarations. For example, request bodies
+are represented by the operation-specific fields in the first object:
+
+```typescript
+import { markBookReadProgress } from 'komga-sdk';
+
+await markBookReadProgress(
+  {
+    bookId: 'book-123',
+    readProgressUpdateDto: { page: 12, completed: false },
+  },
+  { client },
+);
+```
+
+## Results and errors
+
+Generated operations are non-throwing by default. Their default result contains
+`{ data, error, request, response }`:
+
+```typescript
+const result = await getBookById({ bookId: 'book-123' }, { client });
+
+if (result.error !== undefined) {
+  console.error('Komga error:', result.error);
+  console.error('HTTP status:', result.response?.status);
+} else {
   console.log(result.data.metadata.title);
 }
 ```
 
-## Pagination & Search
+`data` is present for a successful response and `error` is present for an API, parsing, or
+network failure. `request` and `response` are optional: a request-building or network failure
+may not produce one or both objects.
 
-Pagination and search examples: `docs/pagination-search.md`.
+Use the exported `unwrap` helper when an explicit throwing boundary is preferable:
 
-## Interceptors
+```typescript
+import { KomgaApiError, unwrap } from 'komga-sdk';
 
-Attach request/response/error interceptors to the client:
+try {
+  const book = unwrap(
+    await getBookById({ bookId: 'book-123' }, { client }),
+  );
+  console.log(book.metadata.title);
+} catch (error) {
+  if (error instanceof KomgaApiError) {
+    console.error(error.status, error.body);
+  }
+}
+```
+
+`KomgaApiError` preserves the typed API error body and, when available, the HTTP status,
+request, and response. A successful no-content response unwraps to `undefined`.
+
+## Pagination and search
+
+List operations expose only the parameters declared for that operation. `getBooks` accepts
+pagination fields alongside its generated search body:
+
+```typescript
+import { getBooks } from 'komga-sdk';
+
+const result = await getBooks(
+  {
+    bookSearch: { fullTextSearch: 'sandman' },
+    page: 0,
+    size: 20,
+    sort: ['metadata.title,asc'],
+  },
+  { client },
+);
+
+if (result.error === undefined) {
+  for (const book of result.data.content ?? []) {
+    console.log(book.metadata.title);
+  }
+}
+```
+
+Page responses expose generated fields such as `content`, `number`, `size`, `totalElements`,
+and `totalPages`. Other list operations may additionally declare `unpaged`, filters, or
+operation-specific search fields; TypeScript will surface the exact accepted shape.
+
+## Binary and no-content responses
+
+The generated response types preserve Komga's response semantics:
 
 ```typescript
 import {
-  createLoggingInterceptor,
-  createErrorTransformInterceptor,
-  createValidationInterceptor,
-  BookDtoSchema,
+  getBookPageByNumber,
+  getBookPageRawByNumber,
+  markBookReadProgress,
+  unwrap,
 } from 'komga-sdk';
 
-const { request, response } = createLoggingInterceptor({ logHeaders: true });
-const errorTransform = createErrorTransformInterceptor();
-const validation = createValidationInterceptor({
-  schemas: { '/api/books': BookDtoSchema },
+const image = unwrap(
+  await getBookPageByNumber(
+    { bookId: 'book-123', pageNumber: 1 },
+    { client },
+  ),
+); // Blob | File
+
+const rawPage = unwrap(
+  await getBookPageRawByNumber(
+    { bookId: 'book-123', pageNumber: 1 },
+    { client },
+  ),
+); // string
+
+const noContent = unwrap(
+  await markBookReadProgress(
+    {
+      bookId: 'book-123',
+      readProgressUpdateDto: { page: 1 },
+    },
+    { client },
+  ),
+); // undefined for HTTP 204
+```
+
+Image-producing page and thumbnail operations are typed as `Blob | File` where declared by the
+API. Raw page and EPUB-resource endpoints are typed as `string`. Successful HTTP 204 responses
+have `data: undefined`.
+
+## Imports
+
+The package root exports the client factory, result helpers, all generated operations, and all
+generated types:
+
+```typescript
+import { createKomgaClient, getBookById, unwrap } from 'komga-sdk';
+import type { BookDto } from 'komga-sdk';
+```
+
+Use the published subpaths when only the client or generated types are needed:
+
+```typescript
+import { createKomgaClient } from 'komga-sdk/client';
+import type { BookDto, BookSearch } from 'komga-sdk/types';
+```
+
+Generated operations are root exports; `komga-sdk/client` exports the client factory and its
+types, and `komga-sdk/types` exports generated DTOs and response types.
+
+## API coverage
+
+The SDK contains **174 flat operations** generated for Komga API `1.26.3`, covering books,
+series, libraries, collections, read lists, users and authentication, settings, metadata,
+pages and thumbnails, downloads, and task/transient-book endpoints.
+
+The generated source is the authoritative reference for operation names, parameters, response
+types, and endpoint-specific errors.
+
+## Testing
+
+Inject a Fetch implementation to test requests without contacting a Komga server:
+
+```typescript
+import { createKomgaClient, getBookById } from 'komga-sdk';
+
+const fetchMock: typeof fetch = async () =>
+  new Response(JSON.stringify({ id: 'book-123' }), {
+    status: 200,
+    headers: { 'content-type': 'application/json' },
+  });
+
+const testClient = createKomgaClient({
+  baseUrl: 'https://komga.test',
+  fetch: fetchMock,
 });
 
-client.interceptors.request.use(request);
-client.interceptors.response.use(response);
-client.interceptors.response.use(validation);
-client.interceptors.error.use(errorTransform);
+const result = await getBookById(
+  { bookId: 'book-123' },
+  { client: testClient },
+);
 ```
 
-More details: `docs/interceptors.md`.
+For repository development:
 
-## Error Handling
-
-```typescript
-import { isApiError, isValidationError, isNetworkError } from 'komga-sdk';
-
-try {
-  await bookService.getById('invalid-id');
-} catch (error) {
-  if (isApiError(error)) {
-    console.log(`HTTP ${error.status}: ${error.statusText}`);
-  } else if (isValidationError(error)) {
-    console.log('Validation failed:', error.getFieldErrors());
-  } else if (isNetworkError(error)) {
-    console.log('Network error:', error.message);
-  }
-}
+```bash
+bun run typecheck
+bun run test
+bun run test:coverage
 ```
 
-Full error reference: `src/errors/README.md`.
+## Historical migration note (pre-2.0.0)
 
-## Validation
+This section is historical only. Documentation written for releases before `2.0.0` may not
+describe this package. For `2.0.0`, follow the generated operation signatures,
+`createKomgaClient`, and result handling shown above. See the changelog for release history.
 
-All responses are validated against Zod schemas with `.strict()` enforcement.
+## Useful links
 
-```typescript
-import { BookDtoSchema, validateResponse, safeValidateResponse } from 'komga-sdk';
-
-const validated = validateResponse(BookDtoSchema, responseData);
-
-const result = safeValidateResponse(BookDtoSchema, responseData);
-if (result.success) {
-  console.log(result.data);
-}
-```
-
-More details: `docs/validation.md`.
-
-## Configuration
-
-```typescript
-interface KomgaClientOptions {
-  baseUrl: string;           // Komga server URL
-  auth?: AuthConfig;         // Authentication config
-  timeout?: number;          // Request timeout in ms (default: 30000)
-  retry?: RetryConfig;       // Retry configuration
-  debug?: boolean;           // Enable debug logging
-}
-
-interface RetryConfig {
-  limit?: number;            // Max retry attempts (default: 3)
-  methods?: string[];        // HTTP methods to retry
-  statusCodes?: number[];    // Status codes to retry
-  backoffLimit?: number;     // Max backoff delay in ms
-}
-```
-
-More details: `docs/configuration.md`.
-
-## API Reference
-
-- Generate TypeDoc API docs: `bun run docs`
-- Output directory: `docs/api/`
-- Guide: `docs/api-reference.md`
-
-## API Coverage
-
-This SDK covers Komga API v1.24.1 with 130 unique endpoint paths across 165 operations.
-
-### Endpoint Categories
-
-| Category | Description |
-|----------|-------------|
-| Books | Book retrieval, metadata, pages, thumbnails |
-| Series | Series management, metadata, book listings |
-| Libraries | Library CRUD, scanning, analysis |
-| Collections | Collection management |
-| Read Lists | Read list management |
-| Users | User management, authentication |
-| Settings | Server and client settings |
-| Tasks | Background task management |
-
-### Deprecated Endpoints
-
-| Endpoint | Replacement | Since |
-|----------|-------------|-------|
-| `GET /api/v1/books` | `POST /api/v1/books/list` | 1.19.0 |
-| `GET /api/v1/series` | `POST /api/v1/series/list` | 1.19.0 |
-| `GET /api/v1/authors` | `GET /api/v2/authors` | 1.20.0 |
-| `PUT /api/v1/libraries/{libraryId}` | `PATCH /api/v1/libraries/{libraryId}` | 1.3.0 |
-
-## TypeScript
-
-This SDK is source-only with `noEmit`. Use these settings for best results:
-
-```json
-{
-  "compilerOptions": {
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "target": "ES2020",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true
-  }
-}
-```
-
-## Changelog
-
-See `CHANGELOG.md`.
-
-## Contributing
-
-See `CONTRIBUTING.md`.
+- [Komga](https://komga.org/)
+- [Komga API documentation](https://komga.org/docs/openapi/komga-api/)
+- [komga-sdk on npm](https://www.npmjs.com/package/komga-sdk)
+- [Repository](https://github.com/ShivamB25/komga-sdk-typescript)
+- [Generated operations](https://github.com/ShivamB25/komga-sdk-typescript/blob/main/src/generated/sdk.gen.ts)
+- [Generated types](https://github.com/ShivamB25/komga-sdk-typescript/blob/main/src/generated/types.gen.ts)
+- [Changelog](./CHANGELOG.md)
+- [Contributing](./CONTRIBUTING.md)
+- [Issue tracker](https://github.com/ShivamB25/komga-sdk-typescript/issues)
 
 ## License
 
-MIT (see `LICENSE`).
+MIT (see [LICENSE](./LICENSE)).

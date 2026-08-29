@@ -4,9 +4,9 @@ description: "Use generated Komga API operations and application-owned domain wo
 icon: "boxes"
 ---
 
-Komga SDK 1.0 exposes the Komga API as generated operation functions. The functions map directly to the OpenAPI operations and use generated TypeScript types. The SDK no longer includes domain-service classes, handwritten DTO schemas, or service-specific error hierarchies.
+Komga SDK 2.0.0 exposes the Komga API as generated operation functions. The functions map directly to the OpenAPI operations and use generated TypeScript types. The SDK no longer includes domain-service classes, handwritten DTO schemas, or service-specific error hierarchies.
 
-## The 1.0 call shape
+## The 2.0.0 call shape
 
 Create a client once, then pass it in the operation options. Operation parameters are flat: endpoint inputs are properties of the first argument rather than nested transport-slot objects.
 
@@ -44,7 +44,7 @@ The generated barrel re-exports operation functions and their generated response
 | `getCollections` | `search`, `library_id`, page parameters | `PageCollectionDto` |
 | `getReadLists` | `search`, `library_id`, page parameters | `PageReadListDto` |
 
-The generated types are the source of truth for each operation's parameters and response. The [API Reference](/reference/api-reference) links to the Komga 1.25.0 OpenAPI document used by the generated surface.
+The generated types are the source of truth for each operation's parameters and response. The [API Reference](/reference/api-reference) links to the Komga 1.26.3 OpenAPI document used by the generated surface.
 
 ## Build a domain workflow in your application
 
@@ -166,7 +166,7 @@ The generated comments mark operations that require `ADMIN` or another role. A `
 
 ## Collections and read lists
 
-These endpoints are not domain-service methods in 1.0. Call them directly with their generated query names:
+These endpoints are not domain-service methods in 2.0.0. Call them directly with their generated query names:
 
 ```typescript
 import { getCollections, getReadLists } from 'komga-sdk';
@@ -184,7 +184,7 @@ Use `content ?? []` and inspect `error` before rendering page data. See [Paginat
 
 Replace a service method with an operation import and a client option:
 
-| Previous wrapper call | 1.0 operation call |
+| Previous wrapper call | 2.0.0 operation call |
 | --- | --- |
 | `service.getById(id)` for a book | `getBookById({ bookId: id }, { client })` |
 | `service.list({ page, size, search })` for books | `getBooks({ page, size, bookSearch: search }, { client })` |

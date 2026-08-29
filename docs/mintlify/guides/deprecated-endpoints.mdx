@@ -4,7 +4,7 @@ description: "Move legacy Komga endpoint calls to current generated operations"
 icon: "triangle-exclamation"
 ---
 
-Komga keeps older HTTP routes for compatibility, but new integrations should use the current generated operations. The replacement functions below are exported by `komga-sdk` 1.0 and use flat parameters.
+Komga 1.26.3 retains older HTTP routes for compatibility, but new integrations should use the current generated operations. The replacements below are exported by `komga-sdk` 2.0.0, generated from the Komga 1.26.3 schema, and use flat parameters; referential replacements use v2 routes.
 
 <Warning>
 Do not add new code against the legacy routes. Their response shapes and availability can change as Komga removes compatibility endpoints.
@@ -12,12 +12,25 @@ Do not add new code against the legacy routes. Their response shapes and availab
 
 ## Replacement map
 
+The referential v1 routes for age ratings, author names and roles, genres, languages, publishers, series release dates, sharing labels, and tags were deprecated in Komga 1.26.0. This table is a migration map only: call the current operation in the third column, not the legacy route or export.
+
 | Legacy SDK symbol | Legacy HTTP route | Current operation | Current route |
 | --- | --- | --- | --- |
 | `getAllBooksDeprecated` | `GET /api/v1/books` | `getBooks` | `POST /api/v1/books/list` |
 | `getSeriesDeprecated` | `GET /api/v1/series` | `getSeries` | `POST /api/v1/series/list` |
 | `getSeriesAlphabeticalGroupsDeprecated` | `GET /api/v1/series/alphabetical-groups` | `getSeriesAlphabeticalGroups` | `POST /api/v1/series/list/alphabetical-groups` |
 | `getAuthorsDeprecated` | `GET /api/v1/authors` | `getAuthors` | `GET /api/v2/authors` |
+| `getAgeRatings1` | `GET /api/v1/age-ratings` | `getAgeRatings` | `GET /api/v2/age-ratings` |
+| `getAuthorsNames1` | `GET /api/v1/authors/names` | `getAuthorsNames` | `GET /api/v2/authors/names` |
+| `getAuthorsRoles1` | `GET /api/v1/authors/roles` | `getAuthorsRoles` | `GET /api/v2/authors/roles` |
+| `getGenres1` | `GET /api/v1/genres` | `getGenres` | `GET /api/v2/genres` |
+| `getLanguages1` | `GET /api/v1/languages` | `getLanguages` | `GET /api/v2/languages` |
+| `getPublishers1` | `GET /api/v1/publishers` | `getPublishers` | `GET /api/v2/publishers` |
+| `getSeriesReleaseDates` | `GET /api/v1/series/release-dates` | `getSeriesReleaseYears` | `GET /api/v2/series/release-years` |
+| `getSharingLabels1` | `GET /api/v1/sharing-labels` | `getSharingLabels` | `GET /api/v2/sharing-labels` |
+| `getTags1` | `GET /api/v1/tags` | `getTags` | `GET /api/v2/tags` (`include: 'BOTH'`) |
+| `getBookTags` | `GET /api/v1/tags/book` | `getTags` | `GET /api/v2/tags` (`include: 'BOOK'`) |
+| `getSeriesTags` | `GET /api/v1/tags/series` | `getTags` | `GET /api/v2/tags` (`include: 'SERIES'`) |
 | `updateLibraryByIdDeprecated` | `PUT /api/v1/libraries/{libraryId}` | `updateLibraryById` | `PATCH /api/v1/libraries/{libraryId}` |
 
 No deprecated SDK function imports are needed. Import the current operation instead.
@@ -34,6 +47,40 @@ The migration is more than a path change:
 
 The generated functions serialize the nested search/update value for you. Do not pass a legacy `{ path, query, body }` object or put pagination inside the search document. For the list operations, `bookSearch` and `seriesSearch` are required even when the search is empty (`{}`).
 
+## Referential value operations
+
+The v2 replacements use flat query parameters and return paginated value envelopes:
+
+- `getAgeRatings` is the only one of these operations that returns `PageInteger`; its `content` is an array of numeric values (`number[]`).
+- `getSeriesReleaseYears`, `getAuthorsNames`, `getAuthorsRoles`, `getGenres`, `getLanguages`, `getPublishers`, `getSharingLabels`, and `getTags` return `PageString`; their `content` is an array of string values (`string[]`).
+
+`PageString` and `PageInteger` also carry pagination metadata such as `totalElements`, `totalPages`, `number`, `size`, and `pageable`; they are not bare arrays. Read values from `result.data?.content ?? []`.
+
+All of these referential operations accept flat `unpaged`, `page`, and `size` parameters. The generated signatures additionally expose `search` on `getAuthorsNames`, `getGenres`, `getLanguages`, `getPublishers`, `getSharingLabels`, and `getTags`; `getAuthorsNames` also accepts `role`; and `getTags` accepts `include: 'SERIES' | 'BOOK' | 'BOTH'` to replace the separate book and series routes. `getAuthorsRoles` accepts only `library_id`, `collection_id`, `series_id`, `readlist_id`, `unpaged`, `page`, and `size`; it does not accept `search` or `role`.
+
+Scope identifiers are arrays in the v2 signatures: use `library_id?: string[]` and `collection_id?: string[]`, plus `series_id?: string[]` and `readlist_id?: string[]` where the operation accepts them. In particular, migrate a v1 scalar `collection_id` to an array even when only one collection is selected, and keep the generated underscore names rather than changing them to camelCase.
+
+```typescript
+import { getSeriesReleaseYears } from 'komga-sdk';
+
+const result = await getSeriesReleaseYears(
+  {
+    library_id: ['library-123'],
+    collection_id: ['collection-123'],
+    page: 0,
+    size: 50,
+  },
+  { client },
+);
+
+if (!result.error) {
+  console.log(result.data?.content ?? []);
+}
+```
+
+<Note>
+Regeneration retains deprecated v1 exports for compatibility. When a v1 and v2 operation share a generated name, the legacy export receives a suffix such as `getAgeRatings1`, `getAuthorsNames1`, `getAuthorsRoles1`, `getGenres1`, `getLanguages1`, `getPublishers1`, `getSharingLabels1`, or `getTags1`. Other legacy exports retain names such as `getAuthorsDeprecated`, `getBookTags`, `getSeriesTags`, and `getSeriesReleaseDates`. These are compatibility-only exports, not migration targets; do not import them in new code. Use the current operations in the replacement map instead.
+</Note>
 
 ## Replace the books list call
 
@@ -106,7 +153,7 @@ const filteredAuthors = await getAuthors(
     search: 'Tor',
     role: 'writer',
     library_id: ['library-123', 'library-456'],
-    readlist_id: 'readlist-123',
+    readlist_id: ['readlist-123'],
     page: 0,
     size: 25,
   },
@@ -173,6 +220,6 @@ if (result.error) {
     Scan and update libraries with current operations.
   </Card>
   <Card title="Migration" icon="arrow-right-arrow-left" href="/guides/migration">
-    Review SDK 1.0 migration changes.
+    Review SDK 2.0 migration changes.
   </Card>
 </CardGroup>

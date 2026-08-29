@@ -1,6 +1,6 @@
 ---
 title: "FAQ"
-description: "Answers to common questions about komga-sdk 1.0"
+description: "Answers to common questions about komga-sdk 2.0.0"
 icon: "circle-help"
 ---
 
@@ -8,8 +8,8 @@ The snippets that use `{ client }` assume a client created with `createKomgaClie
 
 <AccordionGroup>
 
-<Accordion title="What does komga-sdk 1.0 contain?" icon="code">
-`komga-sdk` 1.0 is generated from Komga API **1.25.0**. It exposes **165 typed operations** and has **zero runtime dependencies**. The core package provides generated operation functions, generated TypeScript types, `createKomgaClient`, `unwrap`, and `KomgaApiError`.
+<Accordion title="What does komga-sdk 2.0.0 contain?" icon="code">
+`komga-sdk` 2.0.0 is generated from Komga API **1.26.3**. It exposes **174 typed operations** and has **zero runtime dependencies**. The core package provides generated operation functions, generated TypeScript types, `createKomgaClient`, `unwrap`, and `KomgaApiError`.
 
 The package does not include the former domain-service classes, handwritten DTO schemas, legacy error hierarchy, or built-in retry/cache middleware. Add those policies in your application when they are useful.
 </Accordion>
@@ -31,7 +31,7 @@ import { getLibraries } from 'komga-sdk';
 const result = await getLibraries({ client });
 ```
 
-The removed grouped `{ path, query, body }` shape is not part of the 1.0 public operation signatures. Check the generated function or [Direct API](/direct-api) when an operation has a body plus query fields.
+The removed grouped `{ path, query, body }` shape is not part of the 2.0.0 public operation signatures. Check the generated function or [Direct API](/direct-api) when an operation has a body plus query fields.
 </Accordion>
 
 <Accordion title="Which authentication methods are supported?" icon="key">

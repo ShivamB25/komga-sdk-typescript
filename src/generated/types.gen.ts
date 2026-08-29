@@ -222,27 +222,80 @@ export type HistoricalEventDto = {
     type: string;
 };
 
+export type ItemAuthorDto = {
+    /**
+     * Author's name
+     */
+    name?: string;
+    /**
+     * URL of a site owned by the author
+     */
+    url?: string;
+};
+
 export type ItemDto = {
+    /**
+     * Additional fields for the item
+     */
     _komga?: KomgaExtensionDto;
-    author?: AuthorDto;
+    /**
+     * Author of the item
+     */
+    author?: ItemAuthorDto;
+    /**
+     * HTML of the item
+     */
     content_html?: string;
+    /**
+     * Modification date in RFC 3339 format
+     */
     date_modified?: string;
+    /**
+     * Unique for that item for that feed over time
+     */
     id: string;
+    /**
+     * A plain text sentence or two describing the item
+     */
     summary?: string;
+    /**
+     * Tags describing the item
+     */
     tags: Array<string>;
+    /**
+     * Plain text title
+     */
     title?: string;
+    /**
+     * URL of the resource described by the item
+     */
     url?: string;
 };
 
 export type JsonFeedDto = {
+    /**
+     * Provides more detail on what the feed is about
+     */
     description?: string;
+    /**
+     * URL of the resource that the feed describes
+     */
     home_page_url?: string;
     items: Array<ItemDto>;
+    /**
+     * Name of the feed
+     */
     title: string;
+    /**
+     * URL of the version of the format the feed uses
+     */
     version: string;
 };
 
 export type KomgaExtensionDto = {
+    /**
+     * Whether the current item has been marked read by the current user
+     */
     read: boolean;
 };
 
@@ -491,6 +544,20 @@ export type PageHistoricalEventDto = {
     totalPages?: number;
 };
 
+export type PageInteger = {
+    content?: Array<number>;
+    empty?: boolean;
+    first?: boolean;
+    last?: boolean;
+    number?: number;
+    numberOfElements?: number;
+    pageable?: PageableObject;
+    size?: number;
+    sort?: SortObject;
+    totalElements?: number;
+    totalPages?: number;
+};
+
 export type PagePageHashKnownDto = {
     content?: Array<PageHashKnownDto>;
     empty?: boolean;
@@ -549,6 +616,20 @@ export type PageReadListDto = {
 
 export type PageSeriesDto = {
     content?: Array<SeriesDto>;
+    empty?: boolean;
+    first?: boolean;
+    last?: boolean;
+    number?: number;
+    numberOfElements?: number;
+    pageable?: PageableObject;
+    size?: number;
+    sort?: SortObject;
+    totalElements?: number;
+    totalPages?: number;
+};
+
+export type PageString = {
+    content?: Array<string>;
     empty?: boolean;
     first?: boolean;
     last?: boolean;
@@ -1020,15 +1101,15 @@ export type SeriesSearch = {
 };
 
 export type SettingMultiSourceInteger = {
-    configurationSource: number;
-    databaseSource: number;
-    effectiveValue: number;
+    configurationSource?: number;
+    databaseSource?: number;
+    effectiveValue?: number;
 };
 
 export type SettingMultiSourceString = {
-    configurationSource: string;
-    databaseSource: string;
-    effectiveValue: string;
+    configurationSource?: string;
+    databaseSource?: string;
+    effectiveValue?: string;
 };
 
 export type SettingsDto = {
@@ -1298,7 +1379,7 @@ export type GetActuatorInfoResponses = {
     /**
      * OK
      */
-    200: unknown;
+    200: Record<string, unknown>;
 };
 
 export type PostLogoutData = {
@@ -1333,7 +1414,7 @@ export type PostLogout1Responses = {
 
 export type PostLogout1Response = PostLogout1Responses[keyof PostLogout1Responses];
 
-export type GetAgeRatingsData = {
+export type GetAgeRatings1Data = {
     body?: never;
     path?: never;
     query?: {
@@ -1343,23 +1424,23 @@ export type GetAgeRatingsData = {
     url: '/api/v1/age-ratings';
 };
 
-export type GetAgeRatingsErrors = {
+export type GetAgeRatings1Errors = {
     /**
      * Bad Request
      */
     400: ValidationErrorResponse;
 };
 
-export type GetAgeRatingsError = GetAgeRatingsErrors[keyof GetAgeRatingsErrors];
+export type GetAgeRatings1Error = GetAgeRatings1Errors[keyof GetAgeRatings1Errors];
 
-export type GetAgeRatingsResponses = {
+export type GetAgeRatings1Responses = {
     /**
      * OK
      */
     200: Array<string>;
 };
 
-export type GetAgeRatingsResponse = GetAgeRatingsResponses[keyof GetAgeRatingsResponses];
+export type GetAgeRatings1Response = GetAgeRatings1Responses[keyof GetAgeRatings1Responses];
 
 export type GetAnnouncementsData = {
     body?: never;
@@ -1441,7 +1522,7 @@ export type GetAuthorsDeprecatedResponses = {
 
 export type GetAuthorsDeprecatedResponse = GetAuthorsDeprecatedResponses[keyof GetAuthorsDeprecatedResponses];
 
-export type GetAuthorsNamesData = {
+export type GetAuthorsNames1Data = {
     body?: never;
     path?: never;
     query?: {
@@ -1450,48 +1531,48 @@ export type GetAuthorsNamesData = {
     url: '/api/v1/authors/names';
 };
 
-export type GetAuthorsNamesErrors = {
+export type GetAuthorsNames1Errors = {
     /**
      * Bad Request
      */
     400: ValidationErrorResponse;
 };
 
-export type GetAuthorsNamesError = GetAuthorsNamesErrors[keyof GetAuthorsNamesErrors];
+export type GetAuthorsNames1Error = GetAuthorsNames1Errors[keyof GetAuthorsNames1Errors];
 
-export type GetAuthorsNamesResponses = {
+export type GetAuthorsNames1Responses = {
     /**
      * OK
      */
     200: Array<string>;
 };
 
-export type GetAuthorsNamesResponse = GetAuthorsNamesResponses[keyof GetAuthorsNamesResponses];
+export type GetAuthorsNames1Response = GetAuthorsNames1Responses[keyof GetAuthorsNames1Responses];
 
-export type GetAuthorsRolesData = {
+export type GetAuthorsRoles1Data = {
     body?: never;
     path?: never;
     query?: never;
     url: '/api/v1/authors/roles';
 };
 
-export type GetAuthorsRolesErrors = {
+export type GetAuthorsRoles1Errors = {
     /**
      * Bad Request
      */
     400: ValidationErrorResponse;
 };
 
-export type GetAuthorsRolesError = GetAuthorsRolesErrors[keyof GetAuthorsRolesErrors];
+export type GetAuthorsRoles1Error = GetAuthorsRoles1Errors[keyof GetAuthorsRoles1Errors];
 
-export type GetAuthorsRolesResponses = {
+export type GetAuthorsRoles1Responses = {
     /**
      * OK
      */
     200: Array<string>;
 };
 
-export type GetAuthorsRolesResponse = GetAuthorsRolesResponses[keyof GetAuthorsRolesResponses];
+export type GetAuthorsRoles1Response = GetAuthorsRoles1Responses[keyof GetAuthorsRoles1Responses];
 
 export type GetAllBooksDeprecatedData = {
     body?: never;
@@ -1778,6 +1859,10 @@ export type GetBookByIdErrors = {
      * Bad Request
      */
     400: ValidationErrorResponse;
+    /**
+     * Not Found
+     */
+    404: unknown;
 };
 
 export type GetBookByIdError = GetBookByIdErrors[keyof GetBookByIdErrors];
@@ -3268,7 +3353,7 @@ export type GetFontFileResponses = {
 
 export type GetFontFileResponse = GetFontFileResponses[keyof GetFontFileResponses];
 
-export type GetGenresData = {
+export type GetGenres1Data = {
     body?: never;
     path?: never;
     query?: {
@@ -3278,23 +3363,23 @@ export type GetGenresData = {
     url: '/api/v1/genres';
 };
 
-export type GetGenresErrors = {
+export type GetGenres1Errors = {
     /**
      * Bad Request
      */
     400: ValidationErrorResponse;
 };
 
-export type GetGenresError = GetGenresErrors[keyof GetGenresErrors];
+export type GetGenres1Error = GetGenres1Errors[keyof GetGenres1Errors];
 
-export type GetGenresResponses = {
+export type GetGenres1Responses = {
     /**
      * OK
      */
     200: Array<string>;
 };
 
-export type GetGenresResponse = GetGenresResponses[keyof GetGenresResponses];
+export type GetGenres1Response = GetGenres1Responses[keyof GetGenres1Responses];
 
 export type GetHistoricalEventsData = {
     body?: never;
@@ -3334,7 +3419,7 @@ export type GetHistoricalEventsResponses = {
 
 export type GetHistoricalEventsResponse = GetHistoricalEventsResponses[keyof GetHistoricalEventsResponses];
 
-export type GetLanguagesData = {
+export type GetLanguages1Data = {
     body?: never;
     path?: never;
     query?: {
@@ -3344,23 +3429,23 @@ export type GetLanguagesData = {
     url: '/api/v1/languages';
 };
 
-export type GetLanguagesErrors = {
+export type GetLanguages1Errors = {
     /**
      * Bad Request
      */
     400: ValidationErrorResponse;
 };
 
-export type GetLanguagesError = GetLanguagesErrors[keyof GetLanguagesErrors];
+export type GetLanguages1Error = GetLanguages1Errors[keyof GetLanguages1Errors];
 
-export type GetLanguagesResponses = {
+export type GetLanguages1Responses = {
     /**
      * OK
      */
     200: Array<string>;
 };
 
-export type GetLanguagesResponse = GetLanguagesResponses[keyof GetLanguagesResponses];
+export type GetLanguages1Response = GetLanguages1Responses[keyof GetLanguages1Responses];
 
 export type GetLibrariesData = {
     body?: never;
@@ -3918,7 +4003,7 @@ export type GetKnownPageHashThumbnailResponses = {
 
 export type GetKnownPageHashThumbnailResponse = GetKnownPageHashThumbnailResponses[keyof GetKnownPageHashThumbnailResponses];
 
-export type GetPublishersData = {
+export type GetPublishers1Data = {
     body?: never;
     path?: never;
     query?: {
@@ -3928,23 +4013,23 @@ export type GetPublishersData = {
     url: '/api/v1/publishers';
 };
 
-export type GetPublishersErrors = {
+export type GetPublishers1Errors = {
     /**
      * Bad Request
      */
     400: ValidationErrorResponse;
 };
 
-export type GetPublishersError = GetPublishersErrors[keyof GetPublishersErrors];
+export type GetPublishers1Error = GetPublishers1Errors[keyof GetPublishers1Errors];
 
-export type GetPublishersResponses = {
+export type GetPublishers1Responses = {
     /**
      * OK
      */
     200: Array<string>;
 };
 
-export type GetPublishersResponse = GetPublishersResponses[keyof GetPublishersResponses];
+export type GetPublishers1Response = GetPublishers1Responses[keyof GetPublishers1Responses];
 
 export type GetReadListsData = {
     body?: never;
@@ -4820,6 +4905,10 @@ export type GetSeriesByIdErrors = {
      * Bad Request
      */
     400: ValidationErrorResponse;
+    /**
+     * Not Found
+     */
+    404: unknown;
 };
 
 export type GetSeriesByIdError = GetSeriesByIdErrors[keyof GetSeriesByIdErrors];
@@ -5307,7 +5396,7 @@ export type UpdateServerSettingsResponses = {
 
 export type UpdateServerSettingsResponse = UpdateServerSettingsResponses[keyof UpdateServerSettingsResponses];
 
-export type GetSharingLabelsData = {
+export type GetSharingLabels1Data = {
     body?: never;
     path?: never;
     query?: {
@@ -5317,23 +5406,23 @@ export type GetSharingLabelsData = {
     url: '/api/v1/sharing-labels';
 };
 
-export type GetSharingLabelsErrors = {
+export type GetSharingLabels1Errors = {
     /**
      * Bad Request
      */
     400: ValidationErrorResponse;
 };
 
-export type GetSharingLabelsError = GetSharingLabelsErrors[keyof GetSharingLabelsErrors];
+export type GetSharingLabels1Error = GetSharingLabels1Errors[keyof GetSharingLabels1Errors];
 
-export type GetSharingLabelsResponses = {
+export type GetSharingLabels1Responses = {
     /**
      * OK
      */
     200: Array<string>;
 };
 
-export type GetSharingLabelsResponse = GetSharingLabelsResponses[keyof GetSharingLabelsResponses];
+export type GetSharingLabels1Response = GetSharingLabels1Responses[keyof GetSharingLabels1Responses];
 
 export type DeleteSyncPointsForCurrentUserData = {
     body?: never;
@@ -5362,7 +5451,7 @@ export type DeleteSyncPointsForCurrentUserResponses = {
 
 export type DeleteSyncPointsForCurrentUserResponse = DeleteSyncPointsForCurrentUserResponses[keyof DeleteSyncPointsForCurrentUserResponses];
 
-export type GetTagsData = {
+export type GetTags1Data = {
     body?: never;
     path?: never;
     query?: {
@@ -5372,23 +5461,23 @@ export type GetTagsData = {
     url: '/api/v1/tags';
 };
 
-export type GetTagsErrors = {
+export type GetTags1Errors = {
     /**
      * Bad Request
      */
     400: ValidationErrorResponse;
 };
 
-export type GetTagsError = GetTagsErrors[keyof GetTagsErrors];
+export type GetTags1Error = GetTags1Errors[keyof GetTags1Errors];
 
-export type GetTagsResponses = {
+export type GetTags1Responses = {
     /**
      * OK
      */
     200: Array<string>;
 };
 
-export type GetTagsResponse = GetTagsResponses[keyof GetTagsResponses];
+export type GetTags1Response = GetTags1Responses[keyof GetTags1Responses];
 
 export type GetBookTagsData = {
     body?: never;
@@ -5552,6 +5641,43 @@ export type GetPageByTransientBookIdResponses = {
 
 export type GetPageByTransientBookIdResponse = GetPageByTransientBookIdResponses[keyof GetPageByTransientBookIdResponses];
 
+export type GetAgeRatingsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        library_id?: Array<string>;
+        collection_id?: Array<string>;
+        unpaged?: boolean;
+        /**
+         * Zero-based page index (0..N)
+         */
+        page?: number;
+        /**
+         * The size of the page to be returned
+         */
+        size?: number;
+    };
+    url: '/api/v2/age-ratings';
+};
+
+export type GetAgeRatingsErrors = {
+    /**
+     * Bad Request
+     */
+    400: ValidationErrorResponse;
+};
+
+export type GetAgeRatingsError = GetAgeRatingsErrors[keyof GetAgeRatingsErrors];
+
+export type GetAgeRatingsResponses = {
+    /**
+     * OK
+     */
+    200: PageInteger;
+};
+
+export type GetAgeRatingsResponse = GetAgeRatingsResponses[keyof GetAgeRatingsResponses];
+
 export type GetAuthorsData = {
     body?: never;
     path?: never;
@@ -5559,9 +5685,9 @@ export type GetAuthorsData = {
         search?: string;
         role?: string;
         library_id?: Array<string>;
-        collection_id?: string;
-        series_id?: string;
-        readlist_id?: string;
+        collection_id?: Array<string>;
+        series_id?: Array<string>;
+        readlist_id?: Array<string>;
         unpaged?: boolean;
         /**
          * Zero-based page index (0..N)
@@ -5592,6 +5718,237 @@ export type GetAuthorsResponses = {
 };
 
 export type GetAuthorsResponse = GetAuthorsResponses[keyof GetAuthorsResponses];
+
+export type GetAuthorsNamesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        search?: string;
+        role?: string;
+        library_id?: Array<string>;
+        collection_id?: Array<string>;
+        series_id?: Array<string>;
+        readlist_id?: Array<string>;
+        unpaged?: boolean;
+        /**
+         * Zero-based page index (0..N)
+         */
+        page?: number;
+        /**
+         * The size of the page to be returned
+         */
+        size?: number;
+    };
+    url: '/api/v2/authors/names';
+};
+
+export type GetAuthorsNamesErrors = {
+    /**
+     * Bad Request
+     */
+    400: ValidationErrorResponse;
+};
+
+export type GetAuthorsNamesError = GetAuthorsNamesErrors[keyof GetAuthorsNamesErrors];
+
+export type GetAuthorsNamesResponses = {
+    /**
+     * OK
+     */
+    200: PageString;
+};
+
+export type GetAuthorsNamesResponse = GetAuthorsNamesResponses[keyof GetAuthorsNamesResponses];
+
+export type GetAuthorsRolesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        library_id?: Array<string>;
+        collection_id?: Array<string>;
+        series_id?: Array<string>;
+        readlist_id?: Array<string>;
+        unpaged?: boolean;
+        /**
+         * Zero-based page index (0..N)
+         */
+        page?: number;
+        /**
+         * The size of the page to be returned
+         */
+        size?: number;
+    };
+    url: '/api/v2/authors/roles';
+};
+
+export type GetAuthorsRolesErrors = {
+    /**
+     * Bad Request
+     */
+    400: ValidationErrorResponse;
+};
+
+export type GetAuthorsRolesError = GetAuthorsRolesErrors[keyof GetAuthorsRolesErrors];
+
+export type GetAuthorsRolesResponses = {
+    /**
+     * OK
+     */
+    200: PageString;
+};
+
+export type GetAuthorsRolesResponse = GetAuthorsRolesResponses[keyof GetAuthorsRolesResponses];
+
+export type GetGenresData = {
+    body?: never;
+    path?: never;
+    query?: {
+        search?: string;
+        library_id?: Array<string>;
+        collection_id?: Array<string>;
+        unpaged?: boolean;
+        /**
+         * Zero-based page index (0..N)
+         */
+        page?: number;
+        /**
+         * The size of the page to be returned
+         */
+        size?: number;
+    };
+    url: '/api/v2/genres';
+};
+
+export type GetGenresErrors = {
+    /**
+     * Bad Request
+     */
+    400: ValidationErrorResponse;
+};
+
+export type GetGenresError = GetGenresErrors[keyof GetGenresErrors];
+
+export type GetGenresResponses = {
+    /**
+     * OK
+     */
+    200: PageString;
+};
+
+export type GetGenresResponse = GetGenresResponses[keyof GetGenresResponses];
+
+export type GetLanguagesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        search?: string;
+        library_id?: Array<string>;
+        collection_id?: Array<string>;
+        unpaged?: boolean;
+        /**
+         * Zero-based page index (0..N)
+         */
+        page?: number;
+        /**
+         * The size of the page to be returned
+         */
+        size?: number;
+    };
+    url: '/api/v2/languages';
+};
+
+export type GetLanguagesErrors = {
+    /**
+     * Bad Request
+     */
+    400: ValidationErrorResponse;
+};
+
+export type GetLanguagesError = GetLanguagesErrors[keyof GetLanguagesErrors];
+
+export type GetLanguagesResponses = {
+    /**
+     * OK
+     */
+    200: PageString;
+};
+
+export type GetLanguagesResponse = GetLanguagesResponses[keyof GetLanguagesResponses];
+
+export type GetPublishersData = {
+    body?: never;
+    path?: never;
+    query?: {
+        search?: string;
+        library_id?: Array<string>;
+        collection_id?: Array<string>;
+        unpaged?: boolean;
+        /**
+         * Zero-based page index (0..N)
+         */
+        page?: number;
+        /**
+         * The size of the page to be returned
+         */
+        size?: number;
+    };
+    url: '/api/v2/publishers';
+};
+
+export type GetPublishersErrors = {
+    /**
+     * Bad Request
+     */
+    400: ValidationErrorResponse;
+};
+
+export type GetPublishersError = GetPublishersErrors[keyof GetPublishersErrors];
+
+export type GetPublishersResponses = {
+    /**
+     * OK
+     */
+    200: PageString;
+};
+
+export type GetPublishersResponse = GetPublishersResponses[keyof GetPublishersResponses];
+
+export type GetSeriesReleaseYearsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        library_id?: Array<string>;
+        collection_id?: Array<string>;
+        unpaged?: boolean;
+        /**
+         * Zero-based page index (0..N)
+         */
+        page?: number;
+        /**
+         * The size of the page to be returned
+         */
+        size?: number;
+    };
+    url: '/api/v2/series/release-years';
+};
+
+export type GetSeriesReleaseYearsErrors = {
+    /**
+     * Bad Request
+     */
+    400: ValidationErrorResponse;
+};
+
+export type GetSeriesReleaseYearsError = GetSeriesReleaseYearsErrors[keyof GetSeriesReleaseYearsErrors];
+
+export type GetSeriesReleaseYearsResponses = {
+    /**
+     * OK
+     */
+    200: PageString;
+};
+
+export type GetSeriesReleaseYearsResponse = GetSeriesReleaseYearsResponses[keyof GetSeriesReleaseYearsResponses];
 
 export type GetMihonReadProgressBySeriesIdData = {
     body?: never;
@@ -5646,6 +6003,85 @@ export type UpdateMihonReadProgressBySeriesIdResponses = {
 };
 
 export type UpdateMihonReadProgressBySeriesIdResponse = UpdateMihonReadProgressBySeriesIdResponses[keyof UpdateMihonReadProgressBySeriesIdResponses];
+
+export type GetSharingLabelsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        search?: string;
+        library_id?: Array<string>;
+        collection_id?: Array<string>;
+        unpaged?: boolean;
+        /**
+         * Zero-based page index (0..N)
+         */
+        page?: number;
+        /**
+         * The size of the page to be returned
+         */
+        size?: number;
+    };
+    url: '/api/v2/sharing-labels';
+};
+
+export type GetSharingLabelsErrors = {
+    /**
+     * Bad Request
+     */
+    400: ValidationErrorResponse;
+};
+
+export type GetSharingLabelsError = GetSharingLabelsErrors[keyof GetSharingLabelsErrors];
+
+export type GetSharingLabelsResponses = {
+    /**
+     * OK
+     */
+    200: PageString;
+};
+
+export type GetSharingLabelsResponse = GetSharingLabelsResponses[keyof GetSharingLabelsResponses];
+
+export type GetTagsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        search?: string;
+        library_id?: Array<string>;
+        collection_id?: Array<string>;
+        series_id?: Array<string>;
+        readlist_id?: Array<string>;
+        include?: 'SERIES' | 'BOOK' | 'BOTH';
+        unpaged?: boolean;
+        /**
+         * Zero-based page index (0..N)
+         */
+        page?: number;
+        /**
+         * The size of the page to be returned
+         */
+        size?: number;
+    };
+    url: '/api/v2/tags';
+};
+
+export type GetTagsErrors = {
+    /**
+     * Bad Request
+     */
+    400: ValidationErrorResponse;
+};
+
+export type GetTagsError = GetTagsErrors[keyof GetTagsErrors];
+
+export type GetTagsResponses = {
+    /**
+     * OK
+     */
+    200: PageString;
+};
+
+export type GetTagsResponse = GetTagsResponses[keyof GetTagsResponses];
 
 export type GetUsersData = {
     body?: never;
