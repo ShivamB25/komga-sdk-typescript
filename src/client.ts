@@ -63,6 +63,7 @@ function encodeUtf8Base64(value: string): string {
 }
 
 function isProductionEnvironment(): boolean {
+  // SAFETY: Browser runtimes may omit process; this assertion models only the optional property read below.
   const processRef = (globalThis as typeof globalThis & {
     process?: { env?: { NODE_ENV?: string } };
   }).process;

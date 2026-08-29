@@ -39,7 +39,7 @@ describe('generated operation integration', () => {
     });
 
     const result = await getActuatorInfo({ client });
-    const data: Record<string, unknown> | undefined = result.data;
+    const data = result.data;
 
     expect(data).toEqual(responseBody);
     expect(requests).toHaveLength(1);

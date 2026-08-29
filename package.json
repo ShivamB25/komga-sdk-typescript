@@ -25,6 +25,7 @@
   ],
   "scripts": {
     "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "lint": "oxlint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -36,7 +37,9 @@
   },
   "devDependencies": {
     "@hey-api/openapi-ts": "0.99.0",
+    "@oxlint/plugins": "1.80.0",
     "@vitest/coverage-v8": "^4.1.10",
+    "oxlint": "1.80.0",
     "typedoc": "^0.28.20",
     "typescript": "5.9.3",
     "vitest": "^4.1.10"

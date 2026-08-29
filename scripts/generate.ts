@@ -4,7 +4,18 @@ import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import config from '../openapi-ts.config';
 
-type JsonRecord = Record<string, unknown>;
+type JsonValue = boolean | null | number | string | JsonValue[] | JsonRecord;
+type JsonRecord = { [key: string]: JsonValue };
+type OpenApiSchema = JsonRecord & {
+  properties?: JsonRecord;
+  required?: string[];
+};
+type OpenApiComponents = JsonRecord & {
+  schemas: { [name: string]: OpenApiSchema };
+};
+type OpenApiDocument = JsonRecord & {
+  components: OpenApiComponents;
+};
 
 const rootDir = resolve(import.meta.dir, '..');
 const stageDir = join(rootDir, '.tmp', 'generated');
@@ -15,7 +26,7 @@ const KOMGA_SPEC_URL =
   'https://raw.githubusercontent.com/gotson/komga/1.26.3/komga/docs/openapi.json';
 const KOMGA_SPEC_SHA256 = 'bb632844224f3599d70b186e3278334f4ef9765c19069c56dec6c59406be7afe';
 
-const searchOperators: Record<string, string> = {
+const searchOperators = {
   SearchOperatorAfter: 'after',
   SearchOperatorBefore: 'before',
   SearchOperatorBeginsWith: 'beginsWith',
@@ -36,8 +47,8 @@ const searchOperators: Record<string, string> = {
   SearchOperatorIsNullT: 'isNull',
   SearchOperatorIsTrue: 'isTrue',
   SearchOperatorLessThan: 'lessThan',
-};
-const searchOperatorDefinitions: Record<string, string> = {
+} satisfies Readonly<Record<string, string>>;
+const searchOperatorDefinitions = {
   SearchOperatorBoolean: 'SearchOperatorIsTrue | SearchOperatorIsFalse',
   SearchOperatorDate:
     'SearchOperatorBefore | SearchOperatorAfter | SearchOperatorIsInTheLast | SearchOperatorIsNotInTheLast | SearchOperatorIsNull | SearchOperatorIsNotNull',
@@ -129,28 +140,126 @@ const searchOperatorDefinitions: Record<string, string> = {
     operator: 'lessThan';
     value: unknown;
   }`,
-};
+} satisfies Readonly<Record<string, string>>;
 
-const isRecord = (value: unknown): value is JsonRecord =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
-
-function overlaySearchOperators(document: JsonRecord): JsonRecord {
-  const components = isRecord(document.components) ? document.components : undefined;
-  const schemas = components && isRecord(components.schemas) ? components.schemas : undefined;
-  if (!schemas) {
-    throw new Error('Komga OpenAPI document does not contain components.schemas');
+function parseJsonValue<T>(value: T): JsonValue {
+  if (value === null) {
+    return null;
   }
+  if (Array.isArray(value)) {
+    return value.map((item) => parseJsonValue(item));
+  }
+
+  const tag = Object.prototype.toString.call(value);
+  if (tag === '[object Boolean]') {
+    return value === true;
+  }
+  if (tag === '[object Number]') {
+    const number = Number(value);
+    if (!Number.isFinite(number)) {
+      throw new Error('JSON numbers must be finite');
+    }
+    return number;
+  }
+  if (tag === '[object String]') {
+    return String(value);
+  }
+  if (tag === '[object Object]') {
+    return Object.fromEntries(
+      Object.entries(Object(value)).map(
+        ([key, nestedValue]) => [key, parseJsonValue(nestedValue)] as const,
+      ),
+    );
+  }
+
+  throw new Error(`Unsupported value in parsed JSON: ${tag}`);
+}
+
+function parseJsonRecord(value: JsonValue | undefined, path: string): JsonRecord {
+  if (
+    value === undefined ||
+    value === null ||
+    Array.isArray(value) ||
+    Object.prototype.toString.call(value) !== '[object Object]'
+  ) {
+    throw new Error(`${path} must be a JSON object`);
+  }
+
+  return Object.fromEntries(
+    Object.entries(Object(value)).map(
+      ([key, nestedValue]) => [key, parseJsonValue(nestedValue)] as const,
+    ),
+  );
+}
+
+function parseStringArray(value: JsonValue, path: string): string[] {
+  if (!Array.isArray(value)) {
+    throw new Error(`${path} must be an array`);
+  }
+
+  return value.map((entry, index) => {
+    if (Object.prototype.toString.call(entry) !== '[object String]') {
+      throw new Error(`${path}[${index}] must be a string`);
+    }
+    return String(entry);
+  });
+}
+
+function parseOpenApiSchema(value: JsonValue, name: string): OpenApiSchema {
+  const schema = parseJsonRecord(value, `OpenAPI schema ${name}`);
+  const properties = schema.properties;
+  const required = schema.required;
+
+  if (properties !== undefined && required !== undefined) {
+    return {
+      ...schema,
+      properties: parseJsonRecord(properties, `OpenAPI schema ${name}.properties`),
+      required: parseStringArray(required, `OpenAPI schema ${name}.required`),
+    };
+  }
+  if (properties !== undefined) {
+    return {
+      ...schema,
+      properties: parseJsonRecord(properties, `OpenAPI schema ${name}.properties`),
+    };
+  }
+  if (required !== undefined) {
+    return {
+      ...schema,
+      required: parseStringArray(required, `OpenAPI schema ${name}.required`),
+    };
+  }
+  return schema;
+}
+
+function parseOpenApiDocument(source: string): OpenApiDocument {
+  const document = parseJsonRecord(parseJsonValue(JSON.parse(source)), 'OpenAPI document');
+  const components = parseJsonRecord(document.components, 'OpenAPI document components');
+  const schemas = parseJsonRecord(components.schemas, 'OpenAPI document components.schemas');
+  const parsedSchemas = Object.fromEntries(
+    Object.entries(schemas).map(([name, schema]) => [name, parseOpenApiSchema(schema, name)]),
+  );
+
+  return {
+    ...document,
+    components: {
+      ...components,
+      schemas: parsedSchemas,
+    },
+  };
+}
+
+function overlaySearchOperators(document: OpenApiDocument): OpenApiDocument {
+  const schemas = document.components.schemas;
 
   for (const [name, operator] of Object.entries(searchOperators)) {
     const schema = schemas[name];
-    if (!isRecord(schema)) {
+    if (schema === undefined) {
       throw new Error(`Komga OpenAPI schema ${name} was not found`);
     }
 
-    const existingProperties = isRecord(schema.properties) ? schema.properties : {};
-    const existingRequired = Array.isArray(schema.required)
-      ? schema.required.filter((value): value is string => typeof value === 'string')
-      : [];
+    const existingProperties = schema.properties ?? {};
+    const existingRequired = schema.required ?? [];
     const { allOf: _allOf, ...withoutAllOf } = schema;
 
     schemas[name] = {
@@ -166,7 +275,7 @@ function overlaySearchOperators(document: JsonRecord): JsonRecord {
   return document;
 }
 
-async function fetchInput(input: unknown): Promise<JsonRecord> {
+async function fetchInput(input: string): Promise<OpenApiDocument> {
   if (input !== KOMGA_SPEC_URL) {
     throw new Error(`Generation input must be ${KOMGA_SPEC_URL}`);
   }
@@ -183,10 +292,7 @@ async function fetchInput(input: unknown): Promise<JsonRecord> {
     throw new Error(`Komga OpenAPI checksum mismatch: expected ${KOMGA_SPEC_SHA256}, received ${checksum}`);
   }
 
-  const document: unknown = JSON.parse(new TextDecoder().decode(bytes));
-  if (!isRecord(document)) {
-    throw new Error('OpenAPI input must be a JSON object');
-  }
+  const document = parseOpenApiDocument(new TextDecoder().decode(bytes));
   return overlaySearchOperators(document);
 }
 

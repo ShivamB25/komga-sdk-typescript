@@ -1,7 +1,15 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createKomgaClient } from './client';
 
-function jsonResponse(body: unknown, init?: ResponseInit): Response {
+type JsonValue =
+  | boolean
+  | null
+  | number
+  | string
+  | readonly JsonValue[]
+  | { readonly [key: string]: JsonValue };
+
+function jsonResponse(body: JsonValue, init?: ResponseInit): Response {
   return new Response(JSON.stringify(body), {
     headers: { 'content-type': 'application/json' },
     ...init,

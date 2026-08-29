@@ -1,17 +1,27 @@
+type KomgaSuccess<TData> = {
+  data: TData;
+  error: undefined;
+  request?: Request;
+  response?: Response;
+};
+
+type KomgaFailure<TError> = {
+  data: undefined;
+  error: NonNullable<TError>;
+  request?: Request;
+  response?: Response;
+};
+
 /** The fields returned by a generated request in its default response style. */
 export type KomgaResult<TData, TError = unknown> =
-  | {
-      data: TData;
-      error: undefined;
-      request?: Request;
-      response?: Response;
-    }
-  | {
-      data: undefined;
-      error: NonNullable<TError>;
-      request?: Request;
-      response?: Response;
-    };
+  | KomgaSuccess<TData>
+  | KomgaFailure<TError>;
+
+function isKomgaSuccess<TData, TError>(
+  result: KomgaResult<TData, TError>,
+): result is KomgaSuccess<TData> {
+  return result.error === undefined;
+}
 
 /** Error raised by {@link unwrap} when a generated request returns an error. */
 export class KomgaApiError<TBody = unknown> extends Error {
@@ -38,13 +48,15 @@ export class KomgaApiError<TBody = unknown> extends Error {
  */
 export function unwrap<TData, TError = unknown>(
   result: KomgaResult<TData, TError> | undefined,
-): TData;
-export function unwrap(result: KomgaResult<unknown, unknown> | undefined): unknown {
+): TData {
   if (result === undefined) {
     throw new Error('Komga API request did not return a result');
   }
 
-  if (result.error !== undefined || (result.response !== undefined && !result.response.ok)) {
+  if (!isKomgaSuccess(result)) {
+    throw new KomgaApiError(result.error, result.response, result.request);
+  }
+  if (result.response !== undefined && !result.response.ok) {
     throw new KomgaApiError(result.error, result.response, result.request);
   }
 

@@ -19,9 +19,12 @@ describe('unwrap', () => {
       throw new Error('expected unwrap to throw');
     } catch (error) {
       expect(error).toBeInstanceOf(KomgaApiError);
-      expect((error as KomgaApiError<typeof body>).body).toEqual(body);
-      expect((error as KomgaApiError<typeof body>).response).toBe(response);
-      expect((error as KomgaApiError<typeof body>).status).toBe(404);
+      if (!(error instanceof KomgaApiError)) {
+        throw error;
+      }
+      expect(error.body).toEqual(body);
+      expect(error.response).toBe(response);
+      expect(error.status).toBe(404);
     }
   });
 
