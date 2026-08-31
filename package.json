@@ -41,7 +41,7 @@
     "@vitest/coverage-v8": "^4.1.10",
     "oxlint": "1.80.0",
     "typedoc": "^0.28.20",
-    "typescript": "5.9.3",
+    "typescript": "7.0.2",
     "vitest": "^4.1.10"
   },
   "keywords": [
